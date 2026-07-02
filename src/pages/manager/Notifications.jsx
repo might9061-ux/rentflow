@@ -1,0 +1,252 @@
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { db } from '../../lib/db.js'
+import { fullName, timeAgo } from '../../lib/format.js'
+import { prettyPhone } from '../../lib/phone.js'
+import { sendWhatsApp, sendWhatsAppBulk, notificationMessage } from '../../lib/whatsapp.js'
+import { sendSMS } from '../../lib/sms.js'
+import Modal from '../../components/Modal.jsx'
+import { Input, Textarea, Select } from '../../components/Field.jsx'
+import { Spinner, EmptyState } from '../../components/ui.jsx'
+import { IconPlus, IconBell, IconWarn, IconInfo, IconUsers, IconBuilding, IconWhatsapp, IconSend, IconMail } from '../../components/icons.jsx'
+
+const PRIORITY = {
+  normal: { cls: 'neutral', label: 'Normal', icon: IconBell },
+  urgent: { cls: 'overdue', label: 'Urgent', icon: IconWarn },
+  info: { cls: 'pending', label: 'Info', icon: IconInfo },
+}
+
+export default function ManagerNotifications() {
+  const { userId, profile } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [items, setItems] = useState([])
+  const [tenants, setTenants] = useState([])
+  const [properties, setProperties] = useState([])
+  const [composing, setComposing] = useState(false)
+  const [delivery, setDelivery] = useState(null) // { subject, message, priority, channels, recipients }
+  const [stats, setStats] = useState({}) // id -> {read,total}
+
+  // Tenants (with a phone) targeted by a notification's scope.
+  const recipientsFor = (scope, propertyId, tenantId) => {
+    let list = tenants
+    if (scope === 'property') list = tenants.filter((t) => t.property_id === propertyId)
+    else if (scope === 'individual') list = tenants.filter((t) => t.id === tenantId)
+    return list.filter((t) => t.phone)
+  }
+
+  const load = async () => {
+    const [n, t, p] = await Promise.all([db.listNotifications(userId), db.listTenants(userId), db.listProperties(userId)])
+    setItems(n); setTenants(t); setProperties(p); setLoading(false)
+    const s = {}
+    await Promise.all(n.map(async (x) => { s[x.id] = await db.notificationStats(x.id) }))
+    setStats(s)
+  }
+  useEffect(() => { load() }, [userId])
+
+  const scopeLabel = (n) => {
+    if (n.recipient_scope === 'all') return 'All tenants'
+    if (n.recipient_scope === 'property') return properties.find((p) => p.id === n.property_id)?.name || 'Property'
+    return fullName(tenants.find((t) => t.id === n.tenant_id)) || 'Individual'
+  }
+
+  return (
+    <div className="page">
+      <div className="spread page-head">
+        <div>
+          <div className="eyebrow">Broadcast</div>
+          <h1>Notifications</h1>
+          <p>Send notices to all tenants, a property, or one person.</p>
+        </div>
+        <button className="btn primary" onClick={() => setComposing(true)}><IconPlus size={16} /> Compose</button>
+      </div>
+
+      {loading ? <div className="center" style={{ minHeight: 200 }}><Spinner /></div>
+        : items.length === 0 ? (
+          <div className="card"><EmptyState icon="🔔" title="No notifications sent">Compose your first notice to tenants.</EmptyState></div>
+        ) : (
+          <div className="col" style={{ gap: 14 }}>
+            {items.map((n) => {
+              const pr = PRIORITY[n.priority] || PRIORITY.normal
+              const PrIcon = pr.icon
+              const st = stats[n.id] || { read: 0, total: 0 }
+              const ScopeIcon = n.recipient_scope === 'all' ? IconUsers : n.recipient_scope === 'property' ? IconBuilding : IconUsers
+              return (
+                <div key={n.id} className="card pad">
+                  <div className="spread wrap" style={{ gap: 12 }}>
+                    <div className="row gap">
+                      <span className={`pill ${pr.cls}`}><PrIcon size={12} /> {pr.label}</span>
+                      <span className="pill neutral"><ScopeIcon size={12} /> {scopeLabel(n)}</span>
+                    </div>
+                    <span className="muted" style={{ fontSize: '0.8rem' }}>{timeAgo(n.created_at)}</span>
+                  </div>
+                  <h3 style={{ marginTop: 12, fontSize: '1.2rem' }}>{n.subject}</h3>
+                  <p className="muted" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{n.message}</p>
+                  <div className="divider" />
+                  <div className="spread wrap" style={{ gap: 10, fontSize: '0.84rem' }}>
+                    <div className="grow" style={{ minWidth: 180 }}><ReadBar read={st.read} total={st.total} /></div>
+                    <button className="btn ghost sm wa" onClick={() => setDelivery({
+                      subject: n.subject, message: n.message, priority: n.priority,
+                      channels: { whatsapp: true, sms: true },
+                      recipients: recipientsFor(n.recipient_scope, n.property_id, n.tenant_id),
+                    })}><IconWhatsapp size={14} /> Send via WhatsApp / SMS</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+      {composing && (
+        <ComposeModal userId={userId} tenants={tenants} properties={properties}
+          onClose={() => setComposing(false)}
+          onSent={(payload, channels) => {
+            setComposing(false); load()
+            if (channels.whatsapp || channels.sms) {
+              setDelivery({
+                subject: payload.subject, message: payload.message, priority: payload.priority, channels,
+                recipients: recipientsFor(payload.recipient_scope, payload.property_id, payload.tenant_id),
+              })
+            }
+          }} />
+      )}
+
+      {delivery && <DeliveryModal {...delivery} manager={profile} onClose={() => setDelivery(null)} />}
+    </div>
+  )
+}
+
+// Hand off a notification to tenants over WhatsApp / SMS via pre-filled deep links.
+function DeliveryModal({ subject, message, priority, channels, recipients, manager, onClose }) {
+  const toast = useToast()
+  const text = notificationMessage({ subject, message, manager, priority })
+  const phones = recipients.map((t) => t.phone)
+
+  const allSms = () => sendSMS(phones, text)
+  const allWa = () => { const n = sendWhatsAppBulk(phones, text); toast.info('Opening WhatsApp', `Allow pop-ups to message all ${n} tenants.`) }
+
+  return (
+    <Modal title="Send via WhatsApp / SMS" onClose={onClose}
+      footer={<button className="btn primary" onClick={onClose}>Done</button>}>
+      <p className="muted" style={{ marginBottom: 14 }}>
+        Send to everyone at once, or tap a channel per tenant — their app opens with the message pre-filled.
+      </p>
+      {recipients.length > 1 && (
+        <div className="card pad" style={{ marginBottom: 14, background: 'var(--gold-bg)', borderColor: 'var(--gold-line)' }}>
+          <div className="spread wrap" style={{ gap: 10 }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Send to all {recipients.length} tenants</div>
+            <div className="row gap">
+              {channels.whatsapp && <button className="btn sm wa" onClick={allWa}><IconWhatsapp size={14} /> All via WhatsApp</button>}
+              {channels.sms && <button className="btn sm" onClick={allSms}><IconMail size={14} /> All via SMS</button>}
+            </div>
+          </div>
+        </div>
+      )}
+      {recipients.length === 0 ? (
+        <EmptyState icon="📵" title="No phone numbers">None of the selected tenants have a phone number on file.</EmptyState>
+      ) : (
+        <div className="col" style={{ gap: 8, maxHeight: 360, overflowY: 'auto' }}>
+          {recipients.map((t) => (
+            <div key={t.id} className="spread" style={{ padding: '10px 12px', border: '1px solid var(--line-soft)', borderRadius: 'var(--radius)' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{fullName(t)}</div>
+                <div className="muted mono" style={{ fontSize: '0.78rem' }}>{prettyPhone(t.phone)}</div>
+              </div>
+              <div className="row gap">
+                {channels.whatsapp && <button className="btn sm wa" onClick={() => sendWhatsApp(t.phone, text)}><IconWhatsapp size={14} /> WhatsApp</button>}
+                {channels.sms && <button className="btn sm" onClick={() => sendSMS(t.phone, text)}><IconMail size={14} /> SMS</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="hint" style={{ marginTop: 12 }}>
+        In-app notifications were already delivered. For automatic bulk SMS, connect Africa’s Talking (see README).
+      </p>
+    </Modal>
+  )
+}
+
+function ReadBar({ read, total }) {
+  const pct = total ? Math.round((read / total) * 100) : 0
+  return (
+    <div className="row gap" style={{ width: '100%' }}>
+      <div style={{ flex: 1, height: 7, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden', maxWidth: 220 }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--gold)' }} />
+      </div>
+      <span className="muted mono">{read} of {total} read</span>
+    </div>
+  )
+}
+
+function ComposeModal({ userId, tenants, properties, onClose, onSent }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState({
+    recipient_scope: 'all', property_id: properties[0]?.id || '', tenant_id: tenants[0]?.id || '',
+    subject: '', message: '', priority: 'normal',
+  })
+  const [channels, setChannels] = useState({ whatsapp: false, sms: false })
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const toggle = (k) => setChannels((c) => ({ ...c, [k]: !c[k] }))
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      const payload = {
+        recipient_scope: form.recipient_scope,
+        property_id: form.recipient_scope === 'property' ? form.property_id : null,
+        tenant_id: form.recipient_scope === 'individual' ? form.tenant_id : null,
+        subject: form.subject, message: form.message, priority: form.priority,
+      }
+      await db.createNotification(userId, payload)
+      toast.success('Notification sent', channels.whatsapp || channels.sms ? 'Now hand it off to tenants.' : undefined)
+      onSent(payload, channels)
+    } catch (err) { toast.error('Could not send', err.message); setBusy(false) }
+  }
+
+  return (
+    <Modal title="Compose notification" onClose={onClose}
+      footer={<>
+        <button className="btn ghost" onClick={onClose}>Cancel</button>
+        <button className="btn primary" form="notif-form" disabled={busy}>{busy ? 'Sending…' : 'Send'}</button>
+      </>}>
+      <form id="notif-form" onSubmit={submit}>
+        <Select label="Send to" value={form.recipient_scope} onChange={set('recipient_scope')}>
+          <option value="all">All tenants</option>
+          <option value="property">A specific property</option>
+          <option value="individual">One tenant</option>
+        </Select>
+
+        {form.recipient_scope === 'property' && (
+          <Select label="Property" value={form.property_id} onChange={set('property_id')}>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        )}
+        {form.recipient_scope === 'individual' && (
+          <Select label="Tenant" value={form.tenant_id} onChange={set('tenant_id')}>
+            {tenants.map((t) => <option key={t.id} value={t.id}>{fullName(t)} — {t.email}</option>)}
+          </Select>
+        )}
+
+        <Select label="Priority" value={form.priority} onChange={set('priority')}>
+          <option value="normal">Normal</option>
+          <option value="urgent">Urgent</option>
+          <option value="info">Info</option>
+        </Select>
+        <Input label="Subject" value={form.subject} onChange={set('subject')} required placeholder="e.g. Water interruption Saturday" />
+        <Textarea label="Message" value={form.message} onChange={set('message')} required placeholder="Write your message…" />
+
+        <div className="field">
+          <label>Also send by</label>
+          <div className="row gap wrap">
+            <label className="chk"><input type="checkbox" checked={channels.whatsapp} onChange={() => toggle('whatsapp')} /><IconWhatsapp size={15} /> WhatsApp</label>
+            <label className="chk"><input type="checkbox" checked={channels.sms} onChange={() => toggle('sms')} /><IconMail size={15} /> SMS</label>
+          </div>
+          <span className="hint">In-app is always delivered. WhatsApp/SMS open pre-filled messages to each tenant after sending.</span>
+        </div>
+      </form>
+    </Modal>
+  )
+}
