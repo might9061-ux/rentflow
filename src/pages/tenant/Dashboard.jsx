@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, fmtDate } from '../../lib/format.js'
-import { currentPeriod, formatPeriod } from '../../lib/billing.js'
+import { currentPeriod, formatPeriod, nextPeriod } from '../../lib/billing.js'
 import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
 import { DonutChart } from '../../components/Charts.jsx'
 import { collectionBreakdown } from '../../lib/arrears.js'
@@ -24,29 +24,39 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true)
   const [payments, setPayments] = useState([])
   const [manager, setManager] = useState(null)
+  const [tenant, setTenant] = useState(null)
   const [frame, setFrame] = useState(6)
 
   useEffect(() => {
     (async () => {
-      const [pays, mgr] = await Promise.all([db.listTenantPayments(userId), db.getTenantManager(userId)])
-      setPayments(pays); setManager(mgr); setLoading(false)
+      // Pull a FRESH tenant record too, so the balance reflects payments the
+      // manager just approved (the cached auth profile can be stale).
+      const [pays, mgr, me] = await Promise.all([
+        db.listTenantPayments(userId), db.getTenantManager(userId), db.getTenant(userId),
+      ])
+      setPayments(pays); setManager(mgr); setTenant(me); setLoading(false)
     })()
   }, [userId])
 
   if (loading || !profile) return <div className="page center" style={{ minHeight: 300 }}><Spinner /></div>
 
-  const credit = Number(profile.credit_balance || 0)
-  const rent = Number(profile.rent || 0)
-  const period = currentPeriod(profile.due_day)
+  const t = tenant || profile
+  const credit = Number(t.credit_balance || 0)
+  const rent = Number(t.rent || 0)
+  const period = currentPeriod(t.due_day)
   const recent = payments.slice(0, 4)
 
   const creditNote = credit >= rent && rent > 0
     ? 'Next month fully covered'
     : credit > 0 ? `${money(rent - credit)} still owed next month` : ''
 
-  // Amount due now + windowed paid/due for the donut.
-  const owed = profile.status === 'paid' ? 0 : Math.max(0, rent - credit)
-  const ps = paidStats(payments, profile, frame)
+  // Amount still owed this month, and when the next payment falls due.
+  const owed = t.status === 'paid' ? 0 : Math.max(0, rent - credit)
+  // Any whole months already covered by credit push the next due date out.
+  const monthsCovered = rent > 0 ? Math.floor(credit / rent) : 0
+  let nextDue = period.to
+  { let p = period; for (let i = 0; i < monthsCovered; i++) { p = nextPeriod(p, t.due_day); nextDue = p.to } }
+  const ps = paidStats(payments, t, frame)
 
   const downloadLease = () => {
     if (!profile.lease_doc) return
@@ -64,6 +74,35 @@ export default function TenantDashboard() {
         <p className="row gap"><IconHome size={15} /> Billing period <PeriodTag period={period} /></p>
       </div>
 
+      {/* This month's balance / next payment */}
+      <div className="card pad" style={{ marginBottom: 20 }}>
+        {owed > 0 ? (
+          <div className="spread wrap" style={{ gap: 14, alignItems: 'center' }}>
+            <div>
+              <div className="eyebrow">Balance this month</div>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: '2.1rem', fontWeight: 700, lineHeight: 1.1 }}>
+                {money(owed)} <span className="muted" style={{ fontSize: '1rem', fontWeight: 400, fontFamily: 'var(--sans)' }}>left to pay</span>
+              </div>
+              <p className="muted" style={{ fontSize: '0.86rem', marginTop: 4 }}>
+                Rent {money(rent)}{credit > 0 ? ` · ${money(credit)} credit applied` : ''} · due by {fmtDate(period.to)}
+              </p>
+            </div>
+            <Link to="/tenant/pay" className="btn primary">Pay {money(owed)} <IconArrowRight size={14} /></Link>
+          </div>
+        ) : (
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--green)' }}>You're all paid up 🎉</div>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: '2.1rem', fontWeight: 700, lineHeight: 1.1 }}>
+              {money(0)} <span className="muted" style={{ fontSize: '1rem', fontWeight: 400, fontFamily: 'var(--sans)' }}>due right now</span>
+            </div>
+            <p className="muted" style={{ fontSize: '0.9rem', marginTop: 6 }}>
+              Next payment: <b style={{ color: 'var(--text)' }}>{money(rent)}</b> due <b style={{ color: 'var(--text)' }}>{fmtDate(nextDue)}</b>
+              {monthsCovered > 0 && ` — your credit already covers the next ${monthsCovered} month${monthsCovered > 1 ? 's' : ''}`}.
+            </p>
+          </div>
+        )}
+      </div>
+
       {credit > 0 && (
         <div className="banner">
           <div className="b-ico"><IconSparkle size={20} /></div>
@@ -75,9 +114,9 @@ export default function TenantDashboard() {
       )}
 
       <div className="grid stats" style={{ marginBottom: 28 }}>
-        <StatCard label="Monthly rent" value={money(rent)} sub={`Due day ${profile.due_day}`} icon={<IconWallet size={18} />} onClick={() => nav('/tenant/pay')} />
-        <StatCard label="Current status" value={<StatusPill status={profile.status} />} sub={formatPeriod(period)} onClick={() => nav('/tenant/history')} />
-        <StatCard label="Total paid (all time)" value={money(profile.total_paid)} sub={`${payments.filter((p) => p.status === 'approved').length} receipts`} icon={<IconReceipt size={18} />} onClick={() => nav('/tenant/history')} />
+        <StatCard label="Monthly rent" value={money(rent)} sub={`Due day ${t.due_day}`} icon={<IconWallet size={18} />} onClick={() => nav('/tenant/pay')} />
+        <StatCard label="Current status" value={<StatusPill status={t.status} />} sub={formatPeriod(period)} onClick={() => nav('/tenant/history')} />
+        <StatCard label="Total paid (all time)" value={money(t.total_paid)} sub={`${payments.filter((p) => p.status === 'approved').length} receipts`} icon={<IconReceipt size={18} />} onClick={() => nav('/tenant/history')} />
       </div>
 
       {/* Paid vs not-yet-paid */}
