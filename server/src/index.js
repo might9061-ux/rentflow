@@ -23,12 +23,22 @@ import platform from './routes/platform.js'
 const app = express()
 const PORT = process.env.PORT || 8787
 
-const origins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
+// Origins allowed to call the API from a browser. Always include local dev and
+// the deployed frontend; extra origins can be added via CORS_ORIGINS. Any
+// *.vercel.app origin (preview/prod deploys of this app) is also accepted.
+const baseOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://rentflow-weld.vercel.app']
+const envOrigins = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)
+const origins = Array.from(new Set([...baseOrigins, ...envOrigins]))
 
-app.use(cors({ origin: origins, credentials: true }))
+app.use(cors({
+  credentials: true,
+  origin(origin, cb) {
+    // Non-browser callers (curl, server-to-server) send no Origin — allow them.
+    if (!origin) return cb(null, true)
+    if (origins.includes(origin) || /\.vercel\.app$/.test(new URL(origin).hostname)) return cb(null, true)
+    cb(new Error(`Origin not allowed by CORS: ${origin}`))
+  },
+}))
 app.use(express.json({ limit: '5mb' }))
 app.use(morgan('dev'))
 
