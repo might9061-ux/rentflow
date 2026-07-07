@@ -134,7 +134,7 @@ export default function Tenants() {
         )}
 
       {editing && (
-        <TenantModal tenant={editing} properties={properties} userId={userId}
+        <TenantModal tenant={editing} properties={properties} tenants={tenants} userId={userId}
           onClose={() => setEditing(null)}
           onCreated={(created, tempPassword) => { setEditing(null); setCreds({ tenant: created, tempPassword }); load() }}
           onUpdated={() => { setEditing(null); load() }} />

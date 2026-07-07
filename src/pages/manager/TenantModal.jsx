@@ -4,15 +4,18 @@ import { db } from '../../lib/db.js'
 import { fileToProof } from '../../lib/upload.js'
 import { isValidEmail } from '../../lib/format.js'
 import Modal from '../../components/Modal.jsx'
-import { Input, EmailInput, Select, Row } from '../../components/Field.jsx'
+import { Field, Input, EmailInput, Select, Row } from '../../components/Field.jsx'
 import PhoneInput from '../../components/PhoneInput.jsx'
 import { IconReceipt } from '../../components/icons.jsx'
 
 const STATUSES = ['pending', 'paid', 'due', 'overdue', 'inactive']
 const ACCOUNT_STATUSES = ['pending_verification', 'active', 'suspended']
 
+// The unit labels a property offers, generated from its unit count (Unit 1…N).
+const unitSlots = (n) => Array.from({ length: Number(n) || 0 }, (_, i) => `Unit ${i + 1}`)
+
 // Add (new) or Edit (all fields incl. rent, unit, due_day, status, credit) a tenant.
-export default function TenantModal({ tenant, properties, userId, onClose, onCreated, onUpdated }) {
+export default function TenantModal({ tenant, properties, tenants = [], userId, onClose, onCreated, onUpdated }) {
   const toast = useToast()
   const isNew = !tenant?.id
   const [busy, setBusy] = useState(false)
@@ -28,6 +31,28 @@ export default function TenantModal({ tenant, properties, userId, onClose, onCre
   })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const fileRef = useRef(null)
+
+  // Unit picker: offer the property's units as a dropdown; keep a free-text
+  // "custom" escape hatch for buildings with named units (e.g. A2). Start in
+  // custom mode if the existing unit isn't one of the generated slots.
+  const initSlots = unitSlots(properties.find((p) => p.id === (tenant?.property_id || properties[0]?.id))?.units)
+  const [customUnit, setCustomUnit] = useState(Boolean(tenant?.unit && !initSlots.includes(tenant.unit)))
+
+  const selectedProp = properties.find((p) => p.id === form.property_id)
+  const slots = unitSlots(selectedProp?.units)
+  // Units already occupied by OTHER tenants in the selected property.
+  const takenUnits = new Set(
+    tenants.filter((t) => t.property_id === form.property_id && t.id !== tenant?.id && t.unit).map((t) => String(t.unit)),
+  )
+  const availableCount = slots.filter((s) => !takenUnits.has(s)).length
+  const useUnitDropdown = slots.length > 0 && !customUnit
+
+  const onPropertyChange = (e) => { setForm((f) => ({ ...f, property_id: e.target.value, unit: '' })); setCustomUnit(false) }
+  const onUnitSelect = (e) => {
+    const v = e.target.value
+    if (v === '__custom__') { setCustomUnit(true); setForm((f) => ({ ...f, unit: '' })) }
+    else setForm((f) => ({ ...f, unit: v }))
+  }
 
   const onLeaseFile = async (e) => {
     const file = e.target.files?.[0]
@@ -81,11 +106,29 @@ export default function TenantModal({ tenant, properties, userId, onClose, onCre
           <PhoneInput label="Phone" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} required />
         </Row>
         <Row>
-          <Select label="Property" value={form.property_id} onChange={set('property_id')}>
+          <Select label="Property" value={form.property_id} onChange={onPropertyChange}>
             <option value="">— Unassigned —</option>
             {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
-          <Input label="Unit" value={form.unit} onChange={set('unit')} placeholder="e.g. A2" />
+          {useUnitDropdown ? (
+            <Select label="Unit" value={slots.includes(form.unit) ? form.unit : ''} onChange={onUnitSelect}
+              hint={selectedProp ? `${availableCount} of ${slots.length} unit${slots.length > 1 ? 's' : ''} free` : undefined}>
+              <option value="">— Select a unit —</option>
+              {slots.map((s) => {
+                const taken = takenUnits.has(s) && s !== tenant?.unit
+                return <option key={s} value={s} disabled={taken}>{s}{taken ? ' — occupied' : ''}</option>
+              })}
+              <option value="__custom__">Custom…</option>
+            </Select>
+          ) : (
+            <Field label="Unit" hint={slots.length > 0 ? 'Typing a custom label' : (selectedProp ? 'Set this property’s unit count to pick from a list' : undefined)}>
+              <input className="input" value={form.unit} onChange={set('unit')} placeholder="e.g. A2" />
+              {slots.length > 0 && (
+                <button type="button" className="link-btn" style={{ fontSize: '0.8rem', marginTop: 6 }}
+                  onClick={() => { setCustomUnit(false); setForm((f) => ({ ...f, unit: '' })) }}>Choose from the list instead</button>
+              )}
+            </Field>
+          )}
         </Row>
         <Row>
           <Input label="Monthly rent (USD)" type="number" min="0" step="0.01" value={form.rent} onChange={set('rent')} required />
