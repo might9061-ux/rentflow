@@ -50,47 +50,55 @@ export default function PaymentHistory() {
     const rent = Number(t?.rent || 0)
     const credit = Number(t?.credit_balance || 0)
     const creditMonths = rent > 0 ? Math.floor(credit / rent) : 0
-    const curKey = currentPeriod(dueDay).from.slice(0, 7)
+    const cur = currentPeriod(dueDay)
+    const curKey = cur.from.slice(0, 7)
 
-    // Walk forward from the current period; credit covers upcoming periods that
-    // don't already have a real approved payment.
-    const coveredFuture = []          // periods AFTER current, covered by credit
-    const coveredNow = new Set()      // current/past keys covered by credit (no payment)
+    // Which upcoming periods the credit covers (skip ones already fully paid).
+    const creditCovered = new Set()
     {
-      let p = currentPeriod(dueDay), rem = creditMonths, guard = 0
+      let p = cur, rem = creditMonths, guard = 0
       while (rem > 0 && guard < 120) {
         const key = p.from.slice(0, 7)
         const pay = byPeriod[key]
-        if (!(pay && pay.status === 'approved')) {
-          if (key > curKey) coveredFuture.push({ key, period: p }); else coveredNow.add(key)
-          rem--
-        }
+        if (!(pay && pay.status === 'approved')) { creditCovered.add(key); rem-- }
         p = nextPeriod(p, dueDay); guard++
       }
     }
 
-    // Future advance rows — furthest month on top.
-    const advanceRows = coveredFuture
-      .sort((a, b) => b.key.localeCompare(a.key))
-      .map((c) => ({ key: c.key, period: c.period, payment: null, kind: 'advance' }))
+    // FUTURE rows: any period after the current one that has a payment OR is
+    // covered by credit (paying ahead). Furthest month shown on top.
+    let maxKey = curKey
+    for (const k of Object.keys(byPeriod)) if (k > maxKey) maxKey = k
+    for (const k of creditCovered) if (k > maxKey) maxKey = k
+    const futureRows = []
+    {
+      let p = nextPeriod(cur, dueDay), guard = 0
+      while (p.from.slice(0, 7) <= maxKey && guard < 130) {
+        const key = p.from.slice(0, 7)
+        const payment = byPeriod[key] || null
+        if (payment || creditCovered.has(key)) {
+          futureRows.push({ key, period: p, payment, future: true, covered: creditCovered.has(key) })
+        }
+        p = nextPeriod(p, dueDay); guard++
+      }
+      futureRows.sort((a, b) => b.key.localeCompare(a.key))
+    }
 
     // Past → current rows, stopping at the tenancy start.
     const startSrc = t?.lease_start || t?.created_at
     let startKey = startSrc ? periodForDate(new Date(startSrc), dueDay).from.slice(0, 7) : '0000-00'
     if (startKey > curKey) startKey = curKey
     const historyRows = []
-    let period = currentPeriod(dueDay)
+    let period = cur
     for (let i = 0; i < range; i++) {
       const key = period.from.slice(0, 7)
       if (key < startKey) break
-      const payment = byPeriod[key] || null
-      const kind = !payment && coveredNow.has(key) ? 'credit' : null
-      historyRows.push({ key, period, payment, kind })
+      historyRows.push({ key, period, payment: byPeriod[key] || null, future: false, covered: creditCovered.has(key) })
       const prevAnchor = new Date(new Date(period.from).getTime() - 86400000)
       period = periodForDate(prevAnchor, dueDay)
     }
 
-    return [...advanceRows, ...historyRows]
+    return [...futureRows, ...historyRows]
   }, [range, byPeriod, t])
 
   if (loading) return <div className="page center" style={{ minHeight: 300 }}><Spinner /></div>
@@ -120,55 +128,59 @@ export default function PaymentHistory() {
           <tbody>
             {months.map((m) => {
               const rent = Number(t?.rent || 0)
-              // Upcoming month covered by credit → "Advance".
-              if (m.kind === 'advance') {
-                return (
-                  <tr key={m.key}>
-                    <td style={{ fontWeight: 600 }}>{monthYear(m.period.from, true)}</td>
-                    <td><PeriodTag period={m.period} /></td>
-                    <td><span className="pill" style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>● Advance</span></td>
-                    <td className="mono">{money(rent)}<div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>paid in advance</div></td>
-                    <td>Credit balance</td>
-                    <td><span className="faint">—</span></td>
-                  </tr>
-                )
-              }
-              // Current/past month with no payment but covered by credit → Paid (from credit).
-              if (m.kind === 'credit') {
-                return (
-                  <tr key={m.key}>
-                    <td style={{ fontWeight: 600 }}>{monthYear(m.period.from, true)}</td>
-                    <td><PeriodTag period={m.period} /></td>
-                    <td><StatusPill status="paid" /></td>
-                    <td className="mono">{money(rent)}<div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>from credit</div></td>
-                    <td>Credit balance</td>
-                    <td><span className="faint">—</span></td>
-                  </tr>
-                )
-              }
               const p = m.payment
-              const st = statusFor(p)
+              const AdvancePill = <span className="pill" style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>● Advance</span>
+
+              // A real payment for this period (may be an advance if the month is future).
+              if (p) {
+                const approved = p.status === 'approved'
+                const advance = approved && m.future
+                const clickable = approved
+                return (
+                  <tr key={m.key} className={clickable ? 'clickable-row' : ''} onClick={clickable ? () => setViewing(p) : undefined}>
+                    <td style={{ fontWeight: 600 }}>{monthYear(m.period.from, true)}</td>
+                    <td><PeriodTag period={m.period} /></td>
+                    <td>{advance ? AdvancePill : <StatusPill status={statusFor(p)} />}</td>
+                    <td className="mono">
+                      {money(p.amount)}
+                      {(p.created_at || p.paid_date) && (
+                        <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>{advance ? 'paid in advance · ' : ''}{fmtDateTime(p.created_at || p.paid_date)}</div>
+                      )}
+                    </td>
+                    <td>{p.method || <span className="faint">—</span>}</td>
+                    <td>
+                      {approved
+                        ? <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); setViewing(p) }}><IconReceipt size={14} /> Receipt</button>
+                        : <span className="faint">—</span>}
+                    </td>
+                  </tr>
+                )
+              }
+
+              // No payment, but covered by the tenant's credit balance.
+              if (m.covered) {
+                return (
+                  <tr key={m.key}>
+                    <td style={{ fontWeight: 600 }}>{monthYear(m.period.from, true)}</td>
+                    <td><PeriodTag period={m.period} /></td>
+                    <td>{m.future ? AdvancePill : <StatusPill status="paid" />}</td>
+                    <td className="mono">{money(rent)}<div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>{m.future ? 'paid in advance' : 'from credit'}</div></td>
+                    <td>Credit balance</td>
+                    <td><span className="faint">—</span></td>
+                  </tr>
+                )
+              }
+
+              // No payment, not covered — only shown for current/past months.
+              if (m.future) return null
               return (
-                <tr key={m.key} className={st === 'paid' ? 'clickable-row' : ''} onClick={st === 'paid' ? () => setViewing(p) : undefined}>
+                <tr key={m.key}>
                   <td style={{ fontWeight: 600 }}>{monthYear(m.period.from, true)}</td>
                   <td><PeriodTag period={m.period} /></td>
-                  <td><StatusPill status={st} /></td>
-                  <td className="mono">
-                    {p ? (
-                      <>
-                        {money(p.amount)}
-                        {(p.created_at || p.paid_date) && (
-                          <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>{fmtDateTime(p.created_at || p.paid_date)}</div>
-                        )}
-                      </>
-                    ) : <span className="faint">—</span>}
-                  </td>
-                  <td>{p?.method || <span className="faint">—</span>}</td>
-                  <td>
-                    {st === 'paid'
-                      ? <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); setViewing(p) }}><IconReceipt size={14} /> Receipt</button>
-                      : <span className="faint">—</span>}
-                  </td>
+                  <td><StatusPill status="not_paid" /></td>
+                  <td className="mono"><span className="faint">—</span></td>
+                  <td><span className="faint">—</span></td>
+                  <td><span className="faint">—</span></td>
                 </tr>
               )
             })}
