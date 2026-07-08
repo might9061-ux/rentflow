@@ -432,7 +432,7 @@ const sb = {
 
 // The active backend:
 //   • no Supabase env      → localStorage demo mock
-//   • VITE_API_URL set     → the RentPilot API server (/server) for core + admin
+//   • VITE_API_URL set     → the MightyRent API server (/server) for core + admin
 //                            actions, falling back to Supabase for the rest
 //   • Supabase only        → the browser talks to Supabase directly
 const API_URL = import.meta.env.VITE_API_URL?.trim()

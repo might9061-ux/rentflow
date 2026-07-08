@@ -36,7 +36,7 @@ export default function Demo() {
       <div className="spread page-head wrap" style={{ gap: 12 }}>
         <div>
           <div className="eyebrow">Product tour</div>
-          <h1>See RentPilot in action</h1>
+          <h1>See MightyRent in action</h1>
           <p>A quick demo of both sides — explore freely, then choose a plan when you’re ready.</p>
         </div>
         <div className="seg">

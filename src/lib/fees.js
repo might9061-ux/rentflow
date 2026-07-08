@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Platform transaction fee.
 //
-// RentPilot charges a flat 0.5% on every rent payment processed through the app.
+// MightyRent charges a flat 0.5% on every rent payment processed through the app.
 // The fee is borne by the landlord (manager) and is platform revenue the app
 // owner sees in the admin dashboard. Tenants always pay the full rent amount.
 // ═══════════════════════════════════════════════════════════════════════════

@@ -36,7 +36,7 @@ export default function QuickUnlockSetup({ meta, onClose }) {
     <Modal title="Secure this device" onClose={onClose}
       footer={<button className="btn ghost" onClick={onClose}>{done ? 'Done' : 'Not now'}</button>}>
       <p className="muted" style={{ marginBottom: 16 }}>
-        Next time you open RentPilot on this device, unlock quickly without re-typing your password.
+        Next time you open MightyRent on this device, unlock quickly without re-typing your password.
       </p>
 
       {bioOk && (

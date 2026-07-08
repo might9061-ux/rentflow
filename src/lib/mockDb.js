@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Mock backend — a fully-functional, localStorage-backed implementation of the
-// RentPilot data API. Used automatically when Supabase env vars are absent so
+// MightyRent data API. Used automatically when Supabase env vars are absent so
 // the app runs end-to-end with zero credentials and seeded demo data.
 //
 // ⚠️  Demo only: passwords are stored in plaintext in localStorage. The real
@@ -187,7 +187,7 @@ export const mockApi = {
     d.otps.push({ id: uid(), tenant_id: tenantId, channel, code, expires_at: Date.now() + 10 * 60000 })
     save(d)
     // SMS/email stub — surface the code so the demo is usable.
-    console.info(`[RentPilot demo] OTP (${channel}) for tenant ${tenantId}: ${code}`)
+    console.info(`[MightyRent demo] OTP (${channel}) for tenant ${tenantId}: ${code}`)
     return { code } // returned so the UI can show it in demo mode
   },
 
@@ -261,7 +261,7 @@ export const mockApi = {
     d.resets.push({ email, code, expires_at: Date.now() + 10 * 60000 })
     save(d)
     const target = channel === 'phone' ? acct.phone : acct.email
-    console.info(`[RentPilot demo] Password reset code for ${email} via ${channel} (${target}): ${code}`)
+    console.info(`[MightyRent demo] Password reset code for ${email} via ${channel} (${target}): ${code}`)
     return { code, role: mgr ? 'manager' : 'tenant', channel, target }
   },
 
@@ -513,7 +513,7 @@ export const mockApi = {
     return rows.sort(byCreatedDesc).map(clone)
   },
 
-  // ── platform admin (RentPilot owner) — all subscriptions & revenue ───────────
+  // ── platform admin (MightyRent owner) — all subscriptions & revenue ───────────
   async adminOverview() {
     await delay(80); const d = db()
     const name = (m) => `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || '—'
@@ -1159,12 +1159,12 @@ function seed() {
     { id: uid(), manager_id: managerId, amount: 80, period: periodLabel(monthsAgo(1)), method: 'Visa ····4242', reference: 'CARD-M4QB2T', created_at: monthsAgo(1).toISOString() },
   ]
 
-  // ── Platform owner (RentPilot super-admin) + other subscribing workspaces ────
+  // ── Platform owner (MightyRent super-admin) + other subscribing workspaces ────
   // These give the admin overview real subscriptions & revenue. They are
   // separate accounts and never appear inside Tendai's property-manager views.
   const admin = {
     id: 'mgr-admin', role: 'owner', owner_id: null, platform_admin: true, account_status: 'active',
-    first_name: 'RentPilot', last_name: 'HQ', email: 'admin@rentflow.app', phone: '0780000000', password: 'admin1234',
+    first_name: 'MightyRent', last_name: 'HQ', email: 'admin@rentflow.app', phone: '0780000000', password: 'admin1234',
     country: 'ZW', currency: 'USD', currencies: ['USD'], onboarded: true,
     plan_active: false, plan_capacity: null, plan_price: null, accepted_methods: null, payment_details: {},
     created_at: monthsAgo(12).toISOString(),

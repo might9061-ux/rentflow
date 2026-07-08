@@ -14,7 +14,7 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     // In production this is where you'd report to Sentry/Logflare etc.
-    console.error('RentPilot caught an error:', error, info)
+    console.error('MightyRent caught an error:', error, info)
   }
 
   render() {
@@ -28,7 +28,7 @@ export default class ErrorBoundary extends Component {
             An unexpected error occurred. Reloading usually fixes it.
           </p>
           <button className="btn primary" onClick={() => { window.location.href = '/' }}>
-            Reload RentPilot
+            Reload MightyRent
           </button>
         </div>
       </div>
