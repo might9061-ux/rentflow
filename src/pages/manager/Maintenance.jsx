@@ -105,7 +105,7 @@ function ManageModal({ item, tenant, propName, onClose, onSaved }) {
 
   const updateTenant = () => {
     const msg = `Hi ${tenant?.first_name || 'there'}, an update on your "${item.title}" request: it's now ${status.replace('_', ' ')}.` +
-      (note ? `\n${note}` : '') + `\n— via RentFlow.`
+      (note ? `\n${note}` : '') + `\n— via RentPilot.`
     sendWhatsApp(tenant?.phone, msg)
   }
 

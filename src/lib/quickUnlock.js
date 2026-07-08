@@ -80,8 +80,8 @@ export async function registerBiometric(meta) {
   const cred = await navigator.credentials.create({
     publicKey: {
       challenge,
-      rp: { name: 'RentFlow', id: window.location.hostname },
-      user: { id: userId, name: meta.identifier || meta.userId, displayName: meta.name || 'RentFlow user' },
+      rp: { name: 'RentPilot', id: window.location.hostname },
+      user: { id: userId, name: meta.identifier || meta.userId, displayName: meta.name || 'RentPilot user' },
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
       authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' },
       timeout: 60000,

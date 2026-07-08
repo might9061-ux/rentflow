@@ -61,8 +61,8 @@ export default function TenantLayout() {
   // Force first-login verification before any dashboard access.
   if (profile.first_login) return <TenantVerify />
 
-  const brandName = brandMgr?.brand_name || 'RentFlow'
-  const brandMark = brandMgr?.brand_name ? brandMgr.brand_name.slice(0, 2).toUpperCase() : 'RF'
+  const brandName = brandMgr?.brand_name || 'RentPilot'
+  const brandMark = brandMgr?.brand_name ? brandMgr.brand_name.slice(0, 2).toUpperCase() : 'RP'
   const brandStyle = brandVars(brandMgr?.brand_color)
 
   return (

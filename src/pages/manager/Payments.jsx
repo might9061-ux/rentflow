@@ -64,7 +64,7 @@ export default function Payments() {
     const t = tenantOf(p.tenant_id)
     const msg = `Hi ${t?.first_name || 'there'}, your payment of ${money(p.amount)} (${p.method}) was not approved.\n` +
       `Reason: ${p.rejected_reason || 'not specified'}.\n` +
-      `Please resubmit with the correct details or proof. Thank you — ${profile?.first_name || 'your manager'} (via RentFlow).`
+      `Please resubmit with the correct details or proof. Thank you — ${profile?.first_name || 'your manager'} (via RentPilot).`
     sendWhatsApp(t?.phone, msg)
   }
 
@@ -296,6 +296,6 @@ function exportPayments(rows, tenantOf, format) {
     { header: 'Receipt no', value: (p) => p.receipt_no || '' },
   ]
   const base = `rentflow-payments-${new Date().toISOString().slice(0, 10)}`
-  if (format === 'excel') downloadExcel(base, rows, cols, { sheet: 'Payments', title: 'RentFlow — Payments' })
+  if (format === 'excel') downloadExcel(base, rows, cols, { sheet: 'Payments', title: 'RentPilot — Payments' })
   else downloadCSV(`${base}.csv`, rows, cols)
 }

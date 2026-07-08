@@ -18,7 +18,7 @@ export default function AdminUsers() {
       <div className="page-head">
         <div className="eyebrow">People</div>
         <h1>Users</h1>
-        <p>Everyone using RentFlow — managers, their agents, and tenants — and how they split per company.</p>
+        <p>Everyone using RentPilot — managers, their agents, and tenants — and how they split per company.</p>
       </div>
 
       <div className="grid stats" style={{ marginBottom: 22 }}>

@@ -55,7 +55,7 @@ export default function AdminSubscriptions() {
             { header: 'Method', value: (p) => p.method },
             { header: 'Reference', value: (p) => p.reference || '' },
             { header: 'Amount', value: (p) => Number(p.amount).toFixed(2), numeric: true },
-          ], { sheet: 'Subscriptions', title: `RentFlow — Subscriptions (${periodLabel(period)})` })}>
+          ], { sheet: 'Subscriptions', title: `RentPilot — Subscriptions (${periodLabel(period)})` })}>
           <IconReceipt size={15} /> Export Excel
         </button>
       </div>

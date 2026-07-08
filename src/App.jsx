@@ -47,7 +47,7 @@ function RequireRole({ role, children }) {
   return children
 }
 
-// The platform owner (RentFlow HQ) — sees subscriptions & revenue, not a workspace.
+// The platform owner (RentPilot HQ) — sees subscriptions & revenue, not a workspace.
 function RequireAdmin({ children }) {
   const { loading, session, profile } = useAuth()
   if (loading) return <LoadingScreen />

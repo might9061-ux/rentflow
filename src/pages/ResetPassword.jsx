@@ -29,7 +29,7 @@ export default function ResetPassword() {
 
   return (
     <AuthShell accent="gold" eyebrow="Account recovery" title="Set a new password"
-      subtitle="Choose a new password for your RentFlow account.">
+      subtitle="Choose a new password for your RentPilot account.">
       {DEMO_MODE && (
         <div className="banner gold" style={{ marginBottom: 16 }}>
           <div style={{ fontSize: '0.86rem' }}>

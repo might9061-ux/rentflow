@@ -261,7 +261,7 @@ function ExpressForm({ amt, charge, label, defaultPhone, onPaid }) {
               <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>Check your phone</div>
               <div className="muted" style={{ fontSize: '0.9rem', marginTop: 4 }}>
                 Enter your {label} PIN on <b style={{ color: 'var(--text)' }}>{prettyPhone(phone)}</b> to approve
-                <b style={{ color: 'var(--green)' }}> {money(charge)}</b> to RentFlow.
+                <b style={{ color: 'var(--green)' }}> {money(charge)}</b> to RentPilot.
               </div>
               <button className="btn ghost sm" onClick={cancel} style={{ marginTop: 16 }}>Cancel</button>
             </div>}

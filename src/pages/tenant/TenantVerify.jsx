@@ -59,7 +59,7 @@ export default function TenantVerify() {
               onDone={async (pw) => {
                 await db.setTenantPassword(userId, pw)
                 await db.completeFirstLogin(userId)
-                toast.success('You’re all set', 'Welcome to RentFlow.')
+                toast.success('You’re all set', 'Welcome to RentPilot.')
                 await refresh()
               }}
             />
@@ -156,7 +156,7 @@ function SetPassword({ onDone, onBack }) {
       <PasswordInput label="Confirm password" value={pw2} onChange={(e) => setPw2(e.target.value)} required minLength={6} />
       <div className="row gap" style={{ marginTop: 6 }}>
         <button type="button" className="btn ghost" onClick={onBack}>Back</button>
-        <button className="btn primary grow lg" disabled={busy}>{busy ? 'Saving…' : 'Finish & enter RentFlow'}</button>
+        <button className="btn primary grow lg" disabled={busy}>{busy ? 'Saving…' : 'Finish & enter RentPilot'}</button>
       </div>
     </form>
   )

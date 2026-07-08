@@ -54,7 +54,7 @@ export default function AdminFees() {
             { header: 'Method', value: (p) => p.method },
             { header: 'Amount', value: (p) => Number(p.amount).toFixed(2), numeric: true },
             { header: 'Fee (0.5%)', value: (p) => Number(p.fee).toFixed(2), numeric: true },
-          ], { sheet: 'Transaction fees', title: `RentFlow — Transaction fees (${periodLabel(period)})` })}>
+          ], { sheet: 'Transaction fees', title: `RentPilot — Transaction fees (${periodLabel(period)})` })}>
           <IconReceipt size={15} /> Export Excel
         </button>
       </div>
