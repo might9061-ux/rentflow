@@ -14,7 +14,7 @@ async function send({ to, subject, html }) {
     console.warn('[email] RESEND_API_KEY not set — email NOT sent:', subject)
     return { sent: false, reason: 'no_api_key' }
   }
-  const from = process.env.OTP_FROM || 'MightyRent <noreply@wwwrentflow.com>'
+  const from = process.env.OTP_FROM || 'RentFlow <noreply@wwwrentflow.com>'
   const resp = await fetch(RESEND_ENDPOINT, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -32,10 +32,10 @@ export function sendOtpEmail(to, name, code) {
   const hi = name ? `Hi ${name},` : 'Hello,'
   return send({
     to,
-    subject: `Your MightyRent verification code: ${code}`,
+    subject: `Your RentFlow verification code: ${code}`,
     html: `
       <div style="font-family:system-ui,Arial,sans-serif;max-width:480px;margin:auto">
-        <h2 style="color:#0f172a">Verify your MightyRent account</h2>
+        <h2 style="color:#0f172a">Verify your RentFlow account</h2>
         <p>${hi}</p>
         <p>Your 6-digit verification code is:</p>
         <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#0f172a">${code}</p>

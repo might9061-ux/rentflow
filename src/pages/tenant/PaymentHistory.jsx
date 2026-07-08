@@ -35,14 +35,20 @@ export default function PaymentHistory() {
     return m
   }, [payments])
 
-  // Build the month timeline going backwards.
+  // Build the month timeline going backwards — but never earlier than when the
+  // tenancy actually began (lease start, or the account's creation). No point
+  // showing "Not Paid" for months before the tenant existed.
   const months = useMemo(() => {
     const out = []
     const now = new Date()
+    const dueDay = profile?.due_day || 1
+    const startSrc = profile?.lease_start || profile?.created_at
+    const startKey = startSrc ? periodForDate(new Date(startSrc), dueDay).from.slice(0, 7) : '0000-00'
     for (let i = 0; i < range; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const period = periodForDate(d, profile?.due_day || 1)
+      const period = periodForDate(d, dueDay)
       const key = period.from.slice(0, 7)
+      if (key < startKey) break // reached before the tenancy started
       out.push({ key, period, payment: byPeriod[key] || null })
     }
     return out
@@ -81,7 +87,16 @@ export default function PaymentHistory() {
                   <td style={{ fontWeight: 600 }}>{monthYear(m.period.from, true)}</td>
                   <td><PeriodTag period={m.period} /></td>
                   <td><StatusPill status={st} /></td>
-                  <td className="mono">{p ? money(p.amount) : <span className="faint">—</span>}</td>
+                  <td className="mono">
+                    {p ? (
+                      <>
+                        {money(p.amount)}
+                        {(p.created_at || p.paid_date) && (
+                          <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>{fmtDateTime(p.created_at || p.paid_date)}</div>
+                        )}
+                      </>
+                    ) : <span className="faint">—</span>}
+                  </td>
                   <td>{p?.method || <span className="faint">—</span>}</td>
                   <td>
                     {st === 'paid'
@@ -104,3 +119,11 @@ export default function PaymentHistory() {
 }
 
 function rank(status) { return status === 'approved' ? 3 : status === 'pending' ? 2 : status === 'rejected' ? 1 : 0 }
+
+// "8 Jul 2026, 14:32" — shows the date and time the payment was made.
+function fmtDateTime(d) {
+  if (!d) return ''
+  const dt = new Date(d)
+  if (Number.isNaN(dt.getTime())) return ''
+  return dt.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}

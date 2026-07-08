@@ -11,10 +11,10 @@ export default function RolePicker() {
       <div style={{ width: '100%', maxWidth: 520, textAlign: 'center' }}>
 
         <div className="center" style={{ gap: 12, marginBottom: 6 }}>
-          <div className="brand-mark">MR</div>
+          <div className="brand-mark">RF</div>
         </div>
         <div className="eyebrow" style={{ color: 'var(--gold)' }}>Property Rental Management · Africa</div>
-        <h1 style={{ fontSize: '3.2rem', marginTop: 6, lineHeight: 1 }}>MightyRent</h1>
+        <h1 style={{ fontSize: '3.2rem', marginTop: 6, lineHeight: 1 }}>RentFlow</h1>
         <p className="muted" style={{ marginTop: 10, fontSize: '1.05rem' }}>
           Rent, receipts and records — handled. Sign in to continue.
         </p>

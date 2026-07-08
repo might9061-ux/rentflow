@@ -22,7 +22,7 @@ export default function AssistantWidget({ role }) {
   const bodyRef = useRef(null)
 
   const greeting = role === 'manager'
-    ? `Hi ${profile?.first_name || ''} — ask me about outstanding rent, approvals, occupancy or how to do anything in MightyRent.`
+    ? `Hi ${profile?.first_name || ''} — ask me about outstanding rent, approvals, occupancy or how to do anything in RentFlow.`
     : `Hi ${profile?.first_name || ''} — ask me about your rent, balance, how to pay, credit or receipts.`
 
   // Build grounded context for the assistant.
@@ -103,7 +103,7 @@ export default function AssistantWidget({ role }) {
             <div className="row gap">
               <span className="ai-dot"><IconSparkle size={15} /></span>
               <div>
-                <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>MightyRent Copilot</div>
+                <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>RentFlow Copilot</div>
                 <div className="muted" style={{ fontSize: '0.72rem' }}>{isLiveAI ? 'Powered by Claude' : (role === 'manager' ? 'Manager copilot' : 'Here to help')}</div>
               </div>
             </div>

@@ -98,8 +98,8 @@ export default function ManagerLayout() {
     return <Navigate to="/manager" replace />
   }
 
-  const brandName = profile?.brand_name || 'MightyRent'
-  const brandMark = profile?.brand_name ? profile.brand_name.slice(0, 2).toUpperCase() : 'MR'
+  const brandName = profile?.brand_name || 'RentFlow'
+  const brandMark = profile?.brand_name ? profile.brand_name.slice(0, 2).toUpperCase() : 'RF'
   const brandStyle = brandVars(profile?.brand_color)
 
   return (

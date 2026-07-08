@@ -78,7 +78,7 @@ async function askClaude({ role, message, context, facts, history }) {
 // from the computed facts so it never hallucinates rent figures or names.
 function systemPrompt(role, context, facts) {
   const persona =
-    `You are MightyRent Copilot, an expert assistant embedded in MightyRent — a property-rental ` +
+    `You are RentFlow Copilot, an expert assistant embedded in RentFlow — a property-rental ` +
     `management app built for the African market. You are helping a ${role}.`
   const style =
     `Be concise, warm and practical. Use USD and Zimbabwean payment methods (EcoCash, InnBucks, ` +
@@ -232,7 +232,7 @@ function tenantReply(raw, ctx, f) {
   const q = (raw || '').toLowerCase()
 
   if (has(q, 'hello', 'hi ', 'hey', 'help', 'what can you', 'morning', 'good day')) {
-    return `Hi ${f.firstName} 👋 I'm your MightyRent assistant. I can help with:\n• Your rent, balance and what's due\n• Any balance carried over from past months\n• Credit / paying ahead and how long it lasts\n• How and where to pay\n• Receipts and history\nWhat would you like to know?`
+    return `Hi ${f.firstName} 👋 I'm your RentFlow assistant. I can help with:\n• Your rent, balance and what's due\n• Any balance carried over from past months\n• Credit / paying ahead and how long it lasts\n• How and where to pay\n• Receipts and history\nWhat would you like to know?`
   }
   if (has(q, 'balance', 'owe', 'owing', 'how much', 'outstanding', 'due', 'arrear', 'behind', 'carried', 'previous')) {
     let r = `Your rent is ${money(f.rent)} per month and your status is "${f.status}".`
@@ -285,7 +285,7 @@ function managerReply(raw, ctx, f) {
   if (named) return tenantSummaryForManager(named, ctx)
 
   if (has(q, 'hello', 'hi ', 'hey', 'help', 'what can you', 'morning', 'good day')) {
-    return `Hi ${f.managerName?.split(' ')[0] || ''} 👋 I'm your MightyRent copilot. Ask me about:\n• Who's behind & how much is carried over from past months\n• Who's paid ahead & how long their credit lasts\n• Pending approvals, collections & occupancy\n• How to add tenants/properties, record a cash payment, or send notices\nWhat do you need?`
+    return `Hi ${f.managerName?.split(' ')[0] || ''} 👋 I'm your RentFlow copilot. Ask me about:\n• Who's behind & how much is carried over from past months\n• Who's paid ahead & how long their credit lasts\n• Pending approvals, collections & occupancy\n• How to add tenants/properties, record a cash payment, or send notices\nWhat do you need?`
   }
   // Advance is checked before arrears so "who's paid ahead?" isn't swallowed by
   // the broad "who" in the arrears intent.
@@ -324,7 +324,7 @@ function managerReply(raw, ctx, f) {
     return `When a tenant pays you in cash, open their profile (or Payments → Owing) and tap "Record payment". Enter the amount, method and date — it's logged as an approved payment, applies any extra as credit, and clears them from the Owing list.`
   }
   if (has(q, 'add tenant', 'new tenant', 'create tenant')) {
-    return `Go to Tenants → "Add tenant". Fill in their details and rent; MightyRent generates a temporary password and a WhatsApp link to send the login. They verify and set their own password on first login. (Heads up: you can only add as many tenants as your plan allows.)`
+    return `Go to Tenants → "Add tenant". Fill in their details and rent; RentFlow generates a temporary password and a WhatsApp link to send the login. They verify and set their own password on first login. (Heads up: you can only add as many tenants as your plan allows.)`
   }
   if (has(q, 'property', 'building')) {
     return `Manage buildings under Properties → "Add property". Each shows a Vacant / Partial / All Paid badge based on its tenants' status, and you can add photos, location, rooms and amenities.`

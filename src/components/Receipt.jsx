@@ -27,7 +27,7 @@ export default function ReceiptModal({ payment, tenant, manager, property, onClo
       <div className="receipt">
         <div className="r-head">
           <div>
-            <div style={{ fontFamily: 'var(--serif)', fontSize: '1.6rem', fontWeight: 700 }}>MightyRent</div>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: '1.6rem', fontWeight: 700 }}>RentFlow</div>
             <div style={{ fontSize: '0.8rem', color: '#6b6258' }}>Official Rent Receipt</div>
           </div>
           <div className="r-stamp">Paid</div>
@@ -67,7 +67,7 @@ function receiptHtml({ payment, tenant, manager, property, period }) {
   hr{border:none;border-top:2px solid #1a1714;margin:10px 0}</style></head>
   <body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div><h1>MightyRent</h1><div style="color:#6b6258;font-size:.85rem">Official Rent Receipt</div></div>
+    <div><h1>RentFlow</h1><div style="color:#6b6258;font-size:.85rem">Official Rent Receipt</div></div>
     <div class="stamp">Paid</div>
   </div><hr/>
   <table>

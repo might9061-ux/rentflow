@@ -20,15 +20,15 @@ const DAY = 86400000
 
 export const DEFAULT_RULES = [
   { id: 'before', label: 'Before due date', kind: 'upcoming', offset: -3, enabled: true,
-    template: 'Hi {first_name}, a friendly reminder that your rent of {amount} for {property} is due on {due_date}. Please arrange payment in good time. Thank you — {manager} (via MightyRent).' },
+    template: 'Hi {first_name}, a friendly reminder that your rent of {amount} for {property} is due on {due_date}. Please arrange payment in good time. Thank you — {manager} (via RentFlow).' },
   { id: 'due', label: 'On the due date', kind: 'due', offset: 0, enabled: true,
-    template: 'Hi {first_name}, your rent of {amount} for {property} is due today ({due_date}). Kindly make your payment. Thank you — {manager} (via MightyRent).' },
+    template: 'Hi {first_name}, your rent of {amount} for {property} is due today ({due_date}). Kindly make your payment. Thank you — {manager} (via RentFlow).' },
   { id: 'over3', label: '3 days overdue', kind: 'overdue', offset: 3, enabled: true,
-    template: 'Hi {first_name}, your rent of {amount} for {property} is now {days} days overdue. Please settle it as soon as possible. Thank you — {manager} (via MightyRent).' },
+    template: 'Hi {first_name}, your rent of {amount} for {property} is now {days} days overdue. Please settle it as soon as possible. Thank you — {manager} (via RentFlow).' },
   { id: 'over7', label: '7 days overdue', kind: 'overdue', offset: 7, enabled: true,
-    template: 'Hi {first_name}, your account shows {amount} outstanding for {property} ({days} days overdue). Kindly arrange payment to keep your account in good standing. — {manager} (via MightyRent).' },
+    template: 'Hi {first_name}, your account shows {amount} outstanding for {property} ({days} days overdue). Kindly arrange payment to keep your account in good standing. — {manager} (via RentFlow).' },
   { id: 'over14', label: '14 days overdue', kind: 'overdue', offset: 14, enabled: false,
-    template: 'Hi {first_name}, your rent of {amount} for {property} is seriously overdue ({days} days). Please contact us immediately to arrange payment. — {manager} (via MightyRent).' },
+    template: 'Hi {first_name}, your rent of {amount} for {property} is seriously overdue ({days} days). Please contact us immediately to arrange payment. — {manager} (via RentFlow).' },
 ]
 
 export function reminderRules(manager) {

@@ -4,7 +4,7 @@ const url = import.meta.env.VITE_SUPABASE_URL?.trim()
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
 
 // When both env vars are present we run against a real Supabase project.
-// Otherwise MightyRent falls back to the localStorage demo backend (mockDb).
+// Otherwise RentFlow falls back to the localStorage demo backend (mockDb).
 export const isSupabaseConfigured = Boolean(url && anonKey)
 
 export const supabase = isSupabaseConfigured

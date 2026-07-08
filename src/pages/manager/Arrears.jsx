@@ -45,7 +45,7 @@ export default function Arrears() {
     const msg = `Hi ${t.first_name}, a reminder that your rent account shows ${money(arr.total + fee)} outstanding` +
       (arr.broughtForward > 0 ? ` (including ${money(arr.broughtForward)} carried over from previous months)` : '') +
       (fee > 0 ? ` and a ${money(fee)} late fee` : '') +
-      `. Kindly arrange payment. Thank you — ${profile?.first_name || 'your manager'} (via MightyRent).`
+      `. Kindly arrange payment. Thank you — ${profile?.first_name || 'your manager'} (via RentFlow).`
     sendWhatsApp(t.phone, msg)
   }
 

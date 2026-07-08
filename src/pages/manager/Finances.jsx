@@ -19,7 +19,7 @@ function exportFinances(rows, unassignedExp, periodLabel) {
     { header: 'Collected', value: (r) => r.collected.toFixed(2), numeric: true },
     { header: 'Expenses', value: (r) => r.expenses.toFixed(2), numeric: true },
     { header: 'Net', value: (r) => r.net.toFixed(2), numeric: true },
-  ], { sheet: 'P&L', title: `MightyRent — Finances (${periodLabel})` })
+  ], { sheet: 'P&L', title: `RentFlow — Finances (${periodLabel})` })
 }
 
 const PERIODS = [
