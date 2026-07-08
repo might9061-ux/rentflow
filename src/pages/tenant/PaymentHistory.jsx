@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, monthYear } from '../../lib/format.js'
-import { periodForDate, formatPeriod } from '../../lib/billing.js'
+import { periodForDate, currentPeriod, formatPeriod } from '../../lib/billing.js'
 import { StatusPill, PeriodTag, Spinner } from '../../components/ui.jsx'
 import ReceiptModal from '../../components/Receipt.jsx'
 import { IconReceipt } from '../../components/icons.jsx'
@@ -40,16 +40,19 @@ export default function PaymentHistory() {
   // showing "Not Paid" for months before the tenant existed.
   const months = useMemo(() => {
     const out = []
-    const now = new Date()
     const dueDay = profile?.due_day || 1
+    const curKey = currentPeriod(dueDay).from.slice(0, 7)
     const startSrc = profile?.lease_start || profile?.created_at
-    const startKey = startSrc ? periodForDate(new Date(startSrc), dueDay).from.slice(0, 7) : '0000-00'
+    let startKey = startSrc ? periodForDate(new Date(startSrc), dueDay).from.slice(0, 7) : '0000-00'
+    if (startKey > curKey) startKey = curKey // always show at least the current period
+    // Walk back one real billing period at a time (start at the current period).
+    let period = currentPeriod(dueDay)
     for (let i = 0; i < range; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const period = periodForDate(d, dueDay)
       const key = period.from.slice(0, 7)
       if (key < startKey) break // reached before the tenancy started
       out.push({ key, period, payment: byPeriod[key] || null })
+      const prevAnchor = new Date(new Date(period.from).getTime() - 86400000) // day before this period
+      period = periodForDate(prevAnchor, dueDay)
     }
     return out
   }, [range, byPeriod, profile])
