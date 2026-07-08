@@ -7,7 +7,7 @@ import { currentPeriod, formatPeriod, nextPeriod } from '../../lib/billing.js'
 import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
 import { DonutChart } from '../../components/Charts.jsx'
 import { collectionBreakdown } from '../../lib/arrears.js'
-import { IconWallet, IconReceipt, IconSparkle, IconArrowRight, IconHome, IconBuilding } from '../../components/icons.jsx'
+import { IconWallet, IconReceipt, IconSparkle, IconArrowRight, IconHome, IconBuilding, IconClock } from '../../components/icons.jsx'
 
 const FRAMES = [{ label: '3M', v: 3 }, { label: '6M', v: 6 }, { label: '12M', v: 12 }, { label: 'All', v: 'all' }]
 
@@ -58,6 +58,10 @@ export default function TenantDashboard() {
   { let p = period; for (let i = 0; i < monthsCovered; i++) { p = nextPeriod(p, t.due_day); nextDue = p.to } }
   const ps = paidStats(payments, t, frame)
 
+  // Payments the tenant has submitted that are still waiting for the manager.
+  const pendingPays = payments.filter((p) => p.status === 'pending')
+  const pendingTotal = pendingPays.reduce((s, p) => s + Number(p.amount), 0)
+
   const downloadLease = () => {
     if (!profile.lease_doc) return
     const a = document.createElement('a')
@@ -102,6 +106,20 @@ export default function TenantDashboard() {
           </div>
         )}
       </div>
+
+      {pendingPays.length > 0 && (
+        <div className="banner gold" style={{ marginBottom: 20 }}>
+          <div className="b-ico"><IconClock size={20} /></div>
+          <div className="grow">
+            <div style={{ fontWeight: 600 }}>
+              {pendingPays.length} payment{pendingPays.length > 1 ? 's' : ''} awaiting approval — {money(pendingTotal)}
+            </div>
+            <div className="muted" style={{ fontSize: '0.86rem' }}>
+              Your manager needs to approve {pendingPays.length > 1 ? 'them' : 'it'} before it counts. This updates automatically once approved.
+            </div>
+          </div>
+        </div>
+      )}
 
       {credit > 0 && (
         <div className="banner">

@@ -39,6 +39,7 @@ export default function SubmitPayment() {
   const [method, setMethod] = useState(null) // 'card' | 'express' | 'manual'
   const [amount, setAmount] = useState(rent || '')
   const [refundsOn, setRefundsOn] = useState(null)
+  const [submitted, setSubmitted] = useState(null) // awaiting-approval confirmation
 
   useEffect(() => {
     (async () => {
@@ -67,13 +68,15 @@ export default function SubmitPayment() {
   const preview = amt > 0 ? previewPayment({ rent, creditBalance: credit, amount: amt, currentPaid }) : null
 
   const finishOnline = async (data) => {
-    const p = await db.submitOnlinePayment(userId, {
+    // Online payments are recorded as PENDING and still need the manager to
+    // approve them (a real gateway webhook would auto-confirm; here the manager
+    // does). So confirm it was sent + is awaiting approval — not "receipted".
+    await db.submitOnlinePayment(userId, {
       amount: amt, fee, paid_date: new Date().toISOString().slice(0, 10),
       period_from: period.from, period_to: period.to, ...data,
     })
     await refresh()
-    toast.success('Payment successful', `Receipt ${p.receipt_no} issued.`)
-    nav('/tenant/history')
+    setSubmitted({ amount: amt, method: data.method || 'Online payment', period })
   }
 
   return (
@@ -161,6 +164,8 @@ export default function SubmitPayment() {
         .method-tile .m-sub { font-size:.76rem; color:var(--text-faint); }
         @media (max-width:560px){ .method-grid{ grid-template-columns:1fr; } }
       `}</style>
+
+      {submitted && <PendingApprovalModal data={submitted} onClose={() => nav('/tenant/history')} />}
     </div>
   )
 }
