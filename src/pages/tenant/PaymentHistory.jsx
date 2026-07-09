@@ -15,6 +15,7 @@ export default function PaymentHistory() {
   const [property, setProperty] = useState(null)
   const [tenant, setTenant] = useState(null)
   const [range, setRange] = useState(12) // 12 months | 60 months (5 years)
+  const [view, setView] = useState('monthly') // 'monthly' (ledger) | 'payments' (raw list)
   const [viewing, setViewing] = useState(null)
 
   useEffect(() => {
@@ -66,14 +67,23 @@ export default function PaymentHistory() {
         <div>
           <div className="eyebrow">Records</div>
           <h1>Payment history</h1>
-          <p>Your rent status month by month.</p>
+          <p>{view === 'monthly' ? 'Your rent status month by month.' : 'Every payment you’ve made, most recent first.'}</p>
         </div>
-        <div className="seg">
-          <button className={range === 12 ? 'on' : ''} onClick={() => setRange(12)}>Last 12 months</button>
-          <button className={range === 60 ? 'on' : ''} onClick={() => setRange(60)}>Full 5 years</button>
+        <div className="row gap wrap">
+          <div className="seg">
+            <button className={view === 'monthly' ? 'on' : ''} onClick={() => setView('monthly')}>By month</button>
+            <button className={view === 'payments' ? 'on' : ''} onClick={() => setView('payments')}>Payments</button>
+          </div>
+          {view === 'monthly' && (
+            <div className="seg">
+              <button className={range === 12 ? 'on' : ''} onClick={() => setRange(12)}>12 months</button>
+              <button className={range === 60 ? 'on' : ''} onClick={() => setRange(60)}>5 years</button>
+            </div>
+          )}
         </div>
       </div>
 
+      {view === 'monthly' ? (
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>Month</th><th>Billing period</th><th>Status</th><th>Amount</th><th>Method</th><th>Receipt</th></tr></thead>
@@ -117,6 +127,38 @@ export default function PaymentHistory() {
           </tbody>
         </table>
       </div>
+      ) : (
+      <div className="table-wrap">
+        <table className="data">
+          <thead><tr><th>Date &amp; time</th><th>Amount</th><th>Method</th><th>For period</th><th>Status</th><th>Receipt</th></tr></thead>
+          <tbody>
+            {payments.length === 0 ? (
+              <tr><td colSpan={6}><span className="faint">No payments yet.</span></td></tr>
+            ) : (
+              [...payments]
+                .sort((a, b) => new Date(b.created_at || b.paid_date || 0) - new Date(a.created_at || a.paid_date || 0))
+                .map((p) => {
+                  const approved = p.status === 'approved'
+                  return (
+                    <tr key={p.id} className={approved ? 'clickable-row' : ''} onClick={approved ? () => setViewing(p) : undefined}>
+                      <td className="nowrap">{fmtDateTime(p.created_at || p.paid_date)}</td>
+                      <td className="mono" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
+                      <td>{p.method || <span className="faint">—</span>}</td>
+                      <td><PeriodTag from={p.period_from} to={p.period_to} /></td>
+                      <td><StatusPill status={approved ? 'paid' : p.status} /></td>
+                      <td>
+                        {approved
+                          ? <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); setViewing(p) }}><IconReceipt size={14} /> Receipt</button>
+                          : <span className="faint">—</span>}
+                      </td>
+                    </tr>
+                  )
+                })
+            )}
+          </tbody>
+        </table>
+      </div>
+      )}
 
       {viewing && (
         <ReceiptModal payment={viewing} tenant={profile} manager={manager} property={property}
