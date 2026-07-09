@@ -138,7 +138,7 @@ export default function ManagerLayout() {
               ? <img src={profile.avatar} alt="" className="avatar" style={{ objectFit: 'cover' }} />
               : <div className="avatar">{initials(profile?.first_name, profile?.last_name)}</div>}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.86rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {profile?.first_name} {profile?.last_name}
               </div>
               <div className="muted" style={{ fontSize: '0.72rem' }}>View profile</div>

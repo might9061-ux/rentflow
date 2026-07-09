@@ -94,7 +94,7 @@ export default function TenantLayout() {
               ? <img src={profile.avatar} alt="" className="avatar" style={{ objectFit: 'cover' }} />
               : <div className="avatar">{initials(profile?.first_name, profile?.last_name)}</div>}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>{profile?.first_name} {profile?.last_name}</div>
+              <div style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text)' }}>{profile?.first_name} {profile?.last_name}</div>
               <div className="muted" style={{ fontSize: '0.72rem' }}>View profile</div>
             </div>
           </button>
