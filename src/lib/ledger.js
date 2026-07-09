@@ -53,11 +53,20 @@ export function buildLedger({ payments = [], rent = 0, dueDay = 1, startDate } =
   let creditAdvance = 0
   for (let i = curIdx + 1; i < cells.length; i++) creditAdvance += cells[i].allocated
 
-  // Current month state.
-  const currentStatus = rent <= 0 ? 'due'
-    : curCell.allocated >= rent - EPS ? 'paid'
-      : curCell.allocated > EPS ? 'partial' : 'due'
+  // Past periods that aren't fully covered are OVERDUE.
+  let overdueAmount = 0, overdueMonths = 0
+  for (let i = 0; i < curIdx; i++) {
+    const short = rent - cells[i].allocated
+    if (rent > 0 && short > EPS) { overdueAmount += short; overdueMonths++ }
+  }
+
+  // Current month state (overdue past months take precedence in the headline).
   const owedThisMonth = rent <= 0 ? 0 : Math.max(0, rent - curCell.allocated)
+  const currentStatus = overdueMonths > 0 ? 'overdue'
+    : rent <= 0 ? 'due'
+      : curCell.allocated >= rent - EPS ? 'paid'
+        : curCell.allocated > EPS ? 'partial' : 'due'
+  const totalOwed = overdueAmount + owedThisMonth
 
   // First period (from current forward) that isn't fully covered = next due.
   let nextDue = curCell.period
@@ -69,5 +78,5 @@ export function buildLedger({ payments = [], rent = 0, dueDay = 1, startDate } =
   let monthsAhead = 0
   for (let i = curIdx + 1; i < cells.length; i++) { if (cells[i].allocated >= rent - EPS) monthsAhead++; else break }
 
-  return { cells, curKey, curIdx, curCell, creditAdvance, currentStatus, owedThisMonth, nextDue, monthsAhead, pendingByKey }
+  return { cells, curKey, curIdx, curCell, creditAdvance, currentStatus, owedThisMonth, overdueAmount, overdueMonths, totalOwed, nextDue, monthsAhead, pendingByKey }
 }

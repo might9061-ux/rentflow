@@ -48,12 +48,13 @@ export default function PaymentHistory() {
     for (let i = lastAlloc; i >= startIdx; i--) {
       const cell = cells[i]
       const isFuture = cell.key > curKey
+      const isPast = cell.key < curKey
       let kind
       if (rent > 0 && cell.allocated >= rent - 0.001) kind = isFuture ? 'advance' : 'paid'
-      else if (cell.allocated > 0.001) kind = isFuture ? 'advance_partial' : 'partial'
+      else if (cell.allocated > 0.001) kind = isFuture ? 'advance_partial' : (isPast ? 'overdue_partial' : 'partial')
       else if (pendingByKey[cell.key]) kind = 'pending'
       else if (isFuture) continue
-      else kind = 'not_paid'
+      else kind = isPast ? 'overdue' : 'not_paid' // past unpaid = overdue; current unpaid = not paid yet
       rows.push({ ...cell, isFuture, kind, pending: pendingByKey[cell.key] || null })
     }
     return rows
@@ -95,14 +96,18 @@ export default function PaymentHistory() {
               const timeSrc = pay?.created_at || pay?.paid_date
               const clickable = !!pay
               const advance = m.kind === 'advance' || m.kind === 'advance_partial'
-              const partial = m.kind === 'partial' || m.kind === 'advance_partial'
+              const overdue = m.kind === 'overdue' || m.kind === 'overdue_partial'
+              const partial = m.kind === 'partial' || m.kind === 'advance_partial' || m.kind === 'overdue_partial'
+              const blank = m.kind === 'not_paid' || m.kind === 'overdue' // no amount to show
               const amount = m.kind === 'pending' ? Number(m.pending.amount) : m.allocated
 
-              const pill = advance
-                ? <span className="pill" style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>● {partial ? 'Advance (part)' : 'Advance'}</span>
-                : m.kind === 'partial'
-                  ? <span className="pill" style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>● Partial</span>
-                  : <StatusPill status={m.kind === 'paid' ? 'paid' : m.kind === 'pending' ? 'pending' : 'not_paid'} />
+              const pill = overdue
+                ? <StatusPill status="overdue" />
+                : advance
+                  ? <span className="pill" style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>● {partial ? 'Advance (part)' : 'Advance'}</span>
+                  : m.kind === 'partial'
+                    ? <span className="pill" style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>● Partial</span>
+                    : <StatusPill status={m.kind === 'paid' ? 'paid' : m.kind === 'pending' ? 'pending' : 'not_paid'} />
 
               return (
                 <tr key={m.key} className={clickable ? 'clickable-row' : ''} onClick={clickable ? () => setViewing(pay) : undefined}>
@@ -110,12 +115,13 @@ export default function PaymentHistory() {
                   <td><PeriodTag period={m.period} /></td>
                   <td>{pill}</td>
                   <td className="mono">
-                    {m.kind === 'not_paid' ? <span className="faint">—</span> : money(amount)}
+                    {blank ? <span className="faint">—</span> : money(amount)}
                     {partial && <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>of {money(rent)}{advance ? ' · in advance' : ''}</div>}
+                    {overdue && <div style={{ fontSize: '0.72rem', fontWeight: 400, color: 'var(--danger)' }}>owes {money(rent - m.allocated)}</div>}
                     {m.kind === 'advance' && <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>paid in advance</div>}
-                    {timeSrc && m.kind !== 'not_paid' && <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>{fmtDateTime(timeSrc)}</div>}
+                    {timeSrc && !blank && <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>{fmtDateTime(timeSrc)}</div>}
                   </td>
-                  <td>{m.kind === 'not_paid' ? <span className="faint">—</span> : (method || <span className="faint">—</span>)}</td>
+                  <td>{blank && !method ? <span className="faint">—</span> : (method || <span className="faint">—</span>)}</td>
                   <td>
                     {pay
                       ? <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); setViewing(pay) }}><IconReceipt size={14} /> Receipt</button>

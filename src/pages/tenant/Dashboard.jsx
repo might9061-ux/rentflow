@@ -50,7 +50,9 @@ export default function TenantDashboard() {
   // so the dashboard and the payment history can never disagree.
   const led = buildLedger({ payments, rent, dueDay: t.due_day, startDate: t.lease_start || t.created_at })
   const credit = led.creditAdvance     // money paid ahead (beyond this month)
-  const owed = led.owedThisMonth       // still owed for the current month
+  const owed = led.totalOwed           // everything currently owed (overdue + this month)
+  const overdueMonths = led.overdueMonths
+  const overdueAmount = led.overdueAmount
   const monthsCovered = led.monthsAhead
   const nextDue = led.nextDue.from     // date the next payment is due
   const creditNote = monthsCovered >= 1
@@ -86,12 +88,16 @@ export default function TenantDashboard() {
         {owed > 0 ? (
           <div className="spread wrap" style={{ gap: 14, alignItems: 'center' }}>
             <div>
-              <div className="eyebrow">Balance this month</div>
+              <div className="eyebrow" style={overdueMonths > 0 ? { color: 'var(--danger)' } : undefined}>
+                {overdueMonths > 0 ? 'Overdue — please pay' : 'Balance this month'}
+              </div>
               <div style={{ fontFamily: 'var(--serif)', fontSize: '2.1rem', fontWeight: 700, lineHeight: 1.1 }}>
                 {money(owed)} <span className="muted" style={{ fontSize: '1rem', fontWeight: 400, fontFamily: 'var(--sans)' }}>left to pay</span>
               </div>
               <p className="muted" style={{ fontSize: '0.86rem', marginTop: 4 }}>
-                Rent {money(rent)}{credit > 0 ? ` · ${money(credit)} credit applied` : ''} · due by {fmtDate(period.to)}
+                {overdueMonths > 0
+                  ? `${money(overdueAmount)} overdue from ${overdueMonths} past month${overdueMonths > 1 ? 's' : ''}${owed - overdueAmount > 0.001 ? ` + ${money(owed - overdueAmount)} this month` : ''}. Your payment clears the oldest month first.`
+                  : `Rent ${money(rent)}${credit > 0 ? ` · ${money(credit)} credit applied` : ''} · due by ${fmtDate(period.to)}`}
               </p>
             </div>
             <Link to="/tenant/pay" className="btn primary">Pay {money(owed)} <IconArrowRight size={14} /></Link>
