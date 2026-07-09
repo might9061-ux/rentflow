@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, fmtDate } from '../../lib/format.js'
-import { currentPeriod, formatPeriod, nextPeriod } from '../../lib/billing.js'
+import { currentPeriod, formatPeriod } from '../../lib/billing.js'
+import { buildLedger } from '../../lib/ledger.js'
 import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
 import { DonutChart } from '../../components/Charts.jsx'
 import { collectionBreakdown } from '../../lib/arrears.js'
@@ -41,21 +42,23 @@ export default function TenantDashboard() {
   if (loading || !profile) return <div className="page center" style={{ minHeight: 300 }}><Spinner /></div>
 
   const t = tenant || profile
-  const credit = Number(t.credit_balance || 0)
   const rent = Number(t.rent || 0)
   const period = currentPeriod(t.due_day)
   const recent = payments.slice(0, 4)
 
-  const creditNote = credit >= rent && rent > 0
-    ? 'Next month fully covered'
-    : credit > 0 ? `${money(rent - credit)} still owed next month` : ''
-
-  // Amount still owed this month, and when the next payment falls due.
-  const owed = t.status === 'paid' ? 0 : Math.max(0, rent - credit)
-  // Any whole months already covered by credit push the next due date out.
-  const monthsCovered = rent > 0 ? Math.floor(credit / rent) : 0
-  let nextDue = period.to
-  { let p = period; for (let i = 0; i < monthsCovered; i++) { p = nextPeriod(p, t.due_day); nextDue = p.to } }
+  // One shared ledger drives credit, status, amount owed and the next due date —
+  // so the dashboard and the payment history can never disagree.
+  const led = buildLedger({ payments, rent, dueDay: t.due_day, startDate: t.lease_start || t.created_at })
+  const credit = led.creditAdvance     // money paid ahead (beyond this month)
+  const owed = led.owedThisMonth       // still owed for the current month
+  const monthsCovered = led.monthsAhead
+  const nextDue = led.nextDue.from     // date the next payment is due
+  const creditNote = monthsCovered >= 1
+    ? `Covers ${monthsCovered} month${monthsCovered > 1 ? 's' : ''} ahead`
+    : 'Applied to your next rent'
+  // Totals from the actual approved payments (not the stored figure).
+  const approvedPays = payments.filter((p) => p.status === 'approved')
+  const totalPaid = approvedPays.reduce((s, p) => s + Number(p.amount), 0)
   const ps = paidStats(payments, t, frame)
 
   // Payments the tenant has submitted that are still waiting for the manager.
@@ -133,8 +136,8 @@ export default function TenantDashboard() {
 
       <div className="grid stats" style={{ marginBottom: 28 }}>
         <StatCard label="Monthly rent" value={money(rent)} sub={`Due day ${t.due_day}`} icon={<IconWallet size={18} />} onClick={() => nav('/tenant/pay')} />
-        <StatCard label="Current status" value={<StatusPill status={t.status} />} sub={formatPeriod(period)} onClick={() => nav('/tenant/history')} />
-        <StatCard label="Total paid (all time)" value={money(t.total_paid)} sub={`${payments.filter((p) => p.status === 'approved').length} receipts`} icon={<IconReceipt size={18} />} onClick={() => nav('/tenant/history')} />
+        <StatCard label="Current status" value={<StatusPill status={led.currentStatus} />} sub={formatPeriod(period)} onClick={() => nav('/tenant/history')} />
+        <StatCard label="Total paid (all time)" value={money(totalPaid)} sub={`${approvedPays.length} receipts`} icon={<IconReceipt size={18} />} onClick={() => nav('/tenant/history')} />
       </div>
 
       {/* Paid vs not-yet-paid */}

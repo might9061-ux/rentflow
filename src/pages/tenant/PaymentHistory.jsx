@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, monthYear } from '../../lib/format.js'
-import { periodForDate, currentPeriod, nextPeriod, formatPeriod } from '../../lib/billing.js'
+import { buildLedger } from '../../lib/ledger.js'
 import { StatusPill, PeriodTag, Spinner } from '../../components/ui.jsx'
 import ReceiptModal from '../../components/Receipt.jsx'
 import { IconReceipt } from '../../components/icons.jsx'
@@ -38,41 +38,7 @@ export default function PaymentHistory() {
   const months = useMemo(() => {
     const dueDay = t?.due_day || 1
     const rent = Number(t?.rent || 0)
-    const cur = currentPeriod(dueDay)
-    const curKey = cur.from.slice(0, 7)
-    const startSrc = t?.lease_start || t?.created_at
-    const startPeriod = startSrc ? periodForDate(new Date(startSrc), dueDay) : cur
-
-    const approved = payments
-      .filter((p) => p.status === 'approved')
-      .sort((a, b) => new Date(a.created_at || a.paid_date || 0) - new Date(b.created_at || b.paid_date || 0))
-    const pendingByKey = {}
-    for (const p of payments) if (p.status === 'pending') {
-      const k = (p.period_from || '').slice(0, 7)
-      if (!pendingByKey[k]) pendingByKey[k] = p
-    }
-
-    // Billing periods from tenancy start forward.
-    const cells = []
-    { let p = startPeriod; for (let i = 0; i < 240; i++) { cells.push({ key: p.from.slice(0, 7), period: p, allocated: 0, pays: [] }); p = nextPeriod(p, dueDay) } }
-
-    // Fill months in order from the payments.
-    if (rent > 0) {
-      let idx = 0
-      for (const pay of approved) {
-        let amt = Number(pay.amount) || 0
-        while (amt > 0.001 && idx < cells.length) {
-          const cell = cells[idx]
-          const take = Math.min(amt, rent - cell.allocated)
-          cell.allocated += take
-          if (take > 0 && !cell.pays.includes(pay)) cell.pays.push(pay)
-          amt -= take
-          if (cell.allocated >= rent - 0.001) idx++
-        }
-      }
-    }
-
-    const curIdx = Math.max(0, cells.findIndex((c) => c.key === curKey))
+    const { cells, curKey, curIdx, pendingByKey } = buildLedger({ payments, rent, dueDay, startDate: t?.lease_start || t?.created_at })
     let lastAlloc = curIdx
     cells.forEach((c, i) => { if (c.allocated > 0.001 || pendingByKey[c.key]) lastAlloc = Math.max(lastAlloc, i) })
     const startIdx = Math.max(0, curIdx - range + 1)
