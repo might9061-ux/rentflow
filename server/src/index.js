@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 8787
 // Origins allowed to call the API from a browser. Always include local dev and
 // the deployed frontend; extra origins can be added via CORS_ORIGINS. Any
 // *.vercel.app origin (preview/prod deploys of this app) is also accepted.
-const baseOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://rentflow-weld.vercel.app', 'https://wwwrentflow.com', 'https://www.wwwrentflow.com']
+const baseOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://rentflow-weld.vercel.app', 'https://wwwrentflow.com', 'https://www.wwwrentflow.com', 'https://rentloja.com', 'https://www.rentloja.com']
 const envOrigins = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)
 const origins = Array.from(new Set([...baseOrigins, ...envOrigins]))
 
