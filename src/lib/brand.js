@@ -1,6 +1,6 @@
 // White-label branding helpers. Available on Growth plans and above (capacity
 // of 10+ tenants). When a brand colour/logo/name is set it overrides the
-// default RentFlow design across the manager workspace and their tenants'
+// default RentLoja design across the manager workspace and their tenants'
 // portal; otherwise the existing design stays.
 
 export function canBrand(manager) {

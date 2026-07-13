@@ -36,7 +36,7 @@ export async function sendOtpSms(phone, code) {
   const body = new URLSearchParams({
     username,
     to,
-    message: `Your RentFlow verification code is ${code}. It expires in 10 minutes.`,
+    message: `Your RentLoja verification code is ${code}. It expires in 10 minutes.`,
   })
   if (process.env.AT_SENDER_ID) body.set('from', process.env.AT_SENDER_ID)
 

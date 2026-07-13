@@ -215,7 +215,7 @@ function StaffModal({ staff, properties, onClose, onSaved }) {
 
 function CredentialsModal({ staff, tempPassword, onClose }) {
   const share = () => {
-    const msg = `Hi ${staff.first_name}, you've been added as a manager on RentFlow.\n\n` +
+    const msg = `Hi ${staff.first_name}, you've been added as a manager on RentLoja.\n\n` +
       `Sign in here: ${window.location.origin} (choose “Manager”).\nEmail: ${staff.email}\nTemporary password: ${tempPassword}\n\n` +
       `Please change your password after your first sign-in.`
     sendWhatsApp(staff.phone, msg)

@@ -59,13 +59,13 @@ export default function Branding() {
       await db.updateManagerSettings(userId, { brand_name: null, brand_color: null, brand_logo: null })
       await refresh()
       setForm({ brand_name: '', brand_color: '#c8a84b', brand_logo: null })
-      toast.info('Reset to default', 'The standard RentFlow design is back.')
+      toast.info('Reset to default', 'The standard RentLoja design is back.')
       load()
     } catch (err) { toast.error('Could not reset', err.message) } finally { setBusy(false) }
   }
 
   const preview = brandVars(form.brand_color)
-  const displayName = form.brand_name.trim() || 'RentFlow'
+  const displayName = form.brand_name.trim() || 'RentLoja'
 
   return (
     <div className="page" style={{ maxWidth: 760 }}>
@@ -109,7 +109,7 @@ export default function Branding() {
           {/* Controls */}
           <div className="card pad">
             <Input label="App name" value={form.brand_name} onChange={(e) => setForm((f) => ({ ...f, brand_name: e.target.value }))}
-              placeholder="RentFlow" hint="Shown in place of “RentFlow” across the app." />
+              placeholder="RentLoja" hint="Shown in place of “RentLoja” across the app." />
 
             <div className="field">
               <label>Logo</label>

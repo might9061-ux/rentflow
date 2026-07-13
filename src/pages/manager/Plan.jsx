@@ -135,7 +135,7 @@ export default function Plan() {
         <div className="banner gold" style={{ marginBottom: 18 }}>
           <div className="b-ico"><IconTag size={18} /></div>
           <div className="spread grow wrap" style={{ gap: 10 }}>
-            <span>Your account is ready! See how RentFlow works for managers and tenants, then pick a monthly installment — an active plan is required to add tenants.</span>
+            <span>Your account is ready! See how RentLoja works for managers and tenants, then pick a monthly installment — an active plan is required to add tenants.</span>
             <div className="row gap">
               <button className="btn sm" onClick={() => nav('/manager/demo')}>View demo</button>
               <button className="btn ghost sm" onClick={continueFree} disabled={busy}>Explore first</button>

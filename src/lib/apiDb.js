@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // API-backed data facade.
 //
-// When VITE_API_URL is set, the app talks to the RentFlow API server (/server)
+// When VITE_API_URL is set, the app talks to the RentLoja API server (/server)
 // for the core resources and the privileged account-creating actions, instead
 // of hitting Supabase directly from the browser. Auth/session, OTP, password
 // and a few derived/among specialised helpers stay on the Supabase SDK (they

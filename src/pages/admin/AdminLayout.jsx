@@ -26,9 +26,9 @@ export default function AdminLayout() {
     <div className="admin-shell">
       <header className="admin-top">
         <div className="row gap">
-          <div className="mark" style={{ width: 38, height: 38, borderRadius: 11, display: 'grid', placeItems: 'center', background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)', fontFamily: 'var(--serif)', fontWeight: 700 }}>RF</div>
+          <div className="mark" style={{ width: 38, height: 38, borderRadius: 11, display: 'grid', placeItems: 'center', background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)', fontFamily: 'var(--serif)', fontWeight: 700 }}>RL</div>
           <div>
-            <div style={{ fontFamily: 'var(--serif)', fontSize: '1.25rem', fontWeight: 600, lineHeight: 1 }}>RentFlow</div>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: '1.25rem', fontWeight: 600, lineHeight: 1 }}>RentLoja</div>
             <div className="eyebrow" style={{ color: 'var(--gold)' }}>Platform admin</div>
           </div>
         </div>

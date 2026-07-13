@@ -34,7 +34,7 @@ export default function ManagerAuth() {
         const r = await signUpManager(form)
         // Real backend: a verification email was sent and no session exists yet.
         if (r?.needsVerification) setVerifyEmail(r.email || form.email)
-        else toast.success('Account created', 'Welcome to RentFlow.')
+        else toast.success('Account created', 'Welcome to RentLoja.')
       } else {
         await signInManager({ identifier: form.email, password: form.password })
       }
