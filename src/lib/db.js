@@ -66,8 +66,15 @@ const sb = {
   async signInTenant({ email, identifier, password }) {
     const em = await resolveLoginEmail(identifier ?? email)
     const data = ok(await supabase.auth.signInWithPassword({ email: em, password }))
-    const t = ok(await supabase.from('tenants').select('first_login').eq('id', data.user.id).single())
-    return { id: data.user.id, first_login: t.first_login }
+    // Use maybeSingle so a non-tenant login gives a clear message instead of the
+    // raw "Cannot coerce…" PostgREST error.
+    const res = await supabase.from('tenants').select('first_login').eq('id', data.user.id).maybeSingle()
+    if (res.error) throw new Error(res.error.message)
+    if (!res.data) {
+      await supabase.auth.signOut()
+      throw new Error('This login isn’t a tenant account. If you’re a property manager, use the manager sign-in page.')
+    }
+    return { id: data.user.id, first_login: res.data.first_login }
   },
   // Quick unlock relies on the persisted Supabase session (auth tokens live in
   // storage); the PIN / passkey gate is enforced client-side before reuse.
