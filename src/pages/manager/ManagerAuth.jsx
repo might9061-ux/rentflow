@@ -7,6 +7,7 @@ import { Input, EmailInput, PasswordInput, Row } from '../../components/Field.js
 import PhoneInput from '../../components/PhoneInput.jsx'
 import { isValidEmail } from '../../lib/format.js'
 import { isEmailOrPhone } from '../../lib/validate.js'
+import { friendlyError } from '../../lib/errors.js'
 
 export default function ManagerAuth() {
   const { signInManager, signUpManager, resendVerification } = useAuth()
@@ -38,7 +39,7 @@ export default function ManagerAuth() {
         await signInManager({ identifier: form.email, password: form.password })
       }
     } catch (err) {
-      toast.error(mode === 'signup' ? 'Sign up failed' : 'Sign in failed', err.message)
+      toast.error(mode === 'signup' ? 'Sign up failed' : 'Sign in failed', friendlyError(err))
     } finally { setBusy(false) }
   }
 

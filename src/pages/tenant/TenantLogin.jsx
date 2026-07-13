@@ -6,6 +6,7 @@ import AuthShell from '../AuthShell.jsx'
 import ForgotPasswordModal from '../ForgotPasswordModal.jsx'
 import { Input, EmailInput, PasswordInput } from '../../components/Field.jsx'
 import { isEmailOrPhone } from '../../lib/validate.js'
+import { friendlyError } from '../../lib/errors.js'
 
 export default function TenantLogin() {
   const { signInTenant } = useAuth()
@@ -23,7 +24,7 @@ export default function TenantLogin() {
       const r = await signInTenant({ identifier: form.email, password: form.password })
       if (r?.first_login) toast.info('Verify your account', 'Let’s confirm it’s you before you continue.')
     } catch (err) {
-      toast.error('Sign in failed', err.message)
+      toast.error('Sign in failed', friendlyError(err))
     } finally { setBusy(false) }
   }
 
