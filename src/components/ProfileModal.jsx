@@ -1,17 +1,19 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useTheme } from '../context/ThemeContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { db } from '../lib/db.js'
 import { fileToAvatar } from '../lib/upload.js'
 import { fullName, initials } from '../lib/format.js'
 import { prettyPhone } from '../lib/phone.js'
 import Modal from './Modal.jsx'
-import { IconMail, IconPhone, IconKey, IconLogout, IconTrash } from './icons.jsx'
+import { IconMail, IconPhone, IconKey, IconLogout, IconTrash, IconSun, IconMoon } from './icons.jsx'
 
 // "My profile" — view your details and set a profile picture. Works for the
 // manager (owner/agent) and the tenant.
 export default function ProfileModal({ role, onClose, onChangePassword }) {
   const { userId, profile, refresh, signOut } = useAuth()
+  const { theme, toggle } = useTheme()
   const toast = useToast()
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
@@ -52,6 +54,10 @@ export default function ProfileModal({ role, onClose, onChangePassword }) {
       <div className="pf-box">
         <div className="pf-row"><span className="row gap muted"><IconMail size={15} /> Email</span><b>{profile?.email}</b></div>
         {profile?.phone && <div className="pf-row"><span className="row gap muted"><IconPhone size={15} /> Phone</span><b>{prettyPhone(profile.phone)}</b></div>}
+        <div className="pf-row">
+          <span className="row gap muted">{theme === 'dark' ? <IconMoon size={15} /> : <IconSun size={15} />} Appearance</span>
+          <button className="btn ghost sm" onClick={toggle}>{theme === 'dark' ? 'Dark' : 'Light'} — switch to {theme === 'dark' ? 'light' : 'dark'}</button>
+        </div>
       </div>
 
       <div className="row gap wrap" style={{ marginTop: 16 }}>

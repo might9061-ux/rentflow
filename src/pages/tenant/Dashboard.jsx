@@ -91,7 +91,7 @@ export default function TenantDashboard() {
               <div className="eyebrow" style={overdueMonths > 0 ? { color: 'var(--danger)' } : undefined}>
                 {overdueMonths > 0 ? 'Overdue — please pay' : 'Balance this month'}
               </div>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: '2.1rem', fontWeight: 700, lineHeight: 1.1 }}>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: '2.1rem', fontWeight: 700, lineHeight: 1.1, color: overdueMonths > 0 ? 'var(--danger)' : undefined }}>
                 {money(owed)} <span className="muted" style={{ fontSize: '1rem', fontWeight: 400, fontFamily: 'var(--sans)' }}>left to pay</span>
               </div>
               <p className="muted" style={{ fontSize: '0.86rem', marginTop: 4 }}>
