@@ -107,6 +107,11 @@ export default function TenantLayout() {
             <IconKey size={15} /> Change password
           </button>
           <button className="btn ghost block sm" onClick={signOut}><IconLogout size={15} /> Sign out</button>
+          {brandMgr?.brand_name && (
+            <div style={{ textAlign: 'center', fontSize: '0.68rem', color: 'var(--text-faint)', marginTop: 12 }}>
+              Powered by <b style={{ color: 'var(--text-dim)' }}>RentLoja</b>
+            </div>
+          )}
         </div>
       </aside>
 
