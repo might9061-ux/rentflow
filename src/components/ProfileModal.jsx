@@ -11,7 +11,7 @@ import { IconMail, IconPhone, IconKey, IconLogout, IconTrash, IconSun, IconMoon 
 
 // "My profile" — view your details and set a profile picture. Works for the
 // manager (owner/agent) and the tenant.
-export default function ProfileModal({ role, onClose, onChangePassword }) {
+export default function ProfileModal({ role, title = 'My profile', onClose, onChangePassword }) {
   const { userId, profile, refresh, signOut } = useAuth()
   const { theme, toggle } = useTheme()
   const toast = useToast()
@@ -36,7 +36,7 @@ export default function ProfileModal({ role, onClose, onChangePassword }) {
   }
 
   return (
-    <Modal title="My profile" onClose={onClose} footer={<button className="btn ghost" onClick={onClose}>Done</button>}>
+    <Modal title={title} onClose={onClose} footer={<button className="btn ghost" onClick={onClose}>Done</button>}>
       <div className="center" style={{ flexDirection: 'column', gap: 12, marginBottom: 18 }}>
         <div style={{ position: 'relative' }}>
           {profile?.avatar

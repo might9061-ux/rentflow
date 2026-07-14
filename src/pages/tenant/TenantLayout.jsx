@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { useTheme } from '../../context/ThemeContext.jsx'
 import { db } from '../../lib/db.js'
 import { initials, timeAgo } from '../../lib/format.js'
 import { CountBadge, Spinner } from '../../components/ui.jsx'
@@ -15,7 +14,7 @@ import { setActiveCurrency } from '../../lib/format.js'
 import { currencyByCode, marketFor } from '../../lib/markets.js'
 import TenantVerify from './TenantVerify.jsx'
 import {
-  IconHome, IconWallet, IconReceipt, IconBell, IconLogout, IconMenu, IconUsers, IconWarn, IconInfo, IconKey, IconArrowRight, IconWrench, IconSun, IconMoon,
+  IconHome, IconWallet, IconReceipt, IconBell, IconLogout, IconMenu, IconUsers, IconWarn, IconInfo, IconKey, IconArrowRight, IconWrench, IconSun, IconMoon, IconSettings,
 } from '../../components/icons.jsx'
 
 const NAV = [
@@ -28,7 +27,6 @@ const NAV = [
 
 export default function TenantLayout() {
   const { profile, userId, signOut, loading } = useAuth()
-  const { theme, toggle } = useTheme()
   const nav = useNavigate()
   const [open, setOpen] = useState(false)
   const [showChangePw, setShowChangePw] = useState(false)
@@ -100,11 +98,8 @@ export default function TenantLayout() {
               <div className="muted" style={{ fontSize: '0.72rem' }}>View profile</div>
             </div>
           </button>
-          <button className="btn ghost block sm" onClick={toggle} style={{ marginBottom: 8 }}>
-            {theme === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          </button>
-          <button className="btn ghost block sm" onClick={() => setShowChangePw(true)} style={{ marginBottom: 8 }}>
-            <IconKey size={15} /> Change password
+          <button className="btn ghost block sm" onClick={() => setShowProfile(true)} style={{ marginBottom: 8 }}>
+            <IconSettings size={15} /> Settings
           </button>
           <button className="btn ghost block sm" onClick={signOut}><IconLogout size={15} /> Sign out</button>
           {brandMgr?.brand_name && (
@@ -118,7 +113,7 @@ export default function TenantLayout() {
       {open && <div className="sidebar-backdrop" onClick={() => setOpen(false)} />}
 
       {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
-      {showProfile && <ProfileModal role="tenant" onClose={() => setShowProfile(false)} onChangePassword={() => setShowChangePw(true)} />}
+      {showProfile && <ProfileModal role="tenant" title="Settings" onClose={() => setShowProfile(false)} onChangePassword={() => setShowChangePw(true)} />}
       {showQuickUnlock && profile && (
         <QuickUnlockSetup
           meta={{ userId, role: 'tenant', name: `${profile.first_name} ${profile.last_name}`, identifier: profile.email }}
