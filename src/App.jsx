@@ -32,6 +32,7 @@ import SubmitPayment from './pages/tenant/SubmitPayment.jsx'
 import PaymentHistory from './pages/tenant/PaymentHistory.jsx'
 import TenantNotifications from './pages/tenant/Notifications.jsx'
 import TenantMaintenance from './pages/tenant/Maintenance.jsx'
+import AdminAuth from './pages/admin/AdminAuth.jsx'
 import AdminLayout from './pages/admin/AdminLayout.jsx'
 import AdminOverview from './pages/admin/AdminOverview.jsx'
 import AdminWorkspaces from './pages/admin/AdminWorkspaces.jsx'
@@ -51,7 +52,7 @@ function RequireRole({ role, children }) {
 function RequireAdmin({ children }) {
   const { loading, session, profile } = useAuth()
   if (loading) return <LoadingScreen />
-  if (!session || session.role !== 'manager') return <Navigate to="/manager/auth" replace />
+  if (!session || session.role !== 'manager') return <Navigate to="/admin/login" replace />
   if (!profile) return <LoadingScreen />
   if (!profile.platform_admin) return <Navigate to="/manager" replace />
   return children
@@ -70,7 +71,8 @@ export default function App() {
       {/* Landing role picker */}
       <Route path="/" element={home ? <Navigate to={home} replace /> : <RolePicker />} />
 
-      {/* Platform admin */}
+      {/* Platform admin — hidden App-owner login + console */}
+      <Route path="/admin/login" element={<AdminAuth />} />
       <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
         <Route index element={<AdminOverview />} />
         <Route path="workspaces" element={<AdminWorkspaces />} />
