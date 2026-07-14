@@ -14,7 +14,7 @@ async function send({ to, subject, html }) {
     console.warn('[email] RESEND_API_KEY not set — email NOT sent:', subject)
     return { sent: false, reason: 'no_api_key' }
   }
-  const from = process.env.OTP_FROM || 'RentLoja <noreply@wwwrentflow.com>'
+  const from = process.env.OTP_FROM || 'RentLoja <noreply@rentloja.com>'
   const resp = await fetch(RESEND_ENDPOINT, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
