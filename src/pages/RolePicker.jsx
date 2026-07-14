@@ -33,23 +33,20 @@ export default function RolePicker() {
           </button>
         </div>
 
-        {/* Manager — deliberately small / understated */}
+        {/* Manager — deliberately small / understated. (App owner has no visible
+            entry: reach the admin console directly at /admin.) */}
         <div className="row gap" style={{ marginTop: 18, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button className="role-mini" onClick={() => nav('/manager/auth')}>
             <IconKey size={14} />
             <span>Property Manager sign in</span>
             <IconArrowRight size={13} style={{ opacity: 0.6 }} />
           </button>
-          <button className="role-mini" onClick={() => nav('/manager/auth')}>
-            <IconShield size={14} />
-            <span>App owner</span>
-          </button>
         </div>
 
         {DEMO_MODE && (
           <div className="demo-note">
             <IconShield size={14} />
-            <span>Running in <b>demo mode</b> — no setup needed. Try manager <code>demo@rentflow.app</code> / <code>demo1234</code>, a tenant <code>rudo@example.com</code> / <code>tenant123</code>, or the app owner <code>admin@rentflow.app</code> / <code>admin1234</code>.</span>
+            <span>Running in <b>demo mode</b> — no setup needed. Try manager <code>demo@rentflow.app</code> / <code>demo1234</code>, or a tenant <code>rudo@example.com</code> / <code>tenant123</code>.</span>
           </div>
         )}
       </div>
