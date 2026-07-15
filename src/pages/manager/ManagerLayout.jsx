@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { useTheme } from '../../context/ThemeContext.jsx'
 import { db } from '../../lib/db.js'
 import { initials } from '../../lib/format.js'
 import { CountBadge } from '../../components/ui.jsx'
@@ -39,7 +38,6 @@ const OWNER_ONLY = ['/manager/team', '/manager/plan', '/manager/branding', '/man
 
 export default function ManagerLayout() {
   const { profile, userId, signOut } = useAuth()
-  const { theme, toggle } = useTheme()
   const nav = useNavigate()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(0)
@@ -144,11 +142,8 @@ export default function ManagerLayout() {
               <div className="muted" style={{ fontSize: '0.72rem' }}>View profile</div>
             </div>
           </button>
-          <button className="btn ghost block sm" onClick={toggle} style={{ marginBottom: 8 }}>
-            {theme === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          </button>
-          <button className="btn ghost block sm" onClick={() => setShowChangePw(true)} style={{ marginBottom: 8 }}>
-            <IconKey size={15} /> Change password
+          <button className="btn ghost block sm" onClick={() => setShowProfile(true)} style={{ marginBottom: 8 }}>
+            <IconKey size={15} /> Account
           </button>
           <button className="btn ghost block sm" onClick={signOut}><IconLogout size={15} /> Sign out</button>
           {profile?.brand_name && (
@@ -162,7 +157,7 @@ export default function ManagerLayout() {
       {open && <div className="sidebar-backdrop" onClick={() => setOpen(false)} />}
 
       {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
-      {showProfile && <ProfileModal role="manager" onClose={() => setShowProfile(false)} onChangePassword={() => setShowChangePw(true)} />}
+      {showProfile && <ProfileModal role="manager" title="Account" onClose={() => setShowProfile(false)} onChangePassword={() => setShowChangePw(true)} />}
       {showQuickUnlock && profile && (
         <QuickUnlockSetup
           meta={{ userId, role: 'manager', name: `${profile.first_name} ${profile.last_name}`, identifier: profile.email }}

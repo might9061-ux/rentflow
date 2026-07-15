@@ -6,6 +6,7 @@ import RolePicker from './pages/RolePicker.jsx'
 import ManagerAuth from './pages/manager/ManagerAuth.jsx'
 import TenantLogin from './pages/tenant/TenantLogin.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
+import Privacy from './pages/Privacy.jsx'
 
 import ManagerLayout from './pages/manager/ManagerLayout.jsx'
 import ManagerDashboard from './pages/manager/Dashboard.jsx'
@@ -85,6 +86,7 @@ export default function App() {
       <Route path="/manager/auth" element={session ? <Navigate to="/manager" replace /> : <ManagerAuth />} />
       <Route path="/tenant/login" element={session ? <Navigate to="/tenant" replace /> : <TenantLogin />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/privacy" element={<Privacy />} />
 
       {/* Manager app */}
       <Route path="/manager" element={<RequireRole role="manager"><ManagerLayout /></RequireRole>}>

@@ -1,7 +1,11 @@
 {
+  "id": "/",
   "name": "RentLoja",
   "short_name": "RentLoja",
   "description": "Property rental management — rent, receipts and records, handled.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "finance", "productivity"],
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
