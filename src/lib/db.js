@@ -61,6 +61,15 @@ const sb = {
   async signInManager({ email, identifier, password }) {
     const em = await resolveLoginEmail(identifier ?? email)
     const data = ok(await supabase.auth.signInWithPassword({ email: em, password }))
+    // The login can succeed while the workspace profile is missing (e.g. the
+    // account predates the database, or the signup trigger failed). Without
+    // this check the app would silently sign them straight back out.
+    const res = await supabase.from('managers').select('id').eq('id', data.user.id).maybeSingle()
+    if (res.error) throw new Error(res.error.message)
+    if (!res.data) {
+      await supabase.auth.signOut()
+      throw new Error('Your password is correct, but this account has no manager workspace set up. If you’re a tenant, use the tenant sign-in instead. Otherwise email support@rentloja.com and we’ll finish setting it up.')
+    }
     return { id: data.user.id }
   },
   async signInTenant({ email, identifier, password }) {
