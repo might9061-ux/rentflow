@@ -94,7 +94,10 @@ const sb = {
     // succeeded (account deleted) clear the stale token. Either way return null
     // so the app shows the login screen instead of an endless spinner — this is
     // what happens when the database tables don't exist yet.
-    if (!mgr.error && !ten.error) { try { await supabase.auth.signOut() } catch { /* ignore */ } }
+    // EXCEPTION: during password recovery the user legitimately holds a session
+    // with no profile lookup yet — signing out here would break the reset page.
+    const onRecovery = typeof window !== 'undefined' && window.location?.pathname === '/reset-password'
+    if (!onRecovery && !mgr.error && !ten.error) { try { await supabase.auth.signOut() } catch { /* ignore */ } }
     return null
   },
   onAuthChange(cb) {
