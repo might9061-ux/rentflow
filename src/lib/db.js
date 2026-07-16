@@ -36,6 +36,12 @@ async function resolveLoginEmail(identifier) {
 // ── Supabase implementation ─────────────────────────────────────────────────
 const sb = {
   async signUpManager({ email, password, first_name, last_name, phone, country }) {
+    // Phone already in use? (email_for_login maps a phone to its account email.)
+    if (phone) {
+      const { data: takenBy } = await supabase.rpc('email_for_login', { p_phone: phone })
+      if (takenBy) throw new Error('An account already uses that phone number. Please sign in instead, or use a different number.')
+    }
+
     const data = ok(await supabase.auth.signUp({
       email, password,
       options: {
@@ -44,6 +50,15 @@ const sb = {
         emailRedirectTo: window.location.origin + '/manager/auth',
       },
     }))
+
+    // Supabase hides "already registered" (so strangers can't probe for accounts):
+    // it returns a user with an EMPTY identities array instead of an error. Catch
+    // that so we say so plainly rather than showing a "check your email" screen
+    // for a mail that will never arrive.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error('An account with this email already exists. Please sign in instead — or use “Forgot password?” if you’ve forgotten it.')
+    }
+
     // Trigger handle_new_manager() creates the profile row. When the project has
     // email confirmation on, no session is returned until the user clicks the
     // verification link — surface that so the UI can show "check your email".
