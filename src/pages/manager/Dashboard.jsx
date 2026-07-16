@@ -94,10 +94,10 @@ export default function ManagerDashboard() {
           ]} />
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)' }}>
+      <div className="grid dash-split">
         {/* Pending approvals */}
         <div className="card">
-          <div className="spread" style={{ padding: '18px 20px 12px' }}>
+          <div className="card-head">
             <h3>Pending approvals</h3>
             <Link to="/manager/approvals" className="btn ghost sm">Review all <IconArrowRight size={14} /></Link>
           </div>
@@ -124,7 +124,7 @@ export default function ManagerDashboard() {
 
         {/* Recent payments */}
         <div className="card">
-          <div className="spread" style={{ padding: '18px 20px 12px' }}>
+          <div className="card-head">
             <h3>Recent payments</h3>
             <Link to="/manager/payments" className="btn ghost sm">View all <IconArrowRight size={14} /></Link>
           </div>
@@ -146,6 +146,24 @@ export default function ManagerDashboard() {
           )}
         </div>
       </div>
+
+      <style>{`
+        /* Two panels side by side on desktop, stacked on phones. */
+        .dash-split { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+        /* Card header: title left, action right — wraps instead of squashing. */
+        .card-head {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 10px; flex-wrap: wrap; padding: 18px 20px 12px;
+        }
+        .card-head h3 { margin: 0; min-width: 0; }
+        .card-head .btn { flex-shrink: 0; white-space: nowrap; }
+        @media (max-width: 860px) {
+          .dash-split { grid-template-columns: 1fr; }
+          /* Keep the title + action on one line on phones. */
+          .card-head { padding: 16px 16px 10px; }
+          .card-head h3 { font-size: 1.08rem; }
+        }
+      `}</style>
     </div>
   )
 }
