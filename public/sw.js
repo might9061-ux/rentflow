@@ -1,6 +1,6 @@
 // Minimal service worker so RentLoja is installable and works offline-ish.
 // Same-origin only — never touches the API / Supabase / fonts (cross-origin).
-const CACHE = 'rentloja-v1'
+const CACHE = 'rentloja-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 
@@ -17,6 +17,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return // leave API/CDN requests alone
+  // Auth-critical pages must never be served from cache.
+  if (url.pathname.startsWith('/reset-password') || url.pathname.startsWith('/admin')) return
 
   // Navigations: network-first (so new deploys land), fall back to cached shell.
   if (req.mode === 'navigate') {
