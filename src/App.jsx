@@ -1,45 +1,48 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import { LoadingScreen } from './components/ui.jsx'
 
+// Landing stays eager for the fastest first paint; everything else is split into
+// its own chunk that only downloads when that route is visited.
 import RolePicker from './pages/RolePicker.jsx'
-import ManagerAuth from './pages/manager/ManagerAuth.jsx'
-import TenantLogin from './pages/tenant/TenantLogin.jsx'
-import ResetPassword from './pages/ResetPassword.jsx'
-import Privacy from './pages/Privacy.jsx'
+const ManagerAuth = lazy(() => import('./pages/manager/ManagerAuth.jsx'))
+const TenantLogin = lazy(() => import('./pages/tenant/TenantLogin.jsx'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'))
+const Privacy = lazy(() => import('./pages/Privacy.jsx'))
 
-import ManagerLayout from './pages/manager/ManagerLayout.jsx'
-import ManagerDashboard from './pages/manager/Dashboard.jsx'
-import Properties from './pages/manager/Properties.jsx'
-import PropertyDetail from './pages/manager/PropertyDetail.jsx'
-import Tenants from './pages/manager/Tenants.jsx'
-import TenantDetail from './pages/manager/TenantDetail.jsx'
-import Approvals from './pages/manager/Approvals.jsx'
-import Payments from './pages/manager/Payments.jsx'
-import ManagerNotifications from './pages/manager/Notifications.jsx'
-import Reminders from './pages/manager/Reminders.jsx'
-import Maintenance from './pages/manager/Maintenance.jsx'
-import Finances from './pages/manager/Finances.jsx'
-import Payroll from './pages/manager/Payroll.jsx'
-import Settings from './pages/manager/Settings.jsx'
-import Plan from './pages/manager/Plan.jsx'
-import Demo from './pages/manager/Demo.jsx'
-import Branding from './pages/manager/Branding.jsx'
-import Team from './pages/manager/Team.jsx'
+const ManagerLayout = lazy(() => import('./pages/manager/ManagerLayout.jsx'))
+const ManagerDashboard = lazy(() => import('./pages/manager/Dashboard.jsx'))
+const Properties = lazy(() => import('./pages/manager/Properties.jsx'))
+const PropertyDetail = lazy(() => import('./pages/manager/PropertyDetail.jsx'))
+const Tenants = lazy(() => import('./pages/manager/Tenants.jsx'))
+const TenantDetail = lazy(() => import('./pages/manager/TenantDetail.jsx'))
+const Approvals = lazy(() => import('./pages/manager/Approvals.jsx'))
+const Payments = lazy(() => import('./pages/manager/Payments.jsx'))
+const ManagerNotifications = lazy(() => import('./pages/manager/Notifications.jsx'))
+const Reminders = lazy(() => import('./pages/manager/Reminders.jsx'))
+const Maintenance = lazy(() => import('./pages/manager/Maintenance.jsx'))
+const Finances = lazy(() => import('./pages/manager/Finances.jsx'))
+const Payroll = lazy(() => import('./pages/manager/Payroll.jsx'))
+const Settings = lazy(() => import('./pages/manager/Settings.jsx'))
+const Plan = lazy(() => import('./pages/manager/Plan.jsx'))
+const Demo = lazy(() => import('./pages/manager/Demo.jsx'))
+const Branding = lazy(() => import('./pages/manager/Branding.jsx'))
+const Team = lazy(() => import('./pages/manager/Team.jsx'))
 
-import TenantLayout from './pages/tenant/TenantLayout.jsx'
-import TenantDashboard from './pages/tenant/Dashboard.jsx'
-import SubmitPayment from './pages/tenant/SubmitPayment.jsx'
-import PaymentHistory from './pages/tenant/PaymentHistory.jsx'
-import TenantNotifications from './pages/tenant/Notifications.jsx'
-import TenantMaintenance from './pages/tenant/Maintenance.jsx'
-import AdminAuth from './pages/admin/AdminAuth.jsx'
-import AdminLayout from './pages/admin/AdminLayout.jsx'
-import AdminOverview from './pages/admin/AdminOverview.jsx'
-import AdminWorkspaces from './pages/admin/AdminWorkspaces.jsx'
-import AdminSubscriptions from './pages/admin/AdminSubscriptions.jsx'
-import AdminFees from './pages/admin/AdminFees.jsx'
-import AdminUsers from './pages/admin/AdminUsers.jsx'
+const TenantLayout = lazy(() => import('./pages/tenant/TenantLayout.jsx'))
+const TenantDashboard = lazy(() => import('./pages/tenant/Dashboard.jsx'))
+const SubmitPayment = lazy(() => import('./pages/tenant/SubmitPayment.jsx'))
+const PaymentHistory = lazy(() => import('./pages/tenant/PaymentHistory.jsx'))
+const TenantNotifications = lazy(() => import('./pages/tenant/Notifications.jsx'))
+const TenantMaintenance = lazy(() => import('./pages/tenant/Maintenance.jsx'))
+const AdminAuth = lazy(() => import('./pages/admin/AdminAuth.jsx'))
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'))
+const AdminOverview = lazy(() => import('./pages/admin/AdminOverview.jsx'))
+const AdminWorkspaces = lazy(() => import('./pages/admin/AdminWorkspaces.jsx'))
+const AdminSubscriptions = lazy(() => import('./pages/admin/AdminSubscriptions.jsx'))
+const AdminFees = lazy(() => import('./pages/admin/AdminFees.jsx'))
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers.jsx'))
 
 function RequireRole({ role, children }) {
   const { loading, session } = useAuth()
@@ -68,6 +71,7 @@ export default function App() {
     : profile?.platform_admin ? '/admin' : '/manager'
 
   return (
+    <Suspense fallback={<LoadingScreen />}>
     <Routes>
       {/* Landing role picker */}
       <Route path="/" element={home ? <Navigate to={home} replace /> : <RolePicker />} />
@@ -122,5 +126,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   )
 }
