@@ -5,6 +5,10 @@ services:
     name: rentflow-api
     runtime: node
     plan: free
+    # Co-located with the Supabase DB (AWS eu-west-2 / London). Frankfurt is
+    # Render's closest region, so API↔DB round-trips stay ~10ms instead of
+    # crossing the Atlantic.
+    region: frankfurt
     rootDir: server
     buildCommand: npm install
     startCommand: npm start
