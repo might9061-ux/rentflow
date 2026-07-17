@@ -173,6 +173,10 @@ export const mockApi = {
 
   async signOut() { await delay(40); setSession(null) },
 
+  // Demo mode has no real tokens; the mock session restore above is enough.
+  async currentSessionTokens() { return null },
+  onSessionTokens() { return () => {} },
+
   getSessionRaw() { return getSession() },
   // Unified shape consumed by AuthContext: { userId, role } | null
   async resolveSession() { return getSession() },

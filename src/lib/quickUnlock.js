@@ -36,6 +36,17 @@ export function forgetAccount(userId) {
   saveVault(v)
 }
 
+// ── Saved sign-in token (lets unlock re-establish a REAL session) ────────────
+// The biometric/PIN only proves it's you; the app still needs a live Supabase
+// session to work. We keep the account's refresh token here, kept in sync with
+// Supabase's rotation, so unlock can revive the session without the password.
+// Only stored for accounts already secured on this device.
+export function stashTokens(userId, tokens) {
+  if (!getAccount(userId) || !tokens?.refresh_token) return
+  upsert({ userId, tokens })
+}
+export function readTokens(userId) { return getAccount(userId)?.tokens || null }
+
 // ── PIN (hashed with SHA-256 + per-account salt) ─────────────────────────────
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))

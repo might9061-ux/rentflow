@@ -100,10 +100,39 @@ const sb = {
     }
     return { id: data.user.id, first_login: res.data.first_login }
   },
-  // Quick unlock relies on the persisted Supabase session (auth tokens live in
-  // storage); the PIN / passkey gate is enforced client-side before reuse.
-  async quickUnlockSession({ userId, role }) { return { id: userId, role } },
-  async signOut() { await supabase.auth.signOut() },
+  // Quick unlock: the PIN / passkey gate has already passed on the device. Now
+  // re-establish a REAL Supabase session so the app + API have a valid bearer
+  // token. Prefer any session still persisted; otherwise revive it from the
+  // device-saved refresh token.
+  async quickUnlockSession({ userId, role, tokens }) {
+    let { data: { session } } = await supabase.auth.getSession()
+    if (!session && tokens?.refresh_token) {
+      const res = await supabase.auth.refreshSession({ refresh_token: tokens.refresh_token })
+      if (res.error || !res.data?.session) {
+        throw new Error('Your saved sign-in has expired. Please sign in with your password once — then fingerprint / PIN will work again.')
+      }
+      session = res.data.session
+    }
+    if (!session) throw new Error('Please sign in with your password to continue.')
+    return { id: session.user.id, role }
+  },
+  // Current session tokens, captured when securing the device (or on refresh).
+  async currentSessionTokens() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return null
+    return { access_token: session.access_token, refresh_token: session.refresh_token }
+  },
+  // Fires whenever Supabase issues/rotates a session so the device-saved token
+  // stays valid for the next unlock. Returns an unsubscribe function.
+  onSessionTokens(cb) {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) cb(session.user.id, { access_token: session.access_token, refresh_token: session.refresh_token })
+    })
+    return () => data.subscription.unsubscribe()
+  },
+  // Local sign-out: clears this device's session but does NOT revoke the refresh
+  // token server-side, so a user who secured the device can fingerprint back in.
+  async signOut() { await supabase.auth.signOut({ scope: 'local' }) },
   // Unified shape consumed by AuthContext: { userId, role } | null
   async resolveSession() {
     const { data: { session } } = await supabase.auth.getSession()

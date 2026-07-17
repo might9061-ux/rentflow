@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Modal from './Modal.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import * as unlock from '../lib/quickUnlock.js'
+import { db } from '../lib/db.js'
 import { IconKey, IconShield, IconCheck } from './icons.jsx'
 
 // Offered once after a fresh password login: secure THIS device with a
@@ -17,16 +18,20 @@ export default function QuickUnlockSetup({ meta, onClose }) {
 
   useEffect(() => { unlock.biometricAvailable().then(setBioOk) }, [])
 
+  // Save the current session token so unlock can revive it later without a password.
+  const stash = async () => {
+    try { const t = await db.currentSessionTokens(); if (t) unlock.stashTokens(meta.userId, t) } catch { /* non-fatal */ }
+  }
   const savePin = async () => {
     if (!/^\d{4,6}$/.test(pin)) return toast.error('PIN must be 4–6 digits')
     if (pin !== pin2) return toast.error('PINs don’t match')
     setBusy(true)
-    try { await unlock.setPin(meta, pin); setPinSaved(true); setPin(''); setPin2(''); toast.success('App PIN set for this device') }
+    try { await unlock.setPin(meta, pin); await stash(); setPinSaved(true); setPin(''); setPin2(''); toast.success('App PIN set for this device') }
     finally { setBusy(false) }
   }
   const enableBio = async () => {
     setBusy(true)
-    try { await unlock.registerBiometric(meta); setBioSaved(true); toast.success('Fingerprint / Face ID enabled') }
+    try { await unlock.registerBiometric(meta); await stash(); setBioSaved(true); toast.success('Fingerprint / Face ID enabled') }
     catch (e) { toast.error('Could not enable biometric', e.message) }
     finally { setBusy(false) }
   }

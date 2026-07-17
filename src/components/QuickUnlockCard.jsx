@@ -24,7 +24,7 @@ export default function QuickUnlockCard() {
   const finish = async (acc) => {
     setBusy(true)
     try {
-      await quickUnlock({ userId: acc.userId, role: acc.role })
+      await quickUnlock({ userId: acc.userId, role: acc.role, tokens: unlock.readTokens(acc.userId) })
       nav(acc.role === 'manager' ? '/manager' : '/tenant')
     } catch (e) { toast.error('Could not unlock', e.message); setBusy(false) }
   }

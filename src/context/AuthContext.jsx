@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { db } from '../lib/db.js'
 import { setActiveCurrency } from '../lib/format.js'
 import { currencyByCode, marketFor } from '../lib/markets.js'
+import { stashTokens } from '../lib/quickUnlock.js'
 
 const AuthCtx = createContext(null)
 export const useAuth = () => useContext(AuthCtx)
@@ -34,7 +35,10 @@ export function AuthProvider({ children }) {
     // Always clear loading, even if refresh rejects, so we never spin forever.
     ;(async () => { try { await refresh() } finally { if (alive) setLoading(false) } })()
     const unsub = db.onAuthChange(() => { refresh() })
-    return () => { alive = false; unsub && unsub() }
+    // Keep each secured device's saved token current as Supabase rotates it, so
+    // fingerprint / PIN unlock can revive the session later.
+    const unsubTokens = db.onSessionTokens((userId, tokens) => stashTokens(userId, tokens))
+    return () => { alive = false; unsub && unsub(); unsubTokens && unsubTokens() }
   }, [refresh])
 
   const value = {
@@ -47,7 +51,7 @@ export function AuthProvider({ children }) {
     async signUpManager(data) { const r = await db.signUpManager(data); await refresh(); return r },
     async resendVerification(email) { return db.resendVerification(email) },
     async signInTenant(creds) { const r = await db.signInTenant(creds); await refresh(); return r },
-    async quickUnlock({ userId, role }) { await db.quickUnlockSession({ userId, role }); await refresh() },
+    async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); await refresh() },
     async signOut() { await db.signOut(); setSession(null); setProfile(null) },
   }
 
