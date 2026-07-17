@@ -6,16 +6,31 @@
 //   req.db    — a Supabase client scoped to this user (RLS applies)
 import { admin, forUser } from './supabase.js'
 
+// Verifying a token with Supabase is a network round-trip. Active users fire
+// many requests in a row with the SAME token, so we cache the verified user for
+// a short window and skip the round-trip on repeats. RLS still runs per-request
+// under the caller's token, so this is purely a speed-up, not a security change.
+const TOKEN_TTL_MS = 60_000
+const tokenCache = new Map() // token -> { user, exp }
+
 export async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || ''
     const token = header.startsWith('Bearer ') ? header.slice(7) : null
     if (!token) return res.status(401).json({ error: 'Missing bearer token' })
 
-    const { data, error } = await admin.auth.getUser(token)
-    if (error || !data?.user) return res.status(401).json({ error: 'Invalid or expired session' })
+    const now = Date.now()
+    let entry = tokenCache.get(token)
+    if (!entry || entry.exp <= now) {
+      const { data, error } = await admin.auth.getUser(token)
+      if (error || !data?.user) { tokenCache.delete(token); return res.status(401).json({ error: 'Invalid or expired session' }) }
+      entry = { user: data.user, exp: now + TOKEN_TTL_MS }
+      tokenCache.set(token, entry)
+      // Opportunistic cleanup so the map can't grow unbounded.
+      if (tokenCache.size > 5000) { for (const [k, v] of tokenCache) if (v.exp <= now) tokenCache.delete(k) }
+    }
 
-    req.user = data.user
+    req.user = entry.user
     req.token = token
     req.db = forUser(token)
     next()
