@@ -4,19 +4,23 @@
 // A manager chooses how many tenants they need; the monthly price is set by
 // the tier their capacity falls into.
 //
-//   up to   5 tenants → $14   (Starter)
-//   up to  20 tenants → $80   (Growth)
-//   up to  50 tenants → $280  (Pro)
-//   up to 100 tenants → $580  (Portfolio)
-//   100+ tenants      → $700  (Enterprise)
+//   up to   5 tenants → $10  (Starter)
+//   up to  20 tenants → $20  (Growth)
+//   up to  50 tenants → $40  (Pro)
+//   up to 100 tenants → $50  (Portfolio)
+//   100+ tenants      → $70  (Enterprise)
+//
+// Existing subscribers are NOT repriced: each manager's agreed price is stored
+// on their own row (plan_price), so changing this table only affects new
+// sign-ups and upgrades.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const PLAN_TIERS = [
-  { name: 'Starter',    upTo: 5,        price: 14 },
-  { name: 'Growth',     upTo: 20,       price: 80 },
-  { name: 'Pro',        upTo: 50,       price: 280 },
-  { name: 'Portfolio',  upTo: 100,      price: 580 },
-  { name: 'Enterprise', upTo: Infinity, price: 700 },
+  { name: 'Starter',    upTo: 5,        price: 10 },
+  { name: 'Growth',     upTo: 20,       price: 20 },
+  { name: 'Pro',        upTo: 50,       price: 40 },
+  { name: 'Portfolio',  upTo: 100,      price: 50 },
+  { name: 'Enterprise', upTo: Infinity, price: 70 },
 ]
 
 export const MIN_CAPACITY = 1
