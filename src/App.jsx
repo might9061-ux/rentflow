@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import { LoadingScreen } from './components/ui.jsx'
+import AppLock from './components/AppLock.jsx'
 
 // Landing stays eager for the fastest first paint; everything else is split into
 // its own chunk that only downloads when that route is visited.
@@ -71,6 +72,9 @@ export default function App() {
     : profile?.platform_admin ? '/admin' : '/manager'
 
   return (
+    <>
+    {/* Covers the whole app when it's been backgrounded — session stays live. */}
+    <AppLock />
     <Suspense fallback={<LoadingScreen />}>
     <Routes>
       {/* Landing role picker */}
@@ -127,5 +131,6 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </Suspense>
+    </>
   )
 }

@@ -3,6 +3,7 @@ import { db } from '../lib/db.js'
 import { setActiveCurrency } from '../lib/format.js'
 import { currencyByCode, marketFor } from '../lib/markets.js'
 import { stashTokens } from '../lib/quickUnlock.js'
+import { markUnlocked, markLocked } from '../lib/lockState.js'
 
 const AuthCtx = createContext(null)
 export const useAuth = () => useContext(AuthCtx)
@@ -47,12 +48,14 @@ export function AuthProvider({ children }) {
     role: session?.role || null,
     refresh,
 
-    async signInManager(creds) { await db.signInManager(creds); await refresh() },
-    async signUpManager(data) { const r = await db.signUpManager(data); await refresh(); return r },
+    // Anyone who just proved themselves (password, or a quick unlock) starts
+    // the run unlocked — the lock screen is for returning to a running session.
+    async signInManager(creds) { await db.signInManager(creds); markUnlocked(); await refresh() },
+    async signUpManager(data) { const r = await db.signUpManager(data); markUnlocked(); await refresh(); return r },
     async resendVerification(email) { return db.resendVerification(email) },
-    async signInTenant(creds) { const r = await db.signInTenant(creds); await refresh(); return r },
-    async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); await refresh() },
-    async signOut() { await db.signOut(); setSession(null); setProfile(null) },
+    async signInTenant(creds) { const r = await db.signInTenant(creds); markUnlocked(); await refresh(); return r },
+    async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); markUnlocked(); await refresh() },
+    async signOut() { await db.signOut(); markLocked(); setSession(null); setProfile(null) },
   }
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>
