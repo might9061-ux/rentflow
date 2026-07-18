@@ -3,6 +3,8 @@
 // authorisation happen in the database.
 import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
+import { admin } from '../supabase.js'
+import * as paynow from '../lib/paynow.js'
 
 const router = Router()
 
@@ -34,6 +36,74 @@ router.post('/online', h(async (req, res) => {
   const row = { ...req.body, tenant_id: req.user.id, manager_id: t.manager_id, paid_online: true, status: 'pending' }
   res.json(ok(await req.db.from('payments').insert(row).select().single()))
 }))
+
+// POST /api/payments/gateway/start — a tenant starts a REAL gateway payment.
+//
+// The money goes to the landlord's own Paynow account. We create the payment
+// row as pending and hand back what the tenant's device needs (a PIN prompt is
+// pushed to their phone for EcoCash, or a checkout URL for card). It only
+// becomes 'approved' when the gateway itself confirms it — never on the
+// client's say-so.
+router.post('/gateway/start', h(async (req, res) => {
+  const t = ok(await req.db.from('tenants')
+    .select('manager_id, first_name, last_name, email').eq('id', req.user.id).single())
+  const { amount, method, phone, period_from, period_to } = req.body || {}
+
+  const reference = `RENT-${Date.now().toString(36).toUpperCase()}`
+  const started = await paynow.initiate({
+    managerId: t.manager_id,
+    reference,
+    email: t.email || req.user.email,
+    amount,
+    method,
+    phone,
+    description: `Rent — ${[t.first_name, t.last_name].filter(Boolean).join(' ')}`,
+  })
+
+  const row = ok(await req.db.from('payments').insert({
+    tenant_id: req.user.id, manager_id: t.manager_id,
+    amount, method: method || 'card', payer_phone: phone || null,
+    period_from, period_to,
+    paid_online: true, status: 'pending',
+    gateway_ref: reference, gateway_poll_url: started.pollUrl,
+  }).select().single())
+
+  res.json({
+    payment: row,
+    redirectUrl: started.redirectUrl,
+    instructions: started.instructions,
+  })
+}))
+
+// GET /api/payments/gateway/status/:id — has the gateway confirmed it yet?
+// Approving here (rather than trusting the client) is what makes this safe:
+// the tenant's device can only ASK, the gateway decides.
+router.get('/gateway/status/:id', h(async (req, res) => {
+  const p = ok(await req.db.from('payments')
+    .select('id, manager_id, status, gateway_poll_url').eq('id', req.params.id).single())
+
+  if (p.status === 'approved') return res.json({ state: 'paid', payment: p })
+  if (!p.gateway_poll_url) return res.json({ state: 'pending', payment: p })
+
+  const state = await paynow.poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url })
+  if (state === 'paid') await settle(p.id)
+  if (state === 'cancelled') {
+    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id)
+  }
+  const fresh = ok(await req.db.from('payments').select('*').eq('id', p.id).single())
+  res.json({ state, payment: fresh })
+}))
+
+// Mark a gateway-confirmed payment approved, via the same RPC the manager's
+// approve button uses — so receipts, credit and the ledger stay identical.
+// Idempotent: 0016 made approve_payment safe to call twice.
+async function settle(paymentId) {
+  const { data: row } = await admin.from('payments').select('status').eq('id', paymentId).maybeSingle()
+  if (!row || row.status === 'approved') return
+  const { error } = await admin.rpc('approve_payment', { p_payment_id: paymentId })
+  if (error) throw new Error(error.message)
+}
+export { settle }
 
 // POST /api/payments/log — a manager records a payment (e.g. cash) then approves
 // it so a receipt is issued immediately.

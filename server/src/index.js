@@ -19,6 +19,7 @@ import refunds from './routes/refunds.js'
 import tenantQuestions from './routes/tenantQuestions.js'
 import otp from './routes/otp.js'
 import platform from './routes/platform.js'
+import paynowResult from './routes/paynowResult.js'
 
 const app = express()
 const PORT = process.env.PORT || 8787
@@ -40,10 +41,16 @@ app.use(cors({
   },
 }))
 app.use(express.json({ limit: '5mb' }))
+// Paynow posts its result callback as form-encoded, not JSON.
+app.use(express.urlencoded({ extended: false }))
 app.use(morgan('dev'))
 
 // Public health check (no auth) — used to confirm the server is up.
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'rentflow-api', ts: Date.now() }))
+
+// Paynow's server-to-server callback. PUBLIC on purpose (Paynow holds no token)
+// — it authenticates itself by a hash keyed to the workspace's integration key.
+app.use('/paynow', paynowResult)
 
 // Everything below requires a valid Supabase session token.
 app.use('/api', requireAuth)
