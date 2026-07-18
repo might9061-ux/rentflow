@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { DEMO_MODE } from '../lib/db.js'
 import { IconUsers, IconKey, IconArrowRight, IconShield } from '../components/icons.jsx'
 import QuickUnlockCard from '../components/QuickUnlockCard.jsx'
+import InstallApp from '../components/InstallApp.jsx'
 
 export default function RolePicker() {
   const nav = useNavigate()
@@ -42,6 +43,9 @@ export default function RolePicker() {
             <IconArrowRight size={13} style={{ opacity: 0.6 }} />
           </button>
         </div>
+
+        {/* Only appears when the device can actually install it (and isn't already). */}
+        <InstallApp />
 
         {DEMO_MODE && (
           <div className="demo-note">
