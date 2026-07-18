@@ -61,7 +61,7 @@ export default function AdminOverview() {
           <table className="data">
             <thead><tr><th>Date</th><th>Workspace</th><th>For</th><th>Method</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
             <tbody>
-              {data.recentPayments.slice(0, 8).map((p) => (
+              {(data.recentPayments || []).slice(0, 8).map((p) => (
                 <tr key={p.id}>
                   <td className="nowrap">{fmtDate(p.created_at)}</td>
                   <td style={{ fontWeight: 600 }}>{p.workspace}</td>

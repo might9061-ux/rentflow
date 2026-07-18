@@ -85,6 +85,20 @@ router.get('/overview', h(async (req, res) => {
     activeSubs: owners.filter((o) => o.plan_active).length, totalWorkspaces: owners.length,
     users: { tenants: tenants.length, managers: owners.length, agents: agents.length },
     subscriptions: subs.map((s) => ({ created_at: s.created_at, amount: Number(s.amount), manager_id: s.manager_id })),
+    // The overview's "Recent subscription payments" table — needs the workspace
+    // name and what the payment was for, which the bare subscriptions list above
+    // (used only for revenue sums) doesn't carry.
+    recentPayments: subs.slice(0, 20).map((s) => {
+      const o = owners.find((m) => m.id === s.manager_id)
+      return {
+        id: s.id,
+        created_at: s.created_at,
+        amount: Number(s.amount),
+        workspace: o ? (o.brand_name || name(o)) : '—',
+        period: s.period || '—',
+        method: s.method || '—',
+      }
+    }),
     transactions: approved.map((p) => ({ created_at: p.approved_at || p.paid_date || p.created_at, amount: Number(p.amount), fee: p.fee != null ? Number(p.fee) : platformFee(p.amount), manager_id: p.manager_id })),
     workspaces,
   })
