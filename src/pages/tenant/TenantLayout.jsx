@@ -9,7 +9,7 @@ import AssistantWidget from '../../components/AssistantWidget.jsx'
 import QuickUnlockSetup from '../../components/QuickUnlockSetup.jsx'
 import ProfileModal from '../../components/ProfileModal.jsx'
 import { hasQuickUnlock } from '../../lib/quickUnlock.js'
-import { brandVars } from '../../lib/brand.js'
+import { brandVars, cacheBrand } from '../../lib/brand.js'
 import { setActiveCurrency } from '../../lib/format.js'
 import { currencyByCode, marketFor } from '../../lib/markets.js'
 import TenantVerify from './TenantVerify.jsx'
@@ -46,6 +46,8 @@ export default function TenantLayout() {
     const m = await db.getTenantManager(userId)
     if (m) setActiveCurrency(currencyByCode(m.currency || marketFor(m.country).currency))
     setBrandMgr(m)
+    // The lock screen can't fetch this, so keep a local copy of the manager's brand.
+    if (m) cacheBrand(userId, { name: m.brand_name, logo: m.brand_logo, color: m.brand_color })
   })() }, [userId])
   // Offer quick-unlock setup once per login session (only after first-login verification).
   useEffect(() => {

@@ -13,7 +13,7 @@ import {
   IconGrid, IconBuilding, IconUsers, IconCheckCircle, IconWallet,
   IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconTag, IconSparkle, IconPalette, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash,
 } from '../../components/icons.jsx'
-import { brandVars } from '../../lib/brand.js'
+import { brandVars, cacheBrand } from '../../lib/brand.js'
 
 const NAV = [
   { to: '/manager', end: true, label: 'Dashboard', icon: IconGrid },
@@ -59,6 +59,11 @@ export default function ManagerLayout() {
   }, [userId])
 
   useEffect(() => { loadPending() }, [loadPending, loc.pathname])
+
+  // Keep the lock screen able to show this workspace's brand with no network.
+  useEffect(() => {
+    if (userId && profile) cacheBrand(userId, { name: profile.brand_name, logo: profile.brand_logo, color: profile.brand_color })
+  }, [userId, profile])
   // Close the menu and any lingering quick-unlock prompt when navigating, so it
   // never sits on top of the page or stacks with another modal.
   const firstNav = useRef(true)

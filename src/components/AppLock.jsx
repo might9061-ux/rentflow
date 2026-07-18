@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import * as unlock from '../lib/quickUnlock.js'
 import { isUnlocked, markUnlocked, markLocked } from '../lib/lockState.js'
+import { readBrand, brandDisplay } from '../lib/brand.js'
 import { initials } from '../lib/format.js'
 import { IconShield, IconArrowRight, IconLogout } from './icons.jsx'
 
@@ -65,15 +66,22 @@ export default function AppLock() {
   const canBio = bioOk && unlock.hasBiometric(userId)
   const canPin = unlock.hasPin(userId)
   const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
+  // Managers carry their brand on their own profile; tenants get their
+  // manager's, which the layout cached for us (no network while locked).
+  const brand = brandDisplay(
+    profile?.brand_name ? { name: profile.brand_name, logo: profile.brand_logo } : readBrand(userId)
+  )
 
   return (
     <div className="applock">
       <div className="applock-inner">
-        <div className="brand-mark" style={{ margin: '0 auto 22px' }}>RL</div>
+        {brand.logo
+          ? <img className="applock-logo" src={brand.logo} alt={brand.name} />
+          : <div className="brand-mark" style={{ margin: '0 auto 22px' }}>{brand.mark}</div>}
         {name && <div className="avatar applock-av">{initials(...name.split(' '))}</div>}
         <h2 style={{ marginBottom: 4 }}>{name ? `Welcome back, ${name.split(' ')[0]}` : 'Welcome back'}</h2>
         <p className="muted" style={{ marginBottom: 26, fontSize: '0.9rem' }}>
-          RentLoja is locked. Unlock to continue.
+          {brand.name} is locked. Unlock to continue.
         </p>
 
         {canBio && (
@@ -93,6 +101,12 @@ export default function AppLock() {
         <button className="btn ghost sm applock-out" onClick={signOut}>
           <IconLogout size={14} /> Sign out instead
         </button>
+
+        {brand.custom && (
+          <div className="applock-credit">
+            Powered by <b style={{ color: 'var(--text-dim)' }}>RentLoja</b>
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -103,6 +117,8 @@ export default function AppLock() {
         .applock-inner { width: 100%; max-width: 360px; text-align: center; }
         .applock-av { width: 58px; height: 58px; margin: 0 auto 14px; font-size: 1.15rem; }
         .applock-out { margin-top: 22px; color: var(--text-faint); }
+        .applock-logo { max-height: 54px; max-width: 190px; object-fit: contain; margin: 0 auto 22px; display: block; }
+        .applock-credit { margin-top: 26px; font-size: 0.68rem; color: var(--text-faint); }
       `}</style>
     </div>
   )
