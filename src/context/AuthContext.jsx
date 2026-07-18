@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { db } from '../lib/db.js'
 import { setActiveCurrency } from '../lib/format.js'
 import { currencyByCode, marketFor } from '../lib/markets.js'
-import { stashTokens } from '../lib/quickUnlock.js'
+import { stashTokens, markSignedOut, clearSignedOut } from '../lib/quickUnlock.js'
 import { markUnlocked, markLocked } from '../lib/lockState.js'
 
 const AuthCtx = createContext(null)
@@ -38,7 +38,8 @@ export function AuthProvider({ children }) {
     const unsub = db.onAuthChange(() => { refresh() })
     // Keep each secured device's saved token current as Supabase rotates it, so
     // fingerprint / PIN unlock can revive the session later.
-    const unsubTokens = db.onSessionTokens((userId, tokens) => stashTokens(userId, tokens))
+    // A live session also means they're back in — undo any dormant flag.
+    const unsubTokens = db.onSessionTokens((userId, tokens) => { stashTokens(userId, tokens); clearSignedOut(userId) })
     return () => { alive = false; unsub && unsub(); unsubTokens && unsubTokens() }
   }, [refresh])
 
@@ -50,12 +51,15 @@ export function AuthProvider({ children }) {
 
     // Anyone who just proved themselves (password, or a quick unlock) starts
     // the run unlocked — the lock screen is for returning to a running session.
-    async signInManager(creds) { await db.signInManager(creds); markUnlocked(); await refresh() },
+    async signInManager(creds) { const r = await db.signInManager(creds); markUnlocked(); clearSignedOut(r?.id); await refresh(); return r },
     async signUpManager(data) { const r = await db.signUpManager(data); markUnlocked(); await refresh(); return r },
     async resendVerification(email) { return db.resendVerification(email) },
-    async signInTenant(creds) { const r = await db.signInTenant(creds); markUnlocked(); await refresh(); return r },
-    async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); markUnlocked(); await refresh() },
-    async signOut() { await db.signOut(); markLocked(); setSession(null); setProfile(null) },
+    async signInTenant(creds) { const r = await db.signInTenant(creds); markUnlocked(); clearSignedOut(r?.id); await refresh(); return r },
+    async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); markUnlocked(); clearSignedOut(userId); await refresh() },
+    // Signing out is deliberate: stop offering password-free re-entry on the
+    // landing screen, but keep the PIN/passkey so the lock screen still works
+    // once they sign back in.
+    async signOut() { markSignedOut(session?.userId); await db.signOut(); markLocked(); setSession(null); setProfile(null) },
   }
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>

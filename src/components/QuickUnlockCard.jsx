@@ -12,7 +12,8 @@ export default function QuickUnlockCard() {
   const { quickUnlock } = useAuth()
   const nav = useNavigate()
   const toast = useToast()
-  const [accounts, setAccounts] = useState(unlock.listAccounts())
+  // Only accounts that didn't deliberately sign out — see listResumable().
+  const [accounts, setAccounts] = useState(unlock.listResumable())
   const [active, setActive] = useState(accounts[0] || null)
   const [pin, setPin] = useState('')
   const [bioOk, setBioOk] = useState(false)
@@ -40,7 +41,7 @@ export default function QuickUnlockCard() {
   }
   const forget = () => {
     unlock.forgetAccount(active.userId)
-    const rest = unlock.listAccounts()
+    const rest = unlock.listResumable()
     setAccounts(rest); setActive(rest[0] || null); setPin('')
   }
 

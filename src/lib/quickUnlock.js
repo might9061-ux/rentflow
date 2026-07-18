@@ -19,6 +19,12 @@ function loadVault() {
 function saveVault(v) { localStorage.setItem(VAULT_KEY, JSON.stringify(v)) }
 
 export function listAccounts() { return loadVault().accounts }
+
+// After an explicit sign-out we stop offering password-free re-entry on the
+// landing screen — signing out should mean signing out. The device's PIN /
+// passkey registration is KEPT, so the in-app lock screen still works as soon
+// as they sign back in, with nothing to set up again.
+export function listResumable() { return loadVault().accounts.filter((a) => !a.dormant) }
 export function getAccount(userId) { return loadVault().accounts.find((a) => a.userId === userId) || null }
 export function hasQuickUnlock(userId) { return !!getAccount(userId) }
 
@@ -29,6 +35,11 @@ function upsert(account) {
   else v.accounts.push(account)
   saveVault(v)
 }
+
+// Dormant = signed out on purpose. Hides the landing "Welcome back" card while
+// leaving hasPin/hasBiometric intact for the in-app lock screen.
+export function markSignedOut(userId) { if (getAccount(userId)) upsert({ userId, dormant: true }) }
+export function clearSignedOut(userId) { if (getAccount(userId)) upsert({ userId, dormant: false }) }
 
 export function forgetAccount(userId) {
   const v = loadVault()
