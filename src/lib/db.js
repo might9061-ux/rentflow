@@ -82,7 +82,7 @@ const sb = {
     const res = await supabase.from('managers').select('id').eq('id', data.user.id).maybeSingle()
     if (res.error) throw new Error(res.error.message)
     if (!res.data) {
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })
       throw new Error('Your password is correct, but this account has no manager workspace set up. If you’re a tenant, use the tenant sign-in instead. Otherwise email support@rentloja.com and we’ll finish setting it up.')
     }
     return { id: data.user.id }
@@ -95,7 +95,7 @@ const sb = {
     const res = await supabase.from('tenants').select('first_login').eq('id', data.user.id).maybeSingle()
     if (res.error) throw new Error(res.error.message)
     if (!res.data) {
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })
       throw new Error('This login isn’t a tenant account. If you’re a property manager, use the manager sign-in page.')
     }
     return { id: data.user.id, first_login: res.data.first_login }
@@ -109,11 +109,13 @@ const sb = {
     if (!session && tokens?.refresh_token) {
       const res = await supabase.auth.refreshSession({ refresh_token: tokens.refresh_token })
       if (res.error || !res.data?.session) {
-        throw new Error('Your saved sign-in has expired. Please sign in with your password once — then fingerprint / PIN will work again.')
+        // Surface the underlying reason — "Refresh Token Not Found" means it was
+        // revoked, anything else points at a different failure.
+        throw new Error(`Saved sign-in rejected [${res.error?.message || 'no session returned'}]. Sign in with your password once.`)
       }
       session = res.data.session
     }
-    if (!session) throw new Error('Please sign in with your password to continue.')
+    if (!session) throw new Error('No saved sign-in on this device yet [no token stored]. Sign in with your password once — that saves it.')
     return { id: session.user.id, role }
   },
   // Current session tokens, captured when securing the device (or on refresh).
@@ -150,7 +152,9 @@ const sb = {
     // EXCEPTION: during password recovery the user legitimately holds a session
     // with no profile lookup yet — signing out here would break the reset page.
     const onRecovery = typeof window !== 'undefined' && window.location?.pathname === '/reset-password'
-    if (!onRecovery && !mgr.error && !ten.error) { try { await supabase.auth.signOut() } catch { /* ignore */ } }
+    // Local scope only: clearing this device is enough. A global sign-out would
+    // revoke the refresh token everywhere, killing quick unlock on every device.
+    if (!onRecovery && !mgr.error && !ten.error) { try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* ignore */ } }
     return null
   },
   onAuthChange(cb) {
