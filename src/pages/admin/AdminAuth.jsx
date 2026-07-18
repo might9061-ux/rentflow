@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import AuthShell from '../AuthShell.jsx'
+import ForgotPasswordModal from '../ForgotPasswordModal.jsx'
 import { Input, PasswordInput } from '../../components/Field.jsx'
 import { isEmailOrPhone } from '../../lib/validate.js'
 import { friendlyError } from '../../lib/errors.js'
@@ -14,6 +15,7 @@ export default function AdminAuth() {
   const toast = useToast()
   const nav = useNavigate()
   const [busy, setBusy] = useState(false)
+  const [forgot, setForgot] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
@@ -44,10 +46,20 @@ export default function AdminAuth() {
         <Input label="Email" autoComplete="username" value={form.email} onChange={set('email')}
           placeholder="you@rentloja.com" required />
         <PasswordInput label="Password" autoComplete="current-password" value={form.password} onChange={set('password')} required />
+        {/* Without this the App owner has no way back into their own console. */}
+        <div style={{ textAlign: 'right', marginTop: -4 }}>
+          <button type="button" className="link-btn" onClick={() => setForgot(true)}>Forgot password?</button>
+        </div>
         <button className="btn primary block lg" disabled={busy} style={{ marginTop: 6 }}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+
+      {forgot && (
+        <ForgotPasswordModal accent="gold" initialEmail={form.email}
+          onClose={() => setForgot(false)}
+          onReset={(email) => setForm((f) => ({ ...f, email, password: '' }))} />
+      )}
     </AuthShell>
   )
 }

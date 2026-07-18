@@ -24,6 +24,39 @@ router.use(async (req, res, next) => {
   }
 })
 
+// PATCH /api/platform/workspaces/:id/plan — the App owner activates, changes or
+// switches off a workspace's plan. This is the ONLY way a plan can be turned on:
+// managers can no longer set their own billing columns (migration 0019), so a
+// landlord pays out-of-band (EcoCash/bank) and the owner flips them on here.
+// Uses the service-role client, which the trigger in 0019 trusts.
+router.patch('/workspaces/:id/plan', h(async (req, res) => {
+  const { plan_active, plan_capacity, plan_price } = req.body || {}
+  const patch = {}
+
+  if (plan_active !== undefined) patch.plan_active = !!plan_active
+  if (plan_capacity !== undefined) {
+    const c = Number(plan_capacity)
+    if (!Number.isFinite(c) || c < 0) throw new Error('Capacity must be a positive number.')
+    patch.plan_capacity = Math.floor(c)
+  }
+  if (plan_price !== undefined) {
+    const p = Number(plan_price)
+    if (!Number.isFinite(p) || p < 0) throw new Error('Price must be a positive number.')
+    patch.plan_price = p
+  }
+  if (!Object.keys(patch).length) throw new Error('Nothing to update.')
+
+  // Stamp the start date the first time a workspace is switched on.
+  if (patch.plan_active) {
+    const { data: cur } = await admin.from('managers').select('plan_started_at').eq('id', req.params.id).maybeSingle()
+    if (!cur?.plan_started_at) patch.plan_started_at = new Date().toISOString()
+  }
+
+  res.json(ok(await admin.from('managers').update(patch).eq('id', req.params.id).select(
+    'id, first_name, last_name, brand_name, plan_active, plan_capacity, plan_price, plan_started_at',
+  ).single()))
+}))
+
 router.get('/overview', h(async (req, res) => {
   const [owners, agents, subs, tenants, approved] = await Promise.all([
     ok(await admin.from('managers').select('id,first_name,last_name,brand_name,email,country,plan_active,plan_capacity,plan_price,created_at').eq('role', 'owner').neq('platform_admin', true)),

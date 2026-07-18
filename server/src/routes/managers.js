@@ -19,9 +19,20 @@ router.get('/workspace', h(async (req, res) => {
   res.json(ok(await req.db.from('managers').select('*').eq('id', ownerId).single()))
 }))
 
+// Columns a manager may never set on themselves: privilege and billing. The
+// database enforces this too (migration 0019) since the anon key is public and
+// callers can reach PostgREST directly — this is defence in depth, and it fails
+// loudly here so a buggy client doesn't silently "succeed".
+const PROTECTED_FIELDS = ['platform_admin', 'plan_active', 'plan_capacity', 'plan_price', 'plan_started_at']
+
 // PATCH /api/managers/me — update settings on the caller's own profile.
 router.patch('/me', h(async (req, res) => {
-  res.json(ok(await req.db.from('managers').update(req.body || {}).eq('id', req.user.id).select().single()))
+  const patch = { ...(req.body || {}) }
+  const attempted = PROTECTED_FIELDS.filter((f) => f in patch)
+  if (attempted.length) {
+    return res.status(403).json({ error: `Not allowed to change: ${attempted.join(', ')}` })
+  }
+  res.json(ok(await req.db.from('managers').update(patch).eq('id', req.user.id).select().single()))
 }))
 
 // GET /api/managers/team — staff managers under this owner.
