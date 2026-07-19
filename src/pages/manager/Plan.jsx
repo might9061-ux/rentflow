@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
-import { money, fmtDate, monthYear } from '../../lib/format.js'
+import { money, fmtDate } from '../../lib/format.js'
 import {
   priceForCapacity, PLAN_PRESETS, PLAN_TIERS, tierForCapacity, MIN_CAPACITY, MAX_CAPACITY,
 } from '../../lib/pricing.js'
@@ -85,33 +85,11 @@ export default function Plan() {
     tierName: tierForCapacity(manager.plan_capacity).name,
   })
 
-  // Called by the checkout once the card has been charged.
-  const handlePaid = async ({ card, reference }) => {
-    if (checkout.mode === 'activate' || checkout.mode === 'upgrade') {
-      await db.updateManagerSettings(userId, {
-        plan_capacity: checkout.capacity, plan_price: checkout.price, plan_active: true,
-        plan_started_at: manager?.plan_started_at || new Date().toISOString(),
-        onboarded: true, billing_card: card,
-      })
-    } else {
-      await db.updateManagerSettings(userId, { billing_card: card })
-    }
-    const paidAmount = checkout.charge ?? checkout.price
-    const period = checkout.mode === 'upgrade'
-      ? `Upgrade to ${checkout.tierName} · ${monthYear(new Date(), true)}`
-      : monthYear(new Date(), true)
-    await db.recordSubscriptionPayment(userId, {
-      amount: paidAmount, period,
-      method: `${card.brand} ····${card.last4}`, reference,
-    })
-    await refresh()
-    toast.success('Payment successful', checkout.mode === 'upgrade'
-      ? `${money(paidAmount)} paid to upgrade to ${checkout.tierName} (you were credited ${money(checkout.credit)} for your current plan).`
-      : `${money(paidAmount)} paid for your ${checkout.tierName} plan.`)
-    const wasOnboardingActivate = onboarding && checkout.mode === 'activate'
-    setCheckout(null)
-    if (wasOnboardingActivate) nav('/manager'); else load()
-  }
+  // NOTE: there is deliberately no "mark as paid" handler here any more. Plans
+  // are switched on by the App owner from the admin console once payment
+  // actually arrives — a manager can no longer activate their own plan
+  // (migration 0019 pins plan_active/plan_capacity/plan_price server-side).
+  // PlanCheckout is now purely an instructions + contact screen.
 
   const continueFree = async () => {
     setBusy(true)
@@ -296,7 +274,7 @@ export default function Plan() {
 
       {checkout && (
         <PlanCheckout {...checkout} manager={manager}
-          onClose={() => setCheckout(null)} onPaid={handlePaid} />
+          onClose={() => setCheckout(null)} />
       )}
     </div>
   )

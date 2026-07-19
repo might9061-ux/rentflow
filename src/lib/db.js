@@ -349,6 +349,19 @@ const sb = {
     const wm = await this.getWorkspaceManager(userId)
     return ok(await supabase.from('refunds').select('*').eq('manager_id', wm.id).order('created_at', { ascending: false }))
   },
+  // Turn a workspace's plan on/off. Allowed because the caller is a platform
+  // admin, which the 0019 trigger trusts; managers can't do this to themselves.
+  async adminSetPlan(workspaceId, patch) {
+    const body = {}
+    if (patch.plan_active !== undefined) body.plan_active = !!patch.plan_active
+    if (patch.plan_capacity !== undefined) body.plan_capacity = Math.max(0, Math.floor(Number(patch.plan_capacity) || 0))
+    if (patch.plan_price !== undefined) body.plan_price = Math.max(0, Number(patch.plan_price) || 0)
+    if (body.plan_active) {
+      const cur = await supabase.from('managers').select('plan_started_at').eq('id', workspaceId).maybeSingle()
+      if (!cur.data?.plan_started_at) body.plan_started_at = new Date().toISOString()
+    }
+    return ok(await supabase.from('managers').update(body).eq('id', workspaceId).select().single())
+  },
   async adminSubscriptions() {
     const [owners, subs] = await Promise.all([
       ok(await supabase.from('managers').select('id,first_name,last_name,brand_name,plan_active,plan_price').eq('role', 'owner').neq('platform_admin', true)),

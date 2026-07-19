@@ -61,7 +61,7 @@ export default function AdminLayout() {
             ))}
           </div>
         </div>
-        <Outlet context={{ overview, period, setPeriod }} />
+        <Outlet context={{ overview, period, setPeriod, reload }} />
       </main>
 
       <style>{`

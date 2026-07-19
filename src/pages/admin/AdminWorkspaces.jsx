@@ -8,7 +8,7 @@ import { IconBuilding, IconUsers, IconWallet, IconShield } from '../../component
 import WorkspaceModal from './WorkspaceModal.jsx'
 
 export default function AdminWorkspaces() {
-  const { overview: data, period } = useOutletContext()
+  const { overview: data, period, reload } = useOutletContext()
   const [drill, setDrill] = useState(null)
   const nav = useNavigate()
   if (!data) return <div className="center" style={{ minHeight: 320 }}><Spinner /></div>
@@ -61,7 +61,7 @@ export default function AdminWorkspaces() {
         )}
       </div>
 
-      {drill && <WorkspaceModal workspace={drill} onClose={() => setDrill(null)} />}
+      {drill && <WorkspaceModal workspace={drill} onClose={() => setDrill(null)} onChanged={reload} />}
     </>
   )
 }

@@ -581,6 +581,18 @@ export const mockApi = {
   },
 
   // All subscription payments across the platform (admin).
+  // Turn a workspace's plan on/off (demo equivalent of the admin endpoint).
+  async adminSetPlan(workspaceId, patch) {
+    await delay(60); const d = db()
+    const m = d.managers.find((x) => x.id === workspaceId)
+    if (!m) throw new Error('Workspace not found.')
+    if (patch.plan_active !== undefined) m.plan_active = !!patch.plan_active
+    if (patch.plan_capacity !== undefined) m.plan_capacity = Math.max(0, Math.floor(Number(patch.plan_capacity) || 0))
+    if (patch.plan_price !== undefined) m.plan_price = Math.max(0, Number(patch.plan_price) || 0)
+    if (m.plan_active && !m.plan_started_at) m.plan_started_at = new Date().toISOString()
+    save(d)
+    return clone(m)
+  },
   async adminSubscriptions() {
     await delay(60); const d = db()
     const name = (m) => `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || '—'
