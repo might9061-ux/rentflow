@@ -57,6 +57,25 @@ router.patch('/workspaces/:id/plan', h(async (req, res) => {
   ).single()))
 }))
 
+// POST /api/platform/workspaces/:id/payment — record money actually received
+// from a landlord (EcoCash, bank, cash…). Activating a plan only grants access;
+// this is what puts it in "Subs paid", the revenue totals and their receipt
+// history. Kept separate so monthly renewals don't need the plan changing.
+router.post('/workspaces/:id/payment', h(async (req, res) => {
+  const { amount, method, reference, period } = req.body || {}
+  const amt = Number(amount)
+  if (!Number.isFinite(amt) || amt <= 0) throw new Error('Enter a valid amount.')
+
+  const monthLabel = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  res.json(ok(await admin.from('subscription_payments').insert({
+    manager_id: req.params.id,
+    amount: amt,
+    period: period || monthLabel,
+    method: method || 'Manual',
+    reference: reference || null,
+  }).select().single()))
+}))
+
 router.get('/overview', h(async (req, res) => {
   const [owners, agents, subs, tenants, approved] = await Promise.all([
     ok(await admin.from('managers').select('id,first_name,last_name,brand_name,email,country,plan_active,plan_capacity,plan_price,created_at').eq('role', 'owner').neq('platform_admin', true)),

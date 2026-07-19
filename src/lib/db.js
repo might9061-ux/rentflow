@@ -362,6 +362,16 @@ const sb = {
     }
     return ok(await supabase.from('managers').update(body).eq('id', workspaceId).select().single())
   },
+  // Record money actually received from a landlord — drives "Subs paid".
+  async adminRecordPayment(workspaceId, { amount, method, reference, period } = {}) {
+    const amt = Number(amount)
+    if (!Number.isFinite(amt) || amt <= 0) throw new Error('Enter a valid amount.')
+    const monthLabel = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    return ok(await supabase.from('subscription_payments').insert({
+      manager_id: workspaceId, amount: amt, period: period || monthLabel,
+      method: method || 'Manual', reference: reference || null,
+    }).select().single())
+  },
   async adminSubscriptions() {
     const [owners, subs] = await Promise.all([
       ok(await supabase.from('managers').select('id,first_name,last_name,brand_name,plan_active,plan_price').eq('role', 'owner').neq('platform_admin', true)),

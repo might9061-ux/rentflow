@@ -593,6 +593,19 @@ export const mockApi = {
     save(d)
     return clone(m)
   },
+  // Record money actually received from a landlord (demo equivalent).
+  async adminRecordPayment(workspaceId, { amount, method, reference, period } = {}) {
+    await delay(60); const d = db()
+    const amt = Number(amount)
+    if (!Number.isFinite(amt) || amt <= 0) throw new Error('Enter a valid amount.')
+    const monthLabel = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    const row = { id: 'sub-' + Math.random().toString(36).slice(2, 9), manager_id: workspaceId,
+      amount: amt, period: period || monthLabel, method: method || 'Manual',
+      reference: reference || null, created_at: new Date().toISOString() }
+    d.sub_payments = d.sub_payments || []
+    d.sub_payments.push(row); save(d)
+    return clone(row)
+  },
   async adminSubscriptions() {
     await delay(60); const d = db()
     const name = (m) => `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || '—'

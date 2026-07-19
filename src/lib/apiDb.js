@@ -150,6 +150,8 @@ export function createApiDb(sb) {
     // Turn a workspace's plan on/off. Since 0019 managers can't do this
     // themselves, so this is the only path — service-role, admin-gated.
     adminSetPlan: (workspaceId, patch) => req('PATCH', `/api/platform/workspaces/${workspaceId}/plan`, patch),
+    // Record money actually received — what drives "Subs paid" and revenue.
+    adminRecordPayment: (workspaceId, payment) => req('POST', `/api/platform/workspaces/${workspaceId}/payment`, payment),
 
     // ── tenant questions (AI) ─────────────────────────────────────────────────────
     logTenantQuestion: (_managerId, _tenantId, { question, answer }) => req('POST', '/api/tenant-questions', { question, answer }),

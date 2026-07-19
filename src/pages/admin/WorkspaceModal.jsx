@@ -16,10 +16,22 @@ export default function WorkspaceModal({ workspace, onClose, onChanged }) {
   const [ws, setWs] = useState(workspace)
   const [busy, setBusy] = useState(false)
   const [capacity, setCapacity] = useState(String(workspace.plan_capacity || 5))
-  useEffect(() => { (async () => setRows(await db.listSubscriptionPayments(workspace.id)))() }, [workspace.id])
+  const [logPayment, setLogPayment] = useState(true)
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState('EcoCash')
+  const [reference, setReference] = useState('')
+  const reload = async () => setRows(await db.listSubscriptionPayments(workspace.id))
+  useEffect(() => { reload() }, [workspace.id])
 
   const price = priceForCapacity(Number(capacity) || 0)
   const tier = tierForCapacity(Number(capacity) || 0)
+  const paidTotal = (rows || []).reduce((s, r) => s + Number(r.amount || 0), 0)
+
+  const recordPayment = async (amt) => {
+    await db.adminRecordPayment(ws.id, { amount: amt, method, reference: reference || null })
+    setReference('')
+    await reload()
+  }
 
   // Managers can no longer activate themselves (migration 0019) — this is the
   // only way a plan goes live, after the landlord has paid out-of-band.
@@ -30,10 +42,32 @@ export default function WorkspaceModal({ workspace, onClose, onChanged }) {
         ? { plan_active: true, plan_capacity: Number(capacity) || 0, plan_price: price }
         : { plan_active: false })
       setWs((w) => ({ ...w, ...updated }))
+
+      // Granting access and recording the money are separate facts — without
+      // the second, "Subs paid" and the revenue totals stay at zero.
+      let paid = 0
+      if (active && logPayment) {
+        paid = Number(amount) > 0 ? Number(amount) : price
+        try { await recordPayment(paid) } catch (e) { toast.error('Plan activated, but the payment was not recorded', e.message) }
+      }
       toast.success(active ? 'Plan activated' : 'Plan switched off',
-        active ? `${tier.name} · up to ${capacity} tenants · ${money(price)}/mo` : 'They can no longer add tenants.')
+        active
+          ? `${tier.name} · up to ${capacity} tenants · ${money(price)}/mo${paid ? ` · ${money(paid)} recorded` : ''}`
+          : 'They can no longer add tenants.')
       onChanged?.()
     } catch (e) { toast.error('Could not update plan', e.message) }
+    finally { setBusy(false) }
+  }
+
+  // Monthly renewal on an already-active plan — money in, no plan change.
+  const justRecord = async () => {
+    const amt = Number(amount) > 0 ? Number(amount) : Number(ws.plan_price) || price
+    setBusy(true)
+    try {
+      await recordPayment(amt)
+      toast.success('Payment recorded', `${money(amt)} from ${ws.name}.`)
+      onChanged?.()
+    } catch (e) { toast.error('Could not record payment', e.message) }
     finally { setBusy(false) }
   }
 
@@ -72,18 +106,52 @@ export default function WorkspaceModal({ workspace, onClose, onChanged }) {
           </div>
         </div>
 
-        <div className="spread wrap" style={{ gap: 12, marginTop: 6 }}>
-          <div className="muted" style={{ fontSize: '0.86rem' }}>
-            {tier.name} tier → <b style={{ color: 'var(--gold)' }}>{money(price)}/mo</b>
-            {Number(capacity) < (ws.tenants || 0) && (
-              <span style={{ color: 'var(--red, #d9534f)', display: 'block', marginTop: 4 }}>
-                ⚠ Below their current {ws.tenants} tenants — they won’t be able to add more.
-              </span>
-            )}
+        <div className="muted" style={{ fontSize: '0.86rem', marginTop: 8 }}>
+          {tier.name} tier → <b style={{ color: 'var(--gold)' }}>{money(price)}/mo</b>
+          {Number(capacity) < (ws.tenants || 0) && (
+            <span style={{ color: 'var(--red, #d9534f)', display: 'block', marginTop: 4 }}>
+              ⚠ Below their current {ws.tenants} tenants — they won’t be able to add more.
+            </span>
+          )}
+        </div>
+
+        <div className="divider" />
+
+        {/* Money received. Separate from access: activating grants the plan,
+            this is what actually shows up in "Subs paid" and revenue. */}
+        <label className="row gap" style={{ fontSize: '0.88rem', marginBottom: 10, cursor: 'pointer' }}>
+          <input type="checkbox" checked={logPayment} onChange={(e) => setLogPayment(e.target.checked)} />
+          <span>Record a payment (leave on if they’ve just paid you)</span>
+        </label>
+
+        {logPayment && (
+          <div className="row gap wrap" style={{ alignItems: 'flex-end' }}>
+            <div style={{ minWidth: 120 }}>
+              <Input label="Amount" inputMode="decimal" placeholder={String(price)} value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} hint={`Default ${money(price)}`} />
+            </div>
+            <div style={{ minWidth: 130 }}>
+              <label style={{ fontSize: '0.82rem', color: 'var(--text-dim)', display: 'block', marginBottom: 6 }}>Method</label>
+              <select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>
+                {['EcoCash', 'Bank Transfer', 'Cash USD', 'InnBucks', 'Mukuru', 'Other'].map((m) => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div style={{ minWidth: 140, flex: 1 }}>
+              <Input label="Reference (optional)" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. MP250718.1234" />
+            </div>
           </div>
-          <button className="btn primary" disabled={busy || !capacity} onClick={() => setPlan(true)}>
-            <IconCheck size={15} /> {ws.plan_active ? 'Update plan' : 'Activate plan'}
-          </button>
+        )}
+
+        <div className="spread wrap" style={{ gap: 10, marginTop: 14 }}>
+          <span className="muted" style={{ fontSize: '0.82rem' }}>Recorded to date: <b className="mono">{money(paidTotal)}</b></span>
+          <div className="row gap wrap">
+            {ws.plan_active && logPayment && (
+              <button className="btn ghost" disabled={busy} onClick={justRecord}>Record payment only</button>
+            )}
+            <button className="btn primary" disabled={busy || !capacity} onClick={() => setPlan(true)}>
+              <IconCheck size={15} /> {ws.plan_active ? 'Update plan' : 'Activate plan'}
+            </button>
+          </div>
         </div>
       </div>
       <div className="grid stats" style={{ marginBottom: 16 }}>
