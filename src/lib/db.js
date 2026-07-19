@@ -362,6 +362,11 @@ const sb = {
     }
     return ok(await supabase.from('managers').update(body).eq('id', workspaceId).select().single())
   },
+  // Self-serve plan start. Direct-to-Supabase mode can't bypass the 0019
+  // trigger, so this only works through the API (which uses the service role).
+  async startOwnPlan() {
+    throw new Error('Plan activation needs the RentLoja API. Please contact support.')
+  },
   // Record money actually received from a landlord — drives "Subs paid".
   async adminRecordPayment(workspaceId, { amount, method, reference, period } = {}) {
     const amt = Number(amount)

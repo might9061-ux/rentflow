@@ -593,6 +593,25 @@ export const mockApi = {
     save(d)
     return clone(m)
   },
+  // Self-serve plan start (demo equivalent of POST /api/managers/me/plan).
+  async startOwnPlan(capacity) {
+    await delay(60); const d = db()
+    const s = getSession(); if (!s) throw new Error('Not signed in.')
+    const m = d.managers.find((x) => x.id === s.userId)
+    if (!m) throw new Error('Workspace not found.')
+    const cap = Math.floor(Number(capacity) || 0)
+    if (cap < 1) throw new Error('Choose how many tenants you need.')
+    const tenants = d.tenants.filter((t) => t.manager_id === m.id).length
+    if (cap < tenants) throw new Error(`You already have ${tenants} tenants — choose at least that many.`)
+    const TIERS = [[5, 10], [20, 20], [50, 40], [100, 50], [Infinity, 70]]
+    m.plan_capacity = cap
+    m.plan_price = (TIERS.find(([upTo]) => cap <= upTo) || TIERS[TIERS.length - 1])[1]
+    m.plan_active = true
+    m.onboarded = true
+    if (!m.plan_started_at) m.plan_started_at = new Date().toISOString()
+    save(d)
+    return clone(m)
+  },
   // Record money actually received from a landlord (demo equivalent).
   async adminRecordPayment(workspaceId, { amount, method, reference, period } = {}) {
     await delay(60); const d = db()
