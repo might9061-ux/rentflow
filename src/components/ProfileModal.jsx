@@ -1,19 +1,19 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { useTheme } from '../context/ThemeContext.jsx'
+import { useTheme, TEXT_SIZES } from '../context/ThemeContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { db } from '../lib/db.js'
 import { fileToAvatar } from '../lib/upload.js'
 import { fullName, initials } from '../lib/format.js'
 import { prettyPhone } from '../lib/phone.js'
 import Modal from './Modal.jsx'
-import { IconMail, IconPhone, IconKey, IconLogout, IconTrash, IconSun, IconMoon } from './icons.jsx'
+import { IconMail, IconPhone, IconKey, IconLogout, IconTrash, IconSun, IconMoon, IconEye } from './icons.jsx'
 
 // "My profile" — view your details and set a profile picture. Works for the
 // manager (owner/agent) and the tenant.
 export default function ProfileModal({ role, title = 'My profile', onClose, onChangePassword }) {
   const { userId, profile, refresh, signOut } = useAuth()
-  const { theme, toggle } = useTheme()
+  const { theme, toggle, textSize, setTextSize } = useTheme()
   const toast = useToast()
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
@@ -58,6 +58,15 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
           <span className="row gap muted">{theme === 'dark' ? <IconMoon size={15} /> : <IconSun size={15} />} Appearance</span>
           <button className="btn ghost sm" onClick={toggle}>{theme === 'dark' ? 'Dark' : 'Light'} — switch to {theme === 'dark' ? 'light' : 'dark'}</button>
         </div>
+        {/* Pinch-zoom is off in the app, so this is how text is made bigger. */}
+        <div className="pf-row pf-size">
+          <span className="row gap muted"><IconEye size={15} /> Text size</span>
+          <div className="seg">
+            {TEXT_SIZES.map((s) => (
+              <button key={s.id} className={textSize === s.id ? 'on' : ''} onClick={() => setTextSize(s.id)}>{s.label}</button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="row gap wrap" style={{ marginTop: 16 }}>
@@ -68,6 +77,9 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
       </div>
 
       <style>{`
+        /* The size picker needs room to wrap on narrow phones. */
+        .pf-size { flex-wrap: wrap; gap: 10px; }
+        .pf-size .seg { flex-shrink: 0; }
         .pfp-cam { position: absolute; bottom: -4px; right: -4px; width: 32px; height: 32px; border-radius: 99px;
           background: linear-gradient(180deg, var(--accent-soft), var(--accent)); color: #14110b; border: 2px solid var(--surface); cursor: pointer; font-size: 14px; }
         .pf-box { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }

@@ -101,12 +101,18 @@
 
 html, body, #root { height: 100%; }
 
+/* Text size is user-adjustable in Settings (pinch-zoom is off in the app, so
+   this is how people make things bigger). Everything sized in rem scales with
+   it; ThemeContext sets --font-scale on <html>. */
+html { font-size: calc(16px * var(--font-scale, 1)); }
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
   font-weight: 400;
-  font-size: 15px;
+  /* 15px at the default scale, but expressed in rem so it scales too. */
+  font-size: 0.9375rem;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -372,7 +378,14 @@ table.data tbody tr.clickable-row { cursor: pointer; }
   background: var(--accent-bg); border: 1px solid var(--accent-line); color: var(--accent);
   font-family: var(--serif); font-weight: 700; font-size: 1.25rem;
 }
-.brand .mark-img { width: 38px; height: 38px; border-radius: 11px; object-fit: cover; border: 1px solid var(--line); flex-shrink: 0; }
+/* Base rule: an uploaded logo must never render at its natural size, wherever
+   it appears. Previously this was only styled inside .brand, so the Branding
+   page rendered the raw file full-size and blew out the layout.
+   `contain` (not `cover`) so wide wordmark logos aren't cropped to a square. */
+.mark-img { width: 38px; height: 38px; border-radius: 11px; object-fit: contain; border: 1px solid var(--line); flex-shrink: 0; background: var(--surface); }
+.brand .mark-img { width: 38px; height: 38px; border-radius: 11px; object-fit: contain; border: 1px solid var(--line); flex-shrink: 0; }
+/* Bigger thumbnail on the Branding page so the logo is actually reviewable. */
+.logo-thumb { width: 72px; height: 72px; border-radius: 14px; object-fit: contain; border: 1px solid var(--line); background: var(--surface); flex-shrink: 0; padding: 6px; }
 .brand .b-name { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; line-height: 1; }
 .brand .b-role { font-size: 0.68rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
 .nav-link {

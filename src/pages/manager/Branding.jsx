@@ -115,7 +115,7 @@ export default function Branding() {
               <label>Logo</label>
               <input ref={fileRef} type="file" accept="image/*" onChange={onLogo} style={{ display: 'none' }} />
               <div className="row gap wrap">
-                {form.brand_logo && <img className="mark-img" src={form.brand_logo} alt="logo" />}
+                {form.brand_logo && <img className="logo-thumb" src={form.brand_logo} alt="logo" />}
                 <button type="button" className="btn ghost" onClick={() => fileRef.current?.click()}><IconPalette size={15} /> {form.brand_logo ? 'Replace logo' : 'Upload logo'}</button>
                 {form.brand_logo && <button type="button" className="btn ghost sm danger" onClick={() => setForm((f) => ({ ...f, brand_logo: null }))}><IconTrash size={14} /></button>}
               </div>
