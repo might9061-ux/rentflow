@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { PERIODS } from '../../lib/period.js'
-import { IconChart, IconBuilding, IconTag, IconWallet, IconUsers, IconLogout, IconArrowRight, IconShield, IconSettings } from '../../components/icons.jsx'
+import {
+  IconChart, IconBuilding, IconTag, IconWallet, IconUsers, IconLogout,
+  IconArrowRight, IconShield, IconSettings, IconMenu,
+} from '../../components/icons.jsx'
 
-const TABS = [
+const NAV = [
   { to: '/admin', end: true, label: 'Overview', icon: IconChart },
   { to: '/admin/workspaces', label: 'Workspaces', icon: IconBuilding },
   { to: '/admin/subscriptions', label: 'Subscriptions', icon: IconTag },
@@ -15,70 +18,80 @@ const TABS = [
   { to: '/admin/settings', label: 'Settings', icon: IconSettings },
 ]
 
+// Uses the same sidebar shell as the manager app: the old top tab-bar pushed
+// items off-screen on a phone and needed horizontal scrolling to reach them.
 export default function AdminLayout() {
   const { profile, signOut } = useAuth()
   const nav = useNavigate()
+  const loc = useLocation()
   const [overview, setOverview] = useState(null)
   const [period, setPeriod] = useState('this_month')
+  const [open, setOpen] = useState(false)
 
   const reload = useCallback(async () => { setOverview(await db.adminOverview()) }, [])
   useEffect(() => { reload() }, [reload])
+  // Close the drawer whenever navigation happens (phones).
+  useEffect(() => { setOpen(false) }, [loc.pathname])
 
   return (
-    <div className="admin-shell">
-      <header className="admin-top">
-        <div className="row gap">
-          <div className="mark" style={{ width: 38, height: 38, borderRadius: 11, display: 'grid', placeItems: 'center', background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)', fontFamily: 'var(--serif)', fontWeight: 700 }}>RL</div>
+    <div className="shell">
+      <aside className={`sidebar ${open ? 'open' : ''}`}>
+        <div className="brand">
+          <div className="mark">RL</div>
           <div>
-            <div style={{ fontFamily: 'var(--serif)', fontSize: '1.25rem', fontWeight: 600, lineHeight: 1 }}>RentLoja</div>
-            <div className="eyebrow" style={{ color: 'var(--gold)' }}>Platform admin</div>
+            <div className="b-name">RentLoja</div>
+            <div className="b-role">App owner</div>
           </div>
         </div>
-        <div className="row gap">
-          <span className="muted desktop-only" style={{ fontSize: '0.84rem' }}>{profile?.email}</span>
-          <button className="btn ghost sm" onClick={signOut}><IconLogout size={15} /> Sign out</button>
-        </div>
-      </header>
 
-      <nav className="admin-nav">
-        {TABS.map((t) => {
-          const Icon = t.icon
+        {NAV.map((n) => {
+          const Icon = n.icon
           return (
-            <NavLink key={t.to} to={t.to} end={t.end} className="admin-tab">
-              <Icon size={15} /> <span>{t.label}</span>
+            <NavLink key={n.to} to={n.to} end={n.end} className="nav-link">
+              <Icon className="ico" />
+              <span>{n.label}</span>
             </NavLink>
           )
         })}
-      </nav>
 
-      <main className="page" style={{ maxWidth: 1080, margin: '0 auto' }}>
-        {/* Navigate back + choose the time-frame for the figures below. */}
-        <div className="spread wrap no-print" style={{ gap: 10, marginBottom: 14 }}>
-          <button className="btn ghost sm" onClick={() => nav(-1)}>
-            <IconArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back
-          </button>
-          <div className="seg">
+        <div className="sidebar-foot">
+          <div className="muted" style={{ fontSize: '0.74rem', marginBottom: 8, wordBreak: 'break-all' }}>
+            {profile?.email}
+          </div>
+          <button className="btn ghost block sm" onClick={signOut}><IconLogout size={15} /> Sign out</button>
+        </div>
+      </aside>
+
+      {open && <div className="sidebar-backdrop" onClick={() => setOpen(false)} />}
+
+      <div className="content">
+        <div className="topbar">
+          <div className="row gap">
+            <button className="btn ghost sm mobile-only" onClick={() => setOpen((o) => !o)} aria-label="Menu">
+              <IconMenu size={18} />
+            </button>
+            {loc.key !== 'default' && (
+              <button className="btn ghost sm" onClick={() => nav(-1)} title="Go back">
+                <IconArrowRight size={15} style={{ transform: 'rotate(180deg)' }} /> <span className="back-label">Back</span>
+              </button>
+            )}
+            <div className="topbar-brand mobile-only">
+              <span className="tb-mark">RL</span>
+              <span className="tb-name">RentLoja</span>
+            </div>
+          </div>
+          {/* Time-frame for the figures on the analytics pages. */}
+          <div className="seg no-print">
             {PERIODS.map((p) => (
               <button key={p.id} className={period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>{p.label}</button>
             ))}
           </div>
         </div>
-        <Outlet context={{ overview, period, setPeriod, reload }} />
-      </main>
 
-      <style>{`
-        .admin-shell { min-height: 100vh; background: var(--bg); }
-        .admin-top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
-          padding: 12px 22px; border-bottom: 1px solid var(--line-soft); background: var(--topbar-bg, rgba(10,9,8,0.82)); backdrop-filter: blur(10px); }
-        .admin-nav { position: sticky; top: 63px; z-index: 19; display: flex; gap: 4px; padding: 8px 22px; overflow-x: auto;
-          border-bottom: 1px solid var(--line-soft); background: var(--bg); }
-        .admin-tab { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 99px; white-space: nowrap;
-          color: var(--text-dim); font-size: 0.86rem; font-weight: 500; border: 1px solid transparent; }
-        .admin-tab:hover { color: var(--text); background: var(--surface-2); }
-        .admin-tab.active { color: var(--gold); background: var(--gold-bg); border-color: var(--gold-line); }
-        .desktop-only { display: inline; }
-        @media (max-width: 640px) { .desktop-only { display: none; } }
-      `}</style>
+        <main className="page" style={{ maxWidth: 1080, margin: '0 auto' }}>
+          <Outlet context={{ overview, period, setPeriod, reload }} />
+        </main>
+      </div>
     </div>
   )
 }
