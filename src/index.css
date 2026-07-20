@@ -550,8 +550,17 @@ table.data tbody tr.clickable-row { cursor: pointer; }
 .switch input:checked + .track { background: var(--accent-bg); border-color: var(--accent-line); }
 .switch input:checked + .track::before { transform: translateX(19px); background: var(--accent); }
 
-.seg { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 3px; gap: 3px; }
-.seg button { background: transparent; border: none; color: var(--text-dim); padding: 7px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 500; }
+/* "This month / Last month / This year / All time" is wider than a phone.
+   The control scrolls sideways on its own instead of stretching the page —
+   without this the whole app scrolled horizontally. */
+.seg {
+  display: inline-flex; background: var(--bg); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 3px; gap: 3px;
+  max-width: 100%; overflow-x: auto; scroll-behavior: smooth;
+  scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch;
+}
+.seg::-webkit-scrollbar { display: none; }
+.seg button { background: transparent; border: none; color: var(--text-dim); padding: 7px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 500; flex-shrink: 0; white-space: nowrap; }
 .seg button.on { background: var(--accent-bg); color: var(--accent-soft); }
 .seg-count { margin-left: 6px; display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 99px; background: var(--danger); color: #fff; font-size: 0.68rem; font-weight: 700; vertical-align: middle; }
 .cur-chip { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg); color: var(--text-dim); font-size: 0.86rem; font-weight: 500; transition: all 0.14s; }
@@ -571,4 +580,11 @@ table.data tbody tr.clickable-row { cursor: pointer; }
   .sidebar.open { left: 0; }
   .field-row, .grid.stats { grid-template-columns: 1fr; }
   .page, .topbar { padding-left: 18px; padding-right: 18px; }
+  /* Let the topbar stack instead of forcing everything onto one line — a
+     period picker beside the menu/back buttons overflowed and dragged the
+     whole page sideways. It now gets its own full-width row and scrolls. */
+  .topbar { flex-wrap: wrap; gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+  .topbar > .seg { width: 100%; }
 }
+/* Nothing should ever make the app scroll horizontally. */
+html, body { overflow-x: hidden; max-width: 100%; }
