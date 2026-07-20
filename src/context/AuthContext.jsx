@@ -13,6 +13,10 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null) // { userId, role }
   const [profile, setProfile] = useState(null)  // manager or tenant row
 
+  // Tell the API a sign-in happened so it can alert on a new device. Fire and
+  // forget: a failure here must never block or fail the sign-in itself.
+  const reportLogin = () => { db.reportLogin?.().catch(() => { /* non-fatal */ }) }
+
   const refresh = useCallback(async () => {
     // Resolving the session must never throw — a backend/network hiccup should
     // drop us to the login screen, not leave the app hanging.
@@ -51,10 +55,10 @@ export function AuthProvider({ children }) {
 
     // Anyone who just proved themselves (password, or a quick unlock) starts
     // the run unlocked — the lock screen is for returning to a running session.
-    async signInManager(creds) { const r = await db.signInManager(creds); markUnlocked(); clearSignedOut(r?.id); await refresh(); return r },
+    async signInManager(creds) { const r = await db.signInManager(creds); markUnlocked(); clearSignedOut(r?.id); reportLogin(); await refresh(); return r },
     async signUpManager(data) { const r = await db.signUpManager(data); markUnlocked(); await refresh(); return r },
     async resendVerification(email) { return db.resendVerification(email) },
-    async signInTenant(creds) { const r = await db.signInTenant(creds); markUnlocked(); clearSignedOut(r?.id); await refresh(); return r },
+    async signInTenant(creds) { const r = await db.signInTenant(creds); markUnlocked(); clearSignedOut(r?.id); reportLogin(); await refresh(); return r },
     async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); markUnlocked(); clearSignedOut(userId); await refresh() },
     // Signing out is deliberate: stop offering password-free re-entry on the
     // landing screen, but keep the PIN/passkey so the lock screen still works

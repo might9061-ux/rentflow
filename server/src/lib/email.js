@@ -43,3 +43,40 @@ export function sendOtpEmail(to, name, code) {
       </div>`,
   })
 }
+
+// Alert: this account was signed into from a device we haven't seen before.
+// Deliberately calm in tone — most of these are the user's own new phone — but
+// it always gives a way to report it, because the one time it isn't them is
+// the whole reason this exists.
+export function sendNewDeviceEmail(to, { name, label, location, ip, when, supportEmail }) {
+  const hi = name ? `Hi ${name},` : 'Hello,'
+  const support = supportEmail || 'support@rentloja.com'
+  const row = (k, v) => v
+    ? `<tr><td style="padding:6px 14px 6px 0;color:#64748b;white-space:nowrap">${k}</td><td style="padding:6px 0;color:#0f172a">${v}</td></tr>`
+    : ''
+  return send({
+    to,
+    subject: 'New sign-in to your RentLoja account',
+    html: `
+      <div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:auto">
+        <h2 style="color:#0f172a;margin-bottom:4px">New sign-in to your account</h2>
+        <p style="color:#64748b;margin-top:0">${hi} your RentLoja account was just opened on a device we haven't seen before.</p>
+        <table style="border-collapse:collapse;margin:18px 0;font-size:14px">
+          ${row('Device', label)}
+          ${row('Location', location)}
+          ${row('IP address', ip)}
+          ${row('When', when)}
+        </table>
+        <p style="color:#0f172a"><b>Was this you?</b> Then nothing to do — this is just so you know.</p>
+        <p style="color:#0f172a">
+          <b>Not you?</b> Change your password straight away, then tell us:
+          <a href="mailto:${support}?subject=${encodeURIComponent('Unrecognised sign-in on my RentLoja account')}"
+             style="color:#c8a84b">${support}</a>
+        </p>
+        <p style="color:#94a3b8;font-size:12px;margin-top:22px">
+          Location is approximate — it comes from the internet connection used, so it may show a
+          nearby city or your mobile provider's location rather than exactly where you are.
+        </p>
+      </div>`,
+  })
+}
