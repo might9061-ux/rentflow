@@ -49,19 +49,39 @@ function deviceHash(ua, ip) {
 }
 
 // Approximate city/country from the IP. Free, keyless, and entirely optional —
-// a failure or timeout just means the email omits the location line.
+// if every provider fails the email simply omits the location line.
+//
+// Several are tried in turn because these free endpoints are individually
+// unreliable: they rate-limit, and some block requests from datacenter ranges
+// (which is exactly what a hosted API is). One being down shouldn't cost us the
+// location on a security alert.
+const GEO_PROVIDERS = [
+  { url: (ip) => `https://ipapi.co/${ip}/json/`, pick: (j) => [j.city, j.region, j.country_name] },
+  { url: (ip) => `https://ipwho.is/${ip}`, pick: (j) => (j.success === false ? [] : [j.city, j.region, j.country]) },
+  // HTTP-only on the free tier. Safe here — this is server-to-server, not a
+  // browser request, so there's no mixed-content issue.
+  { url: (ip) => `http://ip-api.com/json/${ip}`, pick: (j) => (j.status === 'fail' ? [] : [j.city, j.regionName, j.country]) },
+]
+
 async function locate(ip) {
   if (!ip || /^(10\.|192\.168\.|127\.|::1|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) return null
-  try {
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 2500)
-    const r = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, { signal: ctrl.signal })
-    clearTimeout(timer)
-    if (!r.ok) return null
-    const j = await r.json()
-    if (j?.error) return null
-    return [j.city, j.region, j.country_name].filter(Boolean).join(', ') || null
-  } catch { return null }
+  for (const p of GEO_PROVIDERS) {
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 3500)
+      const r = await fetch(p.url(encodeURIComponent(ip)), {
+        signal: ctrl.signal,
+        headers: { 'User-Agent': 'rentloja/1.0' },
+      })
+      clearTimeout(timer)
+      if (!r.ok) continue
+      const j = await r.json()
+      if (j?.error) continue
+      const label = p.pick(j).filter(Boolean).join(', ')
+      if (label) return label
+    } catch { /* try the next provider */ }
+  }
+  return null
 }
 
 // POST /api/login-events — "I just signed in." Records the device and, if it's
