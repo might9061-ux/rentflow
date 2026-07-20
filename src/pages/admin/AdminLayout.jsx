@@ -8,11 +8,14 @@ import {
   IconArrowRight, IconShield, IconSettings, IconMenu,
 } from '../../components/icons.jsx'
 
+// `period: true` marks the pages whose figures are filtered by the time-frame.
+// The picker is hidden everywhere else — on Users, Activity and Settings it
+// changed nothing, so it was just a control that appeared to do nothing.
 const NAV = [
-  { to: '/admin', end: true, label: 'Overview', icon: IconChart },
-  { to: '/admin/workspaces', label: 'Workspaces', icon: IconBuilding },
-  { to: '/admin/subscriptions', label: 'Subscriptions', icon: IconTag },
-  { to: '/admin/fees', label: 'Transaction fees', icon: IconWallet },
+  { to: '/admin', end: true, label: 'Overview', icon: IconChart, period: true },
+  { to: '/admin/workspaces', label: 'Workspaces', icon: IconBuilding, period: true },
+  { to: '/admin/subscriptions', label: 'Subscriptions', icon: IconTag, period: true },
+  { to: '/admin/fees', label: 'Transaction fees', icon: IconWallet, period: true },
   { to: '/admin/users', label: 'Users', icon: IconUsers },
   { to: '/admin/audit', label: 'Activity', icon: IconShield },
   { to: '/admin/settings', label: 'Settings', icon: IconSettings },
@@ -32,6 +35,10 @@ export default function AdminLayout() {
   useEffect(() => { reload() }, [reload])
   // Close the drawer whenever navigation happens (phones).
   useEffect(() => { setOpen(false) }, [loc.pathname])
+
+  // Only show the time-frame picker where it actually filters something.
+  const path = loc.pathname.replace(/\/+$/, '') || '/admin'
+  const showPeriod = NAV.some((n) => n.period && (n.end ? path === n.to : path.startsWith(n.to)))
 
   return (
     <div className="shell">
@@ -80,12 +87,14 @@ export default function AdminLayout() {
               <span className="tb-name">RentLoja</span>
             </div>
           </div>
-          {/* Time-frame for the figures on the analytics pages. */}
-          <div className="seg no-print">
-            {PERIODS.map((p) => (
-              <button key={p.id} className={period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>{p.label}</button>
-            ))}
-          </div>
+          {/* Time-frame — only on pages whose figures it actually filters. */}
+          {showPeriod && (
+            <div className="seg no-print">
+              {PERIODS.map((p) => (
+                <button key={p.id} className={period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>{p.label}</button>
+              ))}
+            </div>
+          )}
         </div>
 
         <main className="page" style={{ maxWidth: 1080, margin: '0 auto' }}>
