@@ -1,23 +1,17 @@
--- ═══════════════════════════════════════════════════════════════════════════
--- RentLoja — complete schema (migrations 0001-0020, in order).
---
--- Paste this into the SQL editor of a FRESH Supabase project to build the
--- whole database. Safe to re-run: every statement is idempotent.
--- Generated 2026-07-20.
--- ═══════════════════════════════════════════════════════════════════════════
+-- RentFlow — combined schema. Paste this whole file into Supabase SQL Editor and Run.
+-- Generated 2026-06-30
 
-
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0001_schema.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0001 schema
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0001 schema
 -- Core tables for managers, properties, tenants, payments, notifications.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 create extension if not exists "pgcrypto";
 
--- ── Enums ──────────────────────────────────────────────────────────────────
+-- â”€â”€ Enums â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 do $$ begin
   create type tenant_status   as enum ('active', 'paid', 'due', 'overdue', 'pending', 'inactive');
 exception when duplicate_object then null; end $$;
@@ -38,7 +32,7 @@ do $$ begin
   create type notif_priority  as enum ('normal', 'urgent', 'info');
 exception when duplicate_object then null; end $$;
 
--- ── managers ───────────────────────────────────────────────────────────────
+-- â”€â”€ managers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- id maps 1:1 to auth.users.id for a manager account.
 create table if not exists public.managers (
   id          uuid primary key references auth.users(id) on delete cascade,
@@ -53,7 +47,7 @@ create table if not exists public.managers (
   assigned_property_ids uuid[] not null default '{}',  -- staff: which properties they can access
   account_status  text not null default 'active',  -- 'active' | 'suspended'
   accepted_methods text[],               -- payment methods enabled for tenants; null = all
-  payment_details jsonb not null default '{}'::jsonb,  -- per-method destination info (bank acct, InnBucks no…)
+  payment_details jsonb not null default '{}'::jsonb,  -- per-method destination info (bank acct, InnBucks noâ€¦)
   notify_on_tenant_ai boolean not null default false,  -- notify manager of tenant AI questions
   ai_enabled_self    boolean not null default true,    -- show the AI copilot in the manager's workspace
   ai_enabled_tenants boolean not null default true,    -- show the AI copilot in tenants' portals
@@ -75,39 +69,15 @@ create table if not exists public.subscription_payments (
   manager_id  uuid not null references public.managers(id) on delete cascade,
   amount      numeric(12,2) not null,
   period      text,                      -- e.g. 'June 2026'
-  method      text,                      -- e.g. 'Visa ····4242'
+  method      text,                      -- e.g. 'Visa Â·Â·Â·Â·4242'
   reference   text,
   created_at  timestamptz not null default now()
 );
 create index if not exists idx_sub_payments_manager on public.subscription_payments(manager_id);
 
--- Tenant questions asked to the AI assistant (surfaced to the manager when
--- notify_on_tenant_ai is on).
-create table if not exists public.tenant_questions (
-  id          uuid primary key default gen_random_uuid(),
-  manager_id  uuid not null references public.managers(id) on delete cascade,
-  tenant_id   uuid not null references public.tenants(id) on delete cascade,
-  question    text not null,
-  answer      text,
-  read_by_manager boolean not null default false,
-  created_at  timestamptz not null default now()
-);
-create index if not exists idx_tenant_questions_manager on public.tenant_questions(manager_id);
 
--- ── expenses (manager-side costs for the revenue-vs-cost dashboard) ─────────
-create table if not exists public.expenses (
-  id          uuid primary key default gen_random_uuid(),
-  manager_id  uuid not null references public.managers(id) on delete cascade,
-  property_id uuid references public.properties(id) on delete set null,
-  category    text not null,             -- Maintenance, Utilities, Rates, Other…
-  amount      numeric(12,2) not null check (amount >= 0),
-  spent_on    date not null default current_date,
-  note        text,
-  created_at  timestamptz not null default now()
-);
-create index if not exists idx_expenses_manager on public.expenses(manager_id);
 
--- ── properties ─────────────────────────────────────────────────────────────
+-- â”€â”€ properties â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create table if not exists public.properties (
   id          uuid primary key default gen_random_uuid(),
   manager_id  uuid not null references public.managers(id) on delete cascade,
@@ -127,8 +97,8 @@ create table if not exists public.properties (
   bedrooms    int,
   bathrooms   numeric(3,1),
   lounges     int,
-  floor_size  numeric(10,1),              -- m²
-  stand_size  numeric(10,1),              -- m²
+  floor_size  numeric(10,1),              -- mÂ²
+  stand_size  numeric(10,1),              -- mÂ²
   furnished   text,                       -- Unfurnished / Part-furnished / Furnished
   year_built  int,
   storeys     int,
@@ -151,7 +121,7 @@ create table if not exists public.properties (
 );
 create index if not exists idx_properties_manager on public.properties(manager_id);
 
--- ── tenants ────────────────────────────────────────────────────────────────
+-- â”€â”€ tenants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- id maps 1:1 to auth.users.id for the tenant's login account.
 create table if not exists public.tenants (
   id              uuid primary key,        -- = auth.users.id once account created
@@ -181,7 +151,33 @@ create index if not exists idx_tenants_manager  on public.tenants(manager_id);
 create index if not exists idx_tenants_property on public.tenants(property_id);
 create unique index if not exists idx_tenants_email on public.tenants(lower(email));
 
--- ── payments ───────────────────────────────────────────────────────────────
+-- Tenant questions asked to the AI assistant (surfaced to the manager when
+-- notify_on_tenant_ai is on).
+create table if not exists public.tenant_questions (
+  id          uuid primary key default gen_random_uuid(),
+  manager_id  uuid not null references public.managers(id) on delete cascade,
+  tenant_id   uuid not null references public.tenants(id) on delete cascade,
+  question    text not null,
+  answer      text,
+  read_by_manager boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_tenant_questions_manager on public.tenant_questions(manager_id);
+
+-- â”€â”€ expenses (manager-side costs for the revenue-vs-cost dashboard) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+create table if not exists public.expenses (
+  id          uuid primary key default gen_random_uuid(),
+  manager_id  uuid not null references public.managers(id) on delete cascade,
+  property_id uuid references public.properties(id) on delete set null,
+  category    text not null,             -- Maintenance, Utilities, Rates, Otherâ€¦
+  amount      numeric(12,2) not null check (amount >= 0),
+  spent_on    date not null default current_date,
+  note        text,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_expenses_manager on public.expenses(manager_id);
+
+-- â”€â”€ payments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create table if not exists public.payments (
   id            uuid primary key default gen_random_uuid(),
   tenant_id     uuid not null references public.tenants(id) on delete cascade,
@@ -209,7 +205,7 @@ create index if not exists idx_payments_tenant  on public.payments(tenant_id);
 create index if not exists idx_payments_manager on public.payments(manager_id);
 create index if not exists idx_payments_status  on public.payments(status);
 
--- ── notifications ──────────────────────────────────────────────────────────
+-- â”€â”€ notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create table if not exists public.notifications (
   id              uuid primary key default gen_random_uuid(),
   manager_id      uuid not null references public.managers(id) on delete cascade,
@@ -223,7 +219,7 @@ create table if not exists public.notifications (
 );
 create index if not exists idx_notifications_manager on public.notifications(manager_id);
 
--- ── notification_reads ─────────────────────────────────────────────────────
+-- â”€â”€ notification_reads â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create table if not exists public.notification_reads (
   notification_id uuid not null references public.notifications(id) on delete cascade,
   tenant_id       uuid not null references public.tenants(id) on delete cascade,
@@ -231,7 +227,7 @@ create table if not exists public.notification_reads (
   primary key (notification_id, tenant_id)
 );
 
--- ── otp_codes (used by the SMS/email OTP RPC stub) ─────────────────────────
+-- â”€â”€ otp_codes (used by the SMS/email OTP RPC stub) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create table if not exists public.otp_codes (
   id          uuid primary key default gen_random_uuid(),
   tenant_id   uuid not null references public.tenants(id) on delete cascade,
@@ -244,14 +240,14 @@ create table if not exists public.otp_codes (
 create index if not exists idx_otp_tenant on public.otp_codes(tenant_id);
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0002_rls.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0002 Row Level Security
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0002 Row Level Security
 -- Managers see only their own data. Tenants see only their own records and
 -- notifications addressed to them.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 alter table public.managers           enable row level security;
 alter table public.properties         enable row level security;
@@ -267,7 +263,7 @@ alter table public.subscription_payments enable row level security;
 -- Helper: is the current auth user a tenant whose manager owns row `mid`?
 -- (kept inline in policies below for clarity)
 
--- ── managers ───────────────────────────────────────────────────────────────
+-- â”€â”€ managers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists managers_self on public.managers;
 create policy managers_self on public.managers
   for all using (id = auth.uid()) with check (id = auth.uid());
@@ -279,7 +275,7 @@ create policy managers_visible_to_tenant on public.managers
     id in (select manager_id from public.tenants where id = auth.uid())
   );
 
--- ── properties ─────────────────────────────────────────────────────────────
+-- â”€â”€ properties â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists properties_manager on public.properties;
 create policy properties_manager on public.properties
   for all using (manager_id = auth.uid()) with check (manager_id = auth.uid());
@@ -290,7 +286,7 @@ create policy properties_tenant_read on public.properties
     id in (select property_id from public.tenants where id = auth.uid())
   );
 
--- ── tenants ────────────────────────────────────────────────────────────────
+-- â”€â”€ tenants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Manager: full access to their tenants.
 drop policy if exists tenants_manager on public.tenants;
 create policy tenants_manager on public.tenants
@@ -306,7 +302,7 @@ drop policy if exists tenants_self_update on public.tenants;
 create policy tenants_self_update on public.tenants
   for update using (id = auth.uid()) with check (id = auth.uid());
 
--- ── payments ───────────────────────────────────────────────────────────────
+-- â”€â”€ payments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists payments_manager on public.payments;
 create policy payments_manager on public.payments
   for all using (manager_id = auth.uid()) with check (manager_id = auth.uid());
@@ -320,7 +316,7 @@ drop policy if exists payments_tenant_insert on public.payments;
 create policy payments_tenant_insert on public.payments
   for insert with check (tenant_id = auth.uid() and status = 'pending');
 
--- ── notifications ──────────────────────────────────────────────────────────
+-- â”€â”€ notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists notifications_manager on public.notifications;
 create policy notifications_manager on public.notifications
   for all using (manager_id = auth.uid()) with check (manager_id = auth.uid());
@@ -341,7 +337,7 @@ create policy notifications_tenant_read on public.notifications
     )
   );
 
--- ── notification_reads ─────────────────────────────────────────────────────
+-- â”€â”€ notification_reads â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists reads_tenant on public.notification_reads;
 create policy reads_tenant on public.notification_reads
   for all using (tenant_id = auth.uid()) with check (tenant_id = auth.uid());
@@ -352,13 +348,13 @@ create policy reads_manager_read on public.notification_reads
     notification_id in (select id from public.notifications where manager_id = auth.uid())
   );
 
--- ── otp_codes ──────────────────────────────────────────────────────────────
+-- â”€â”€ otp_codes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Only the owning tenant may read/consume their codes.
 drop policy if exists otp_tenant on public.otp_codes;
 create policy otp_tenant on public.otp_codes
   for all using (tenant_id = auth.uid()) with check (tenant_id = auth.uid());
 
--- ── tenant_questions ───────────────────────────────────────────────────────
+-- â”€â”€ tenant_questions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Manager reads/updates questions for their tenants; tenant inserts their own.
 drop policy if exists tq_manager on public.tenant_questions;
 create policy tq_manager on public.tenant_questions
@@ -368,22 +364,22 @@ drop policy if exists tq_tenant_insert on public.tenant_questions;
 create policy tq_tenant_insert on public.tenant_questions
   for insert with check (tenant_id = auth.uid());
 
--- ── expenses ───────────────────────────────────────────────────────────────
+-- â”€â”€ expenses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists expenses_manager on public.expenses;
 create policy expenses_manager on public.expenses
   for all using (manager_id = auth.uid()) with check (manager_id = auth.uid());
 
--- ── subscription_payments ──────────────────────────────────────────────────
+-- â”€â”€ subscription_payments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists sub_payments_manager on public.subscription_payments;
 create policy sub_payments_manager on public.subscription_payments
   for all using (manager_id = auth.uid()) with check (manager_id = auth.uid());
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0003_functions.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0003 functions, triggers & RPC stubs
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0003 functions, triggers & RPC stubs
 --
 -- These back the "client-only" architecture: privileged work runs inside the
 -- database as SECURITY DEFINER functions instead of a separate server.
@@ -394,9 +390,9 @@ create policy sub_payments_manager on public.subscription_payments
 -- The create_tenant() RPC below provisions the public.tenants profile row and
 -- a temp password record; the Edge Function (or the demo mock) creates the
 -- matching auth user. See README "Going to production".
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
--- ── Auto-create a manager profile when a manager signs up ──────────────────
+-- â”€â”€ Auto-create a manager profile when a manager signs up â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.handle_new_manager()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -420,7 +416,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_manager();
 
--- ── Receipt number generator ────────────────────────────────────────────────
+-- â”€â”€ Receipt number generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.next_receipt_no()
 returns text language plpgsql as $$
 declare n bigint;
@@ -431,7 +427,7 @@ end $$;
 
 create sequence if not exists public.receipt_seq start 1001;
 
--- ── create_tenant : manager provisions a tenant profile ────────────────────
+-- â”€â”€ create_tenant : manager provisions a tenant profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Returns the new tenant id. The temp password is generated client-side and
 -- passed in (so it can be shown to the manager for the WhatsApp handoff).
 create or replace function public.create_tenant(
@@ -454,7 +450,7 @@ declare
 begin
   if v_manager is null then raise exception 'Not authenticated'; end if;
 
-  -- Enforce plan capacity. No active plan ⇒ capacity 0 (must subscribe first).
+  -- Enforce plan capacity. No active plan â‡’ capacity 0 (must subscribe first).
   select count(*) into v_count from public.tenants where manager_id = v_manager;
   select case when plan_active then coalesce(plan_capacity, 0) else 0 end
     into v_cap from public.managers where id = v_manager;
@@ -475,7 +471,7 @@ begin
   return p_tenant_id;
 end $$;
 
--- ── request_otp : "send" a 6-digit code (logged to table = SMS stub) ───────
+-- â”€â”€ request_otp : "send" a 6-digit code (logged to table = SMS stub) â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.request_otp(p_tenant_id uuid, p_channel text)
 returns void language plpgsql security definer set search_path = public as $$
 declare v_code text;
@@ -491,7 +487,7 @@ begin
   raise notice 'RentFlow OTP for % via %: %', p_tenant_id, p_channel, v_code;
 end $$;
 
--- ── verify_otp : check a code and flip the verification flag ───────────────
+-- â”€â”€ verify_otp : check a code and flip the verification flag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.verify_otp(p_tenant_id uuid, p_channel text, p_code text)
 returns boolean language plpgsql security definer set search_path = public as $$
 declare v_ok boolean;
@@ -515,7 +511,7 @@ begin
   return true;
 end $$;
 
--- ── complete_first_login : clear firstLogin + activate account ─────────────
+-- â”€â”€ complete_first_login : clear firstLogin + activate account â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.complete_first_login(p_tenant_id uuid)
 returns void language plpgsql security definer set search_path = public as $$
 begin
@@ -526,7 +522,7 @@ begin
    where id = p_tenant_id;
 end $$;
 
--- ── approve_payment : apply advance/credit logic, assign receipt ───────────
+-- â”€â”€ approve_payment : apply advance/credit logic, assign receipt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.approve_payment(p_payment_id uuid)
 returns text language plpgsql security definer set search_path = public as $$
 declare
@@ -567,7 +563,7 @@ begin
   return v_receipt;
 end $$;
 
--- ── reject_payment ──────────────────────────────────────────────────────────
+-- â”€â”€ reject_payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.reject_payment(p_payment_id uuid, p_reason text default null)
 returns void language plpgsql security definer set search_path = public as $$
 begin
@@ -576,7 +572,7 @@ begin
    where id = p_payment_id and manager_id = auth.uid();
 end $$;
 
--- ── mark_notification_read ──────────────────────────────────────────────────
+-- â”€â”€ mark_notification_read â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.mark_notification_read(p_notification_id uuid)
 returns void language plpgsql security definer set search_path = public as $$
 begin
@@ -586,25 +582,25 @@ begin
 end $$;
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0004_team_rls.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0004 Team / multi-manager Row Level Security
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0004 Team / multi-manager Row Level Security
 --
 -- The 0002 policies scoped everything by `manager_id = auth.uid()`. With the
 -- Team feature, all workspace data is stored under the OWNER's id, and STAFF
 -- managers (managers.role = 'staff', managers.owner_id = <owner>) must see only
--- the properties listed in their managers.assigned_property_ids — and the
+-- the properties listed in their managers.assigned_property_ids â€” and the
 -- tenants / payments / expenses inside those.
 --
 -- These helpers + policies enforce, server-side:
---   • cross-OWNER isolation  — one workspace can never read another's rows
---   • per-property staff scope — staff see only their assigned buildings
--- ═══════════════════════════════════════════════════════════════════════════
+--   â€¢ cross-OWNER isolation  â€” one workspace can never read another's rows
+--   â€¢ per-property staff scope â€” staff see only their assigned buildings
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
--- ── Helpers (SECURITY DEFINER so they can read `managers` without recursing
---    through that table's own RLS) ──────────────────────────────────────────
+-- â”€â”€ Helpers (SECURITY DEFINER so they can read `managers` without recursing
+--    through that table's own RLS) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 create or replace function public.workspace_owner()
 returns uuid language sql stable security definer set search_path = public as $$
   select coalesce((select owner_id from public.managers where id = auth.uid()), auth.uid());
@@ -632,7 +628,7 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
--- ── managers ────────────────────────────────────────────────────────────────
+-- â”€â”€ managers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Owners can read & manage their own staff rows (the Team page).
 drop policy if exists managers_owner_team on public.managers;
 create policy managers_owner_team on public.managers
@@ -659,7 +655,7 @@ create trigger trg_guard_manager_self_update
   before update on public.managers
   for each row execute function public.guard_manager_self_update();
 
--- ── properties ──────────────────────────────────────────────────────────────
+-- â”€â”€ properties â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists properties_manager on public.properties;
 create policy properties_workspace on public.properties
   for all using (
@@ -667,7 +663,7 @@ create policy properties_workspace on public.properties
     and (not public.is_staff() or id = any(public.staff_property_ids()))
   ) with check (manager_id = public.workspace_owner());
 
--- ── tenants ─────────────────────────────────────────────────────────────────
+-- â”€â”€ tenants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists tenants_manager on public.tenants;
 create policy tenants_workspace on public.tenants
   for all using (
@@ -675,7 +671,7 @@ create policy tenants_workspace on public.tenants
     and (not public.is_staff() or (property_id is not null and property_id = any(public.staff_property_ids())))
   ) with check (manager_id = public.workspace_owner());
 
--- ── payments ────────────────────────────────────────────────────────────────
+-- â”€â”€ payments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists payments_manager on public.payments;
 create policy payments_workspace on public.payments
   for all using (
@@ -686,7 +682,7 @@ create policy payments_workspace on public.payments
     ))
   ) with check (manager_id = public.workspace_owner());
 
--- ── notifications ───────────────────────────────────────────────────────────
+-- â”€â”€ notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists notifications_manager on public.notifications;
 create policy notifications_workspace on public.notifications
   for all using (
@@ -696,7 +692,7 @@ create policy notifications_workspace on public.notifications
       or (property_id is not null and property_id = any(public.staff_property_ids())))
   ) with check (manager_id = public.workspace_owner());
 
--- ── expenses ────────────────────────────────────────────────────────────────
+-- â”€â”€ expenses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists expenses_manager on public.expenses;
 create policy expenses_workspace on public.expenses
   for all using (
@@ -704,31 +700,31 @@ create policy expenses_workspace on public.expenses
     and (not public.is_staff() or (property_id is not null and property_id = any(public.staff_property_ids())))
   ) with check (manager_id = public.workspace_owner());
 
--- ── subscription_payments (billing) — OWNER only, never staff ───────────────
+-- â”€â”€ subscription_payments (billing) â€” OWNER only, never staff â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 drop policy if exists sub_payments_manager on public.subscription_payments;
 create policy sub_payments_owner on public.subscription_payments
   for all using (manager_id = auth.uid() and not public.is_staff())
   with check (manager_id = auth.uid() and not public.is_staff());
 
 -- Note: tenant-side read policies from 0002 (tenants_self_read, payments_tenant_*,
--- notifications_tenant_read, managers_visible_to_tenant) are unchanged — tenants
+-- notifications_tenant_read, managers_visible_to_tenant) are unchanged â€” tenants
 -- still relate to their workspace via tenants.manager_id = owner id.
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0005_login_helpers.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0005 Login helpers
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0005 Login helpers
 --
 -- Sign-in accepts EITHER a phone number or an email. Supabase auth needs an
 -- email, so this resolves a phone to the matching account email. Phones are
--- compared on their last 9 significant digits so local (077…), country-code
--- (26377…) and formatted (+263 77 …) inputs all match.
+-- compared on their last 9 significant digits so local (077â€¦), country-code
+-- (26377â€¦) and formatted (+263 77 â€¦) inputs all match.
 --
 -- SECURITY DEFINER + a tight body so it only ever returns an email string,
 -- never any other column; granted to anon so it can run before authentication.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 create or replace function public.email_for_login(p_phone text)
 returns text
@@ -751,15 +747,15 @@ $$;
 grant execute on function public.email_for_login(text) to anon, authenticated;
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0006_reminders.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0006 Automated rent reminders
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0006 Automated rent reminders
 --
 -- Per-manager reminder configuration + a log of what's been sent (so a daily
--- cron — and the in-app queue — never send the same stage twice per period).
--- ═══════════════════════════════════════════════════════════════════════════
+-- cron â€” and the in-app queue â€” never send the same stage twice per period).
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 alter table public.managers
   add column if not exists reminders_enabled boolean not null default true,
@@ -796,16 +792,16 @@ create policy reminder_log_insert on public.reminder_log for insert
     or manager_id = (select owner_id from public.managers where id = auth.uid()));
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0007_maintenance.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0007 Maintenance / repair requests
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0007 Maintenance / repair requests
 --
 -- Tenants log repair requests (with a photo); managers triage, assign a
 -- caretaker, set a cost and resolve them. A resolved request with a cost is
 -- mirrored into the expenses ledger so per-property P&L stays accurate.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 create table if not exists public.maintenance (
   id             uuid primary key default gen_random_uuid(),
@@ -845,7 +841,7 @@ create policy maintenance_manager_update on public.maintenance for update
   using (manager_id = auth.uid()
     or manager_id = (select owner_id from public.managers where id = auth.uid()));
 
--- ── Resolved repair → expense (with full detail) ────────────────────────────
+-- â”€â”€ Resolved repair â†’ expense (with full detail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Link expenses back to the request that created them.
 alter table public.expenses
   add column if not exists maintenance_id uuid references public.maintenance(id) on delete set null;
@@ -868,7 +864,7 @@ begin
     v_note := 'Repair: ' || NEW.title || ' (' || NEW.category
       || case when coalesce(NEW.unit, '') <> '' then ', Unit ' || NEW.unit else '' end
       || case when v_name is not null then ', ' || v_name else '' end || ')'
-      || case when coalesce(NEW.caretaker_name, '') <> '' then ' · by ' || NEW.caretaker_name else '' end;
+      || case when coalesce(NEW.caretaker_name, '') <> '' then ' Â· by ' || NEW.caretaker_name else '' end;
     insert into public.expenses (manager_id, property_id, category, amount, spent_on, note, maintenance_id)
       values (NEW.manager_id, NEW.property_id, 'Maintenance', NEW.cost, current_date, v_note, NEW.id);
     NEW.expense_logged := true;
@@ -884,16 +880,16 @@ create trigger trg_log_maintenance_expense
   for each row execute function public.log_maintenance_expense();
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0008_markets_late_fees.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0008 Multi-country + late fees
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0008 Multi-country + late fees
 --
 -- A manager picks their COUNTRY, which drives the currency shown across the app
 -- and the mobile-money methods tenants can use (resolved client-side from
 -- markets.js). Plus an optional late-fee policy on overdue rent.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 alter table public.managers
   add column if not exists country             text not null default 'ZW',     -- ISO-2 market code
@@ -905,16 +901,16 @@ alter table public.managers
   add column if not exists late_fee_grace_days  int not null default 3;
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0009_payroll.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0009 Payroll
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0009 Payroll
 --
 -- The account OWNER pays staff (agents, caretakers). Each payment is mirrored
 -- into the expenses ledger as a 'Salaries' expense so Finances stays accurate.
 -- Owner-only: RLS restricts both tables to the workspace owner.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 -- A staff manager the owner has trusted to run payroll.
 alter table public.managers
@@ -924,7 +920,7 @@ create table if not exists public.payees (
   id          uuid primary key default gen_random_uuid(),
   manager_id  uuid not null references public.managers(id) on delete cascade,  -- workspace owner
   name        text not null,
-  category    text not null default 'Other',        -- Letting agent, Caretaker, Cleaner, Security guard…
+  category    text not null default 'Other',        -- Letting agent, Caretaker, Cleaner, Security guardâ€¦
   pay_type    text not null default 'monthly',      -- monthly | weekly | daily | task | commission
   title       text,                                  -- optional note (location / shift)
   amount      numeric(12,2) not null default 0,      -- rate for the pay_type
@@ -988,7 +984,7 @@ begin
 
   insert into public.expenses (manager_id, property_id, category, amount, spent_on, note)
     values (v_owner, null, 'Salaries', p_amount, coalesce(p_paid_on, current_date),
-            'Salary: ' || v_payee.name || coalesce(' (' || v_payee.category || ')', '') || coalesce(' — ' || p_period, ''))
+            'Salary: ' || v_payee.name || coalesce(' (' || v_payee.category || ')', '') || coalesce(' â€” ' || p_period, ''))
     returning id into v_exp;
 
   insert into public.payroll (manager_id, payee_id, name, category, amount, period, method, paid_on, note, expense_id)
@@ -1000,31 +996,31 @@ end;
 $$;
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0010_transaction_fee.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0010 Transaction fee
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0010 Transaction fee
 --
 -- A 0.5% platform fee is added ON TOP of each tenant rent payment. The tenant
 -- pays rent + fee; the manager receives the full rent (`amount`); the fee is
 -- platform revenue surfaced in the admin dashboard. `fee` stores the charge.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 alter table public.payments
   add column if not exists fee numeric(12,2) not null default 0;
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0011_refunds.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0011 Refunds
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0011 Refunds
 --
 -- A manager can choose whether they offer refunds (refunds_enabled). When on,
 -- they can refund an approved payment; the tenant's total drops and a 'Refund'
 -- expense is mirrored into Finances. Tenants are shown the policy either way.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 alter table public.managers
   add column if not exists refunds_enabled boolean not null default false;
@@ -1083,7 +1079,7 @@ begin
 
   insert into public.expenses (manager_id, property_id, category, amount, spent_on, note)
     values (v_owner, v_ten.property_id, 'Refund', v_amt, coalesce(p_refunded_on, current_date),
-            'Refund: ' || coalesce(v_ten.first_name || ' ' || v_ten.last_name, 'tenant') || coalesce(' — ' || nullif(p_reason, ''), ''))
+            'Refund: ' || coalesce(v_ten.first_name || ' ' || v_ten.last_name, 'tenant') || coalesce(' â€” ' || nullif(p_reason, ''), ''))
     returning id into v_exp;
 
   insert into public.refunds (manager_id, payment_id, tenant_id, amount, reason, method, refunded_on, expense_id)
@@ -1095,18 +1091,19 @@ end;
 $$;
 
 
--- ─────────────────────────────────────────────────────────────────────────
+-- ============================================================
 -- 0012_avatars.sql
--- ─────────────────────────────────────────────────────────────────────────
--- ═══════════════════════════════════════════════════════════════════════════
--- RentFlow — 0012 Profile pictures
+-- ============================================================
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+-- RentFlow â€” 0012 Profile pictures
 --
 -- Managers, agents and tenants can set a profile picture. Stored here as a
 -- small data URL for simplicity; in production this would be a Storage URL.
--- ═══════════════════════════════════════════════════════════════════════════
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 alter table public.managers add column if not exists avatar text;
 alter table public.tenants  add column if not exists avatar text;
+
 
 
 -- ─────────────────────────────────────────────────────────────────────────
