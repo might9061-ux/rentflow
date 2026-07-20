@@ -4,6 +4,7 @@
 import { Router } from 'express'
 import { admin } from '../supabase.js'
 import { h, ok } from '../auth.js'
+import { logAdmin } from '../lib/audit.js'
 
 const router = Router()
 
@@ -46,15 +47,34 @@ router.patch('/workspaces/:id/plan', h(async (req, res) => {
   }
   if (!Object.keys(patch).length) throw new Error('Nothing to update.')
 
-  // Stamp the start date the first time a workspace is switched on.
-  if (patch.plan_active) {
-    const { data: cur } = await admin.from('managers').select('plan_started_at').eq('id', req.params.id).maybeSingle()
-    if (!cur?.plan_started_at) patch.plan_started_at = new Date().toISOString()
-  }
+  // Capture the previous values so the audit entry shows what actually changed.
+  const { data: before } = await admin.from('managers')
+    .select('email, plan_active, plan_capacity, plan_price, plan_started_at')
+    .eq('id', req.params.id).maybeSingle()
 
-  res.json(ok(await admin.from('managers').update(patch).eq('id', req.params.id).select(
+  // Stamp the start date the first time a workspace is switched on.
+  if (patch.plan_active && !before?.plan_started_at) patch.plan_started_at = new Date().toISOString()
+
+  const updated = ok(await admin.from('managers').update(patch).eq('id', req.params.id).select(
     'id, first_name, last_name, brand_name, plan_active, plan_capacity, plan_price, plan_started_at',
-  ).single()))
+  ).single())
+
+  await logAdmin(req, patch.plan_active === false ? 'plan.deactivate' : 'plan.activate', {
+    targetId: req.params.id,
+    targetEmail: before?.email,
+    details: {
+      from: { active: before?.plan_active, capacity: before?.plan_capacity, price: before?.plan_price },
+      to: { active: updated.plan_active, capacity: updated.plan_capacity, price: updated.plan_price },
+    },
+  })
+
+  res.json(updated)
+}))
+
+// GET /api/platform/audit — the privileged-action trail, newest first.
+router.get('/audit', h(async (req, res) => {
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100))
+  res.json(ok(await admin.from('admin_audit').select('*').order('created_at', { ascending: false }).limit(limit)))
 }))
 
 // POST /api/platform/workspaces/:id/payment — record money actually received
@@ -67,13 +87,22 @@ router.post('/workspaces/:id/payment', h(async (req, res) => {
   if (!Number.isFinite(amt) || amt <= 0) throw new Error('Enter a valid amount.')
 
   const monthLabel = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-  res.json(ok(await admin.from('subscription_payments').insert({
+  const row = ok(await admin.from('subscription_payments').insert({
     manager_id: req.params.id,
     amount: amt,
     period: period || monthLabel,
     method: method || 'Manual',
     reference: reference || null,
-  }).select().single()))
+  }).select().single())
+
+  const { data: target } = await admin.from('managers').select('email').eq('id', req.params.id).maybeSingle()
+  await logAdmin(req, 'payment.record', {
+    targetId: req.params.id,
+    targetEmail: target?.email,
+    details: { amount: amt, method: row.method, reference: row.reference, period: row.period },
+  })
+
+  res.json(row)
 }))
 
 router.get('/overview', h(async (req, res) => {

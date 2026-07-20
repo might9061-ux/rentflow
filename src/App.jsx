@@ -44,6 +44,7 @@ const AdminWorkspaces = lazy(() => import('./pages/admin/AdminWorkspaces.jsx'))
 const AdminSubscriptions = lazy(() => import('./pages/admin/AdminSubscriptions.jsx'))
 const AdminFees = lazy(() => import('./pages/admin/AdminFees.jsx'))
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers.jsx'))
+const AdminAudit = lazy(() => import('./pages/admin/AdminAudit.jsx'))
 
 function RequireRole({ role, children }) {
   const { loading, session } = useAuth()
@@ -88,6 +89,7 @@ export default function App() {
         <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="fees" element={<AdminFees />} />
         <Route path="users" element={<AdminUsers />} />
+        <Route path="audit" element={<AdminAudit />} />
       </Route>
 
       {/* Auth */}

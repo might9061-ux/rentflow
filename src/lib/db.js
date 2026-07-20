@@ -351,6 +351,9 @@ const sb = {
   },
   // Turn a workspace's plan on/off. Allowed because the caller is a platform
   // admin, which the 0019 trigger trusts; managers can't do this to themselves.
+  async adminAudit() {
+    return ok(await supabase.from('admin_audit').select('*').order('created_at', { ascending: false }).limit(100))
+  },
   async adminSetPlan(workspaceId, patch) {
     const body = {}
     if (patch.plan_active !== undefined) body.plan_active = !!patch.plan_active
