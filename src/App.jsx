@@ -1,8 +1,10 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import { LoadingScreen } from './components/ui.jsx'
 import AppLock from './components/AppLock.jsx'
+import MfaChallenge from './components/MfaChallenge.jsx'
+import { needsChallenge } from './lib/mfa.js'
 
 // Landing stays eager for the fastest first paint; everything else is split into
 // its own chunk that only downloads when that route is visited.
@@ -55,12 +57,33 @@ function RequireRole({ role, children }) {
 }
 
 // The platform owner (RentLoja HQ) — sees subscriptions & revenue, not a workspace.
+//
+// When two-factor is enrolled, a password-only session (AAL1) is not enough:
+// Supabase still issues a session, so we check the assurance level and demand
+// the code. The API enforces the same rule, so skipping this in the browser
+// gains nothing.
 function RequireAdmin({ children }) {
   const { loading, session, profile } = useAuth()
+  const [mfaState, setMfaState] = useState('checking') // checking | ok | needed
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      if (!session) return
+      try {
+        const need = await needsChallenge()
+        if (alive) setMfaState(need ? 'needed' : 'ok')
+      } catch { if (alive) setMfaState('ok') } // never lock the owner out on a lookup failure
+    })()
+    return () => { alive = false }
+  }, [session])
+
   if (loading) return <LoadingScreen />
   if (!session || session.role !== 'manager') return <Navigate to="/admin/login" replace />
   if (!profile) return <LoadingScreen />
   if (!profile.platform_admin) return <Navigate to="/manager" replace />
+  if (mfaState === 'checking') return <LoadingScreen />
+  if (mfaState === 'needed') return <MfaChallenge onVerified={() => setMfaState('ok')} />
   return children
 }
 

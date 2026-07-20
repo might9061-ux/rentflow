@@ -33,10 +33,40 @@ export async function requireAuth(req, res, next) {
     req.user = entry.user
     req.token = token
     req.db = forUser(token)
+    // Assurance level from the (already verified) token: 'aal1' = password
+    // only, 'aal2' = a two-factor code was entered. Privileged routes require
+    // aal2 when the account has an authenticator enrolled.
+    req.aal = readAal(token)
     next()
   } catch (e) {
     res.status(500).json({ error: String(e?.message || e) })
   }
+}
+
+// Read the `aal` claim from a token that Supabase has ALREADY verified above —
+// this is decoding, not validation, so it must never be the only check.
+function readAal(token) {
+  try {
+    const payload = token.split('.')[1]
+    const json = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+    return JSON.parse(json).aal || null
+  } catch { return null }
+}
+
+// Does this account have a verified authenticator? Cached alongside the token
+// so we don't ask Supabase on every request.
+const mfaCache = new Map() // userId -> { enrolled, exp }
+export async function hasVerifiedMfa(userId) {
+  const now = Date.now()
+  const hit = mfaCache.get(userId)
+  if (hit && hit.exp > now) return hit.enrolled
+  let enrolled = false
+  try {
+    const { data } = await admin.auth.admin.getUserById(userId)
+    enrolled = (data?.user?.factors || []).some((f) => f.status === 'verified')
+  } catch { enrolled = false } // a lookup failure must not lock the owner out
+  mfaCache.set(userId, { enrolled, exp: now + TOKEN_TTL_MS })
+  return enrolled
 }
 
 // Wrap an async handler so thrown errors become clean JSON responses.

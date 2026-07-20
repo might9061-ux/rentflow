@@ -7,13 +7,15 @@ import { fileToAvatar } from '../lib/upload.js'
 import { fullName, initials } from '../lib/format.js'
 import { prettyPhone } from '../lib/phone.js'
 import Modal from './Modal.jsx'
-import { IconMail, IconPhone, IconKey, IconLogout, IconTrash, IconSun, IconMoon, IconEye } from './icons.jsx'
+import MfaSetup from './MfaSetup.jsx'
+import { IconMail, IconPhone, IconKey, IconLogout, IconTrash, IconSun, IconMoon, IconEye, IconShield } from './icons.jsx'
 
 // "My profile" — view your details and set a profile picture. Works for the
 // manager (owner/agent) and the tenant.
 export default function ProfileModal({ role, title = 'My profile', onClose, onChangePassword }) {
   const { userId, profile, refresh, signOut } = useAuth()
   const { theme, toggle, textSize, setTextSize } = useTheme()
+  const [showMfa, setShowMfa] = useState(false)
   const toast = useToast()
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
@@ -67,7 +69,17 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
             ))}
           </div>
         </div>
+        {/* Two-factor. Offered to managers (not tenants) — most valuable for the
+            App owner, whose account can reach every workspace. */}
+        {role !== 'tenant' && (
+          <div className="pf-row">
+            <span className="row gap muted"><IconShield size={15} /> Two-factor</span>
+            <button className="btn ghost sm" onClick={() => setShowMfa(true)}>Set up</button>
+          </div>
+        )}
       </div>
+
+      {showMfa && <MfaSetup onClose={() => setShowMfa(false)} />}
 
       <div className="row gap wrap" style={{ marginTop: 16 }}>
         <button className="btn ghost sm" onClick={() => fileRef.current?.click()} disabled={busy}>{profile?.avatar ? 'Change photo' : 'Add photo'}</button>

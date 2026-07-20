@@ -3,7 +3,7 @@
 // confirmed the caller is a platform_admin.
 import { Router } from 'express'
 import { admin } from '../supabase.js'
-import { h, ok } from '../auth.js'
+import { h, ok, hasVerifiedMfa } from '../auth.js'
 import { logAdmin } from '../lib/audit.js'
 
 const router = Router()
@@ -19,6 +19,13 @@ router.use(async (req, res, next) => {
   try {
     const me = ok(await req.db.from('managers').select('platform_admin').eq('id', req.user.id).single())
     if (!me?.platform_admin) return res.status(403).json({ error: 'Platform admin only' })
+
+    // If this account has two-factor enrolled, a password-only session (aal1)
+    // must not reach the platform data. Enforced here as well as in the browser
+    // — a client-side check proves nothing about the caller.
+    if (req.aal !== 'aal2' && await hasVerifiedMfa(req.user.id)) {
+      return res.status(403).json({ error: 'Two-factor verification required' })
+    }
     next()
   } catch (e) {
     res.status(500).json({ error: String(e?.message || e) })
