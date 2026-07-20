@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { PERIODS } from '../../lib/period.js'
-import { IconChart, IconBuilding, IconTag, IconWallet, IconUsers, IconLogout, IconArrowRight, IconShield } from '../../components/icons.jsx'
+import { IconChart, IconBuilding, IconTag, IconWallet, IconUsers, IconLogout, IconArrowRight, IconShield, IconSettings } from '../../components/icons.jsx'
 
 const TABS = [
   { to: '/admin', end: true, label: 'Overview', icon: IconChart },
@@ -12,6 +12,7 @@ const TABS = [
   { to: '/admin/fees', label: 'Transaction fees', icon: IconWallet },
   { to: '/admin/users', label: 'Users', icon: IconUsers },
   { to: '/admin/audit', label: 'Activity', icon: IconShield },
+  { to: '/admin/settings', label: 'Settings', icon: IconSettings },
 ]
 
 export default function AdminLayout() {

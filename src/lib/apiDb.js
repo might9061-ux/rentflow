@@ -148,6 +148,7 @@ export function createApiDb(sb) {
     adminSubscriptions: () => req('GET', '/api/platform/subscriptions'),
     adminTransactions: () => req('GET', '/api/platform/transactions'),
     adminAudit: () => req('GET', '/api/platform/audit'),
+    adminAdmins: () => req('GET', '/api/platform/admins'),
     // Turn a workspace's plan on/off. Since 0019 managers can't do this
     // themselves, so this is the only path — service-role, admin-gated.
     adminSetPlan: (workspaceId, patch) => req('PATCH', `/api/platform/workspaces/${workspaceId}/plan`, patch),

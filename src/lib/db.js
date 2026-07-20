@@ -351,6 +351,10 @@ const sb = {
   },
   // Turn a workspace's plan on/off. Allowed because the caller is a platform
   // admin, which the 0019 trigger trusts; managers can't do this to themselves.
+  async adminAdmins() {
+    const rows = ok(await supabase.from('managers').select('id, first_name, last_name, email, created_at').eq('platform_admin', true).order('created_at'))
+    return rows.map((m) => ({ id: m.id, name: `${m.first_name || ''} ${m.last_name || ''}`.trim() || '—', email: m.email, created_at: m.created_at, suspicious: /@(rentloja|example).test$/i.test(m.email || '') }))
+  },
   async adminAudit() {
     return ok(await supabase.from('admin_audit').select('*').order('created_at', { ascending: false }).limit(100))
   },

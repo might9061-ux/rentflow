@@ -78,6 +78,26 @@ router.patch('/workspaces/:id/plan', h(async (req, res) => {
   res.json(updated)
 }))
 
+// GET /api/platform/admins — who currently holds App-owner access.
+//
+// Worth surfacing: a stray platform_admin is the single most dangerous thing
+// that can exist in this system, and it's invisible everywhere else in the UI.
+router.get('/admins', h(async (req, res) => {
+  const rows = ok(await admin.from('managers')
+    .select('id, first_name, last_name, email, created_at')
+    .eq('platform_admin', true).order('created_at'))
+
+  // Flag anything that looks like leftover test data.
+  res.json(rows.map((m) => ({
+    id: m.id,
+    name: name(m),
+    email: m.email,
+    created_at: m.created_at,
+    is_you: m.id === req.user.id,
+    suspicious: /@(rentloja|example)\.test$/i.test(m.email || ''),
+  })))
+}))
+
 // GET /api/platform/audit — the privileged-action trail, newest first.
 router.get('/audit', h(async (req, res) => {
   const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100))
