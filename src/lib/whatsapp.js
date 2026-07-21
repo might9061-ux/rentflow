@@ -23,13 +23,16 @@ export function sendWhatsApp(phone, message) {
   return url
 }
 
-// Send the same message to many tenants. Deep links are one-to-one, so this
-// opens each chat in sequence (allow pop-ups). For fully-automatic bulk send,
-// upgrade sendWhatsApp to the WhatsApp Business Cloud API.
-export function sendWhatsAppBulk(phones, message, gap = 700) {
-  const list = (Array.isArray(phones) ? phones : [phones]).filter(Boolean)
-  list.forEach((p, i) => setTimeout(() => sendWhatsApp(p, message), i * gap))
-  return list.length
+// Open WhatsApp's own chat picker with the message pre-filled, so the user can
+// choose a GROUP (or any chat) to send it to.
+//
+// This is the only way to reach several people at once from a link: a group has
+// no phone number, so wa.me/<number> can never address one. It's also why there
+// is no "send to all" here — firing window.open() in a loop gets every call
+// after the first blocked as an unrequested pop-up, so it silently reached one
+// person while claiming to reach everyone. One tap, one chat, or a group.
+export function shareToWhatsApp(message) {
+  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener')
 }
 
 // ── Message templates ───────────────────────────────────────────────────────

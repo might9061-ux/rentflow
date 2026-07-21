@@ -4,12 +4,12 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { fullName, timeAgo } from '../../lib/format.js'
 import { prettyPhone } from '../../lib/phone.js'
-import { sendWhatsApp, sendWhatsAppBulk, notificationMessage } from '../../lib/whatsapp.js'
+import { sendWhatsApp, shareToWhatsApp, notificationMessage } from '../../lib/whatsapp.js'
 import { sendSMS } from '../../lib/sms.js'
 import Modal from '../../components/Modal.jsx'
 import { Input, Textarea, Select } from '../../components/Field.jsx'
 import { Spinner, EmptyState } from '../../components/ui.jsx'
-import { IconPlus, IconBell, IconWarn, IconInfo, IconUsers, IconBuilding, IconWhatsapp, IconSend, IconMail } from '../../components/icons.jsx'
+import { IconPlus, IconBell, IconWarn, IconInfo, IconUsers, IconBuilding, IconWhatsapp, IconSend, IconMail, IconCheck } from '../../components/icons.jsx'
 
 const PRIORITY = {
   normal: { cls: 'neutral', label: 'Normal', icon: IconBell },
@@ -118,50 +118,94 @@ export default function ManagerNotifications() {
 
 // Hand off a notification to tenants over WhatsApp / SMS via pre-filled deep links.
 function DeliveryModal({ subject, message, priority, channels, recipients, manager, onClose }) {
-  const toast = useToast()
   const text = notificationMessage({ subject, message, manager, priority })
   const phones = recipients.map((t) => t.phone)
 
-  const allSms = () => sendSMS(phones, text)
-  const allWa = () => { const n = sendWhatsAppBulk(phones, text); toast.info('Opening WhatsApp', `Allow pop-ups to message all ${n} tenants.`) }
+  // Track who's been messaged. WhatsApp opens one chat per tap, so without this
+  // it's easy to lose your place halfway down a list of tenants.
+  const [sent, setSent] = useState(() => new Set())
+  const markSent = (id) => setSent((s) => new Set(s).add(id))
+
+  // SMS genuinely takes many numbers in one link, so "all" is real here.
+  const allSms = () => { sendSMS(phones, text); recipients.forEach((t) => markSent(t.id)) }
+  // WhatsApp can't: a group has no number, so this opens WhatsApp's own chat
+  // picker with the message ready — choose the tenants' group and send once.
+  const toGroup = () => shareToWhatsApp(text)
+
+  const remaining = recipients.filter((t) => !sent.has(t.id)).length
 
   return (
     <Modal title="Send via WhatsApp / SMS" onClose={onClose}
       footer={<button className="btn primary" onClick={onClose}>Done</button>}>
-      <p className="muted" style={{ marginBottom: 14 }}>
-        Send to everyone at once, or tap a channel per tenant — their app opens with the message pre-filled.
-      </p>
-      {recipients.length > 1 && (
-        <div className="card pad" style={{ marginBottom: 14, background: 'var(--gold-bg)', borderColor: 'var(--gold-line)' }}>
+
+      {channels.whatsapp && (
+        <div className="card pad" style={{ marginBottom: 14, background: 'var(--green-bg)', borderColor: 'var(--green-line)' }}>
           <div className="spread wrap" style={{ gap: 10 }}>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Send to all {recipients.length} tenants</div>
-            <div className="row gap">
-              {channels.whatsapp && <button className="btn sm wa" onClick={allWa}><IconWhatsapp size={14} /> All via WhatsApp</button>}
-              {channels.sms && <button className="btn sm" onClick={allSms}><IconMail size={14} /> All via SMS</button>}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>Send to a WhatsApp group</div>
+              <div className="muted" style={{ fontSize: '0.8rem', marginTop: 2 }}>
+                Reaches everyone in one message. WhatsApp opens — pick your tenants’ group.
+              </div>
             </div>
+            <button className="btn sm wa" onClick={toGroup}><IconWhatsapp size={14} /> Choose group</button>
           </div>
         </div>
       )}
+
+      <p className="muted" style={{ marginBottom: 12, fontSize: '0.86rem' }}>
+        Or message tenants individually below. WhatsApp opens one chat at a time, so tap each in turn —
+        ticked names are done.
+      </p>
+
+      {recipients.length > 1 && channels.sms && (
+        <div className="spread wrap" style={{ gap: 10, marginBottom: 12 }}>
+          <span className="muted" style={{ fontSize: '0.84rem' }}>
+            {remaining === 0 ? 'All tenants messaged' : `${remaining} of ${recipients.length} still to send`}
+          </span>
+          <button className="btn sm" onClick={allSms}><IconMail size={14} /> All {recipients.length} via SMS</button>
+        </div>
+      )}
+
       {recipients.length === 0 ? (
-        <EmptyState icon="📵" title="No phone numbers">None of the selected tenants have a phone number on file.</EmptyState>
+        <EmptyState icon="📵" title="No phone numbers">
+          None of the selected tenants have a phone number on file. Add one on their profile, or use the group above.
+        </EmptyState>
       ) : (
-        <div className="col" style={{ gap: 8, maxHeight: 360, overflowY: 'auto' }}>
-          {recipients.map((t) => (
-            <div key={t.id} className="spread" style={{ padding: '10px 12px', border: '1px solid var(--line-soft)', borderRadius: 'var(--radius)' }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{fullName(t)}</div>
-                <div className="muted mono" style={{ fontSize: '0.78rem' }}>{prettyPhone(t.phone)}</div>
+        <div className="col" style={{ gap: 8, maxHeight: 340, overflowY: 'auto' }}>
+          {recipients.map((t) => {
+            const done = sent.has(t.id)
+            return (
+              <div key={t.id} className="spread" style={{
+                padding: '10px 12px', borderRadius: 'var(--radius)',
+                border: `1px solid ${done ? 'var(--green-line)' : 'var(--line-soft)'}`,
+                background: done ? 'var(--green-bg)' : 'transparent',
+              }}>
+                <div className="row gap" style={{ minWidth: 0 }}>
+                  {done && <IconCheck size={15} style={{ color: 'var(--green)', flexShrink: 0 }} />}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{fullName(t)}</div>
+                    <div className="muted mono" style={{ fontSize: '0.78rem' }}>{prettyPhone(t.phone)}</div>
+                  </div>
+                </div>
+                <div className="row gap">
+                  {channels.whatsapp && (
+                    <button className="btn sm wa" onClick={() => { sendWhatsApp(t.phone, text); markSent(t.id) }}>
+                      <IconWhatsapp size={14} /> {done ? 'Again' : 'WhatsApp'}
+                    </button>
+                  )}
+                  {channels.sms && (
+                    <button className="btn sm" onClick={() => { sendSMS(t.phone, text); markSent(t.id) }}>
+                      <IconMail size={14} /> SMS
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="row gap">
-                {channels.whatsapp && <button className="btn sm wa" onClick={() => sendWhatsApp(t.phone, text)}><IconWhatsapp size={14} /> WhatsApp</button>}
-                {channels.sms && <button className="btn sm" onClick={() => sendSMS(t.phone, text)}><IconMail size={14} /> SMS</button>}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
       <p className="hint" style={{ marginTop: 12 }}>
-        In-app notifications were already delivered. For automatic bulk SMS, connect Africa’s Talking (see README).
+        In-app notifications were already delivered. For automatic bulk sending, connect Africa’s Talking (see README).
       </p>
     </Modal>
   )
