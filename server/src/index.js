@@ -21,6 +21,7 @@ import otp from './routes/otp.js'
 import platform from './routes/platform.js'
 import paynowResult from './routes/paynowResult.js'
 import loginEvents from './routes/loginEvents.js'
+import authReset from './routes/authReset.js'
 
 const app = express()
 const PORT = process.env.PORT || 8787
@@ -52,6 +53,9 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'rentflow-api', 
 // Paynow's server-to-server callback. PUBLIC on purpose (Paynow holds no token)
 // — it authenticates itself by a hash keyed to the workspace's integration key.
 app.use('/paynow', paynowResult)
+
+// Public (pre-auth) — role-scoped password reset, before the auth gate.
+app.use('/api/auth', authReset)
 
 // Everything below requires a valid Supabase session token.
 app.use('/api', requireAuth)

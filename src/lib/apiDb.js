@@ -149,6 +149,9 @@ export function createApiDb(sb) {
     adminTransactions: () => req('GET', '/api/platform/transactions'),
     adminAudit: () => req('GET', '/api/platform/audit'),
     adminAdmins: () => req('GET', '/api/platform/admins'),
+    // Role-scoped password reset: only sends if the email is registered on the
+    // side (manager/tenant) the request came from. Returns { available }.
+    requestPasswordReset: (email, role) => req('POST', '/api/auth/request-reset', { email, role }),
     // Report a sign-in so a new device triggers an alert email.
     reportLogin: () => req('POST', '/api/login-events'),
     listLoginDevices: () => req('GET', '/api/login-events/devices'),

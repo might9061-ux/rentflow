@@ -14,7 +14,7 @@ import { IconCheckCircle, IconMail, IconPhone } from '../components/icons.jsx'
 // destination number.
 //   • Demo mode  → 6-digit code sent to the chosen registered channel (shown in a toast).
 //   • Supabase   → emails a recovery link to the registered address.
-export default function ForgotPasswordModal({ accent = 'gold', initialEmail = '', onClose, onReset }) {
+export default function ForgotPasswordModal({ accent = 'gold', role = 'manager', initialEmail = '', onClose, onReset }) {
   const toast = useToast()
   const [step, setStep] = useState('request') // request | channel | reset | sent
   const [email, setEmail] = useState(initialEmail)
@@ -32,7 +32,16 @@ export default function ForgotPasswordModal({ accent = 'gold', initialEmail = ''
     setBusy(true)
     try {
       if (!DEMO_MODE) {
-        await db.requestPasswordReset(email)
+        const r = await db.requestPasswordReset(email, role)
+        // The email isn't registered for THIS sign-in (manager vs tenant).
+        if (r && r.available === false) {
+          const other = role === 'manager' ? 'tenant' : 'manager'
+          toast.error('Email not available', r.wrongRole
+            ? `That email belongs to a ${other} account. Use the ${other} sign-in screen instead.`
+            : `No ${role} account is registered with that email.`)
+          setBusy(false)
+          return
+        }
         setStep('sent')
         return
       }

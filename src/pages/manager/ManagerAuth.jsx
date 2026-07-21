@@ -125,7 +125,7 @@ export default function ManagerAuth() {
       </form>
 
       {forgot && (
-        <ForgotPasswordModal accent="gold" initialEmail={form.email}
+        <ForgotPasswordModal accent="gold" role="manager" initialEmail={form.email}
           onClose={() => setForgot(false)}
           onReset={(email) => setForm((f) => ({ ...f, email, password: '' }))} />
       )}

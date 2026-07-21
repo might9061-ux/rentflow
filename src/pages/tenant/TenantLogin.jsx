@@ -52,7 +52,7 @@ export default function TenantLogin() {
       </form>
 
       {forgot && (
-        <ForgotPasswordModal accent="green" initialEmail={form.email}
+        <ForgotPasswordModal accent="green" role="tenant" initialEmail={form.email}
           onClose={() => setForgot(false)}
           onReset={(email) => setForm((f) => ({ ...f, email, password: '' }))} />
       )}
