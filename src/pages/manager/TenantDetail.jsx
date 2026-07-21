@@ -10,7 +10,8 @@ import ReceiptModal from '../../components/Receipt.jsx'
 import TenantModal from './TenantModal.jsx'
 import CredentialsModal from './CredentialsModal.jsx'
 import RecordPaymentModal from './RecordPaymentModal.jsx'
-import { IconArrowRight, IconEdit, IconKey, IconReceipt, IconMail, IconPhone, IconWallet } from '../../components/icons.jsx'
+import { IconArrowRight, IconEdit, IconKey, IconReceipt, IconMail, IconPhone, IconWallet, IconDownload } from '../../components/icons.jsx'
+import { downloadStatementCsv, printStatement } from '../../lib/statement.js'
 
 export default function TenantDetail() {
   const { id } = useParams()
@@ -25,6 +26,7 @@ export default function TenantDetail() {
   const [editing, setEditing] = useState(false)
   const [creds, setCreds] = useState(null)
   const [recording, setRecording] = useState(false)
+  const [stmtOpen, setStmtOpen] = useState(false)
 
   const load = async () => {
     const [t, pays, props] = await Promise.all([db.getTenant(id), db.listTenantPayments(id), db.listProperties(userId)])
@@ -43,6 +45,18 @@ export default function TenantDetail() {
     toast.success('New credentials generated')
     setCreds({ tenant, tempPassword })
     load()
+  }
+
+  const brandOpts = {
+    brandName: profile?.brand_name || 'RentLoja',
+    brandColor: profile?.brand_color || '#c8a84b',
+    workspace: profile?.brand_name || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+  }
+  const downloadCsv = () => { setStmtOpen(false); downloadStatementCsv(tenant, payments); toast.success('Statement downloaded') }
+  const printPdf = () => {
+    setStmtOpen(false)
+    try { printStatement(tenant, payments, brandOpts) }
+    catch (e) { toast.error('Could not open statement', e.message) }
   }
 
   return (
@@ -66,6 +80,18 @@ export default function TenantDetail() {
             </div>
           </div>
           <div className="row gap wrap">
+            <div className="stmt-wrap">
+              <button className="btn ghost" onClick={() => setStmtOpen((o) => !o)}><IconDownload size={15} /> Statement</button>
+              {stmtOpen && (
+                <>
+                  <div className="stmt-back" onClick={() => setStmtOpen(false)} />
+                  <div className="stmt-menu">
+                    <button onClick={printPdf}><IconReceipt size={15} /> Print / Save as PDF</button>
+                    <button onClick={downloadCsv}><IconDownload size={15} /> Download CSV (Excel)</button>
+                  </div>
+                </>
+              )}
+            </div>
             <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
             <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>
             <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>
@@ -127,6 +153,18 @@ export default function TenantDetail() {
           onClose={() => setRecording(false)}
           onRecorded={() => { setRecording(false); load() }} />
       )}
+
+      <style>{`
+        .stmt-wrap { position: relative; }
+        .stmt-back { position: fixed; inset: 0; z-index: 40; }
+        .stmt-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 41; min-width: 220px;
+          background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+          box-shadow: var(--shadow-soft); padding: 5px; }
+        .stmt-menu button { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+          background: transparent; border: none; color: var(--text); padding: 10px 11px; border-radius: 7px;
+          font-size: 0.88rem; cursor: pointer; }
+        .stmt-menu button:hover { background: var(--surface-2); }
+      `}</style>
     </div>
   )
 }
