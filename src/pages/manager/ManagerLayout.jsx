@@ -8,10 +8,11 @@ import ChangePasswordModal from '../../components/ChangePasswordModal.jsx'
 import AssistantWidget from '../../components/AssistantWidget.jsx'
 import QuickUnlockSetup from '../../components/QuickUnlockSetup.jsx'
 import ProfileModal from '../../components/ProfileModal.jsx'
+import GlobalSearch from '../../components/GlobalSearch.jsx'
 import { hasQuickUnlock } from '../../lib/quickUnlock.js'
 import {
   IconGrid, IconBuilding, IconUsers, IconCheckCircle, IconWallet,
-  IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconTag, IconSparkle, IconPalette, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash,
+  IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconTag, IconSparkle, IconPalette, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash, IconSearch,
 } from '../../components/icons.jsx'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
 
@@ -46,7 +47,20 @@ export default function ManagerLayout() {
   const [showChangePw, setShowChangePw] = useState(false)
   const [showQuickUnlock, setShowQuickUnlock] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
   const loc = useLocation()
+
+  // Global search: Ctrl/⌘-K anywhere, or "/" when not already typing.
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setShowSearch(true) }
+      else if (e.key === '/' && !/^(input|textarea)$/i.test(e.target.tagName) && !e.target.isContentEditable) {
+        e.preventDefault(); setShowSearch(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const loadPending = useCallback(async () => {
     if (!userId) return
@@ -185,12 +199,13 @@ export default function ManagerLayout() {
               <span className="tb-name">{brandName}</span>
             </div>
           </div>
-          <div className="row gap desktop-only" style={{ color: 'var(--accent)' }}>
-            <IconKey size={15} />
-            <span className="eyebrow" style={{ color: 'var(--accent)' }}>Manager workspace</span>
-          </div>
-          <div />
+          <button className="topbar-search" onClick={() => setShowSearch(true)} title="Search (Ctrl+K)">
+            <IconSearch size={16} />
+            <span className="ts-label">Search tenants, properties…</span>
+            <span className="ts-kbd desktop-only">Ctrl K</span>
+          </button>
         </div>
+        <GlobalSearch open={showSearch} onClose={() => setShowSearch(false)} />
         <Outlet context={{ reloadPending: loadPending }} />
       </div>
 
@@ -202,6 +217,17 @@ export default function ManagerLayout() {
         @media (max-width: 860px) {
           .mobile-only { display: inline-flex; }
           .desktop-only { display: none; }
+        }
+        /* Search trigger: a roomy box on desktop, a compact icon on phones. */
+        .topbar-search { display: inline-flex; align-items: center; gap: 9px; margin-left: auto;
+          min-width: 260px; padding: 8px 12px; border-radius: 99px; border: 1px solid var(--line);
+          background: var(--bg); color: var(--text-faint); font-size: 0.85rem; transition: all 0.14s; }
+        .topbar-search:hover { border-color: var(--accent-line); color: var(--text-dim); }
+        .topbar-search .ts-kbd { margin-left: auto; font-size: 0.68rem; padding: 2px 6px; border-radius: 5px;
+          border: 1px solid var(--line); color: var(--text-faint); white-space: nowrap; }
+        @media (max-width: 860px) {
+          .topbar-search { min-width: 0; padding: 8px; }
+          .topbar-search .ts-label { display: none; }
         }
       `}</style>
     </div>

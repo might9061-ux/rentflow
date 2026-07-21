@@ -23,6 +23,7 @@ export const IconShield = (p) => <S {...p}><path d="M12 3l8 3v5c0 5-3.5 8-8 10-4
 export const IconWhatsapp = (p) => <S {...p}><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3L3 21Z"/><path d="M8.5 9c0 4 2.5 6.5 6.5 6.5l1-2-2.2-1-1 1c-1.2-.4-2.4-1.6-2.8-2.8l1-1L10 7.5 8.5 9Z"/></S>
 export const IconDownload = (p) => <S {...p}><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></S>
 export const IconShare = (p) => <S {...p}><path d="M12 16V4"/><path d="M8 8l4-4 4 4"/><path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></S>
+export const IconSearch = (p) => <S {...p}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></S>
 export const IconChevron = (p) => <S {...p}><path d="M9 6l6 6-6 6"/></S>
 export const IconArrowRight = (p) => <S {...p}><path d="M5 12h14M13 6l6 6-6 6"/></S>
 export const IconHome = (p) => <S {...p}><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></S>
