@@ -5,6 +5,7 @@ import AuthShell from '../AuthShell.jsx'
 import ForgotPasswordModal from '../ForgotPasswordModal.jsx'
 import { Input, EmailInput, PasswordInput, Row } from '../../components/Field.jsx'
 import PhoneInput from '../../components/PhoneInput.jsx'
+import LoginOtpStep from '../../components/LoginOtpStep.jsx'
 import { isValidEmail } from '../../lib/format.js'
 import { isEmailOrPhone } from '../../lib/validate.js'
 import { friendlyError } from '../../lib/errors.js'
@@ -16,6 +17,7 @@ export default function ManagerAuth() {
   const [forgot, setForgot] = useState(false)
   const [busy, setBusy] = useState(false)
   const [verifyEmail, setVerifyEmail] = useState(null) // set → show "check your email" screen
+  const [challenge, setChallenge] = useState(null) // set → show the emailed login-code step
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', phone: '', password: '', country: 'ZW',
   })
@@ -36,7 +38,8 @@ export default function ManagerAuth() {
         if (r?.needsVerification) setVerifyEmail(r.email || form.email)
         else toast.success('Account created', 'Welcome to RentLoja.')
       } else {
-        await signInManager({ identifier: form.email, password: form.password })
+        const r = await signInManager({ identifier: form.email, password: form.password })
+        if (r?.challenge_id) setChallenge(r)
       }
     } catch (err) {
       toast.error(mode === 'signup' ? 'Sign up failed' : 'Sign in failed', friendlyError(err))
@@ -72,6 +75,14 @@ export default function ManagerAuth() {
             Back to sign in
           </button>
         </div>
+      </AuthShell>
+    )
+  }
+
+  if (challenge) {
+    return (
+      <AuthShell accent="gold" eyebrow="Property Manager" title="One more step">
+        <LoginOtpStep challenge={challenge} onBack={() => setChallenge(null)} onVerified={() => {}} />
       </AuthShell>
     )
   }

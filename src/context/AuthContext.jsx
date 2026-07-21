@@ -53,12 +53,34 @@ export function AuthProvider({ children }) {
     role: session?.role || null,
     refresh,
 
-    // Anyone who just proved themselves (password, or a quick unlock) starts
-    // the run unlocked — the lock screen is for returning to a running session.
-    async signInManager(creds) { const r = await db.signInManager(creds); markUnlocked(); clearSignedOut(r?.id); reportLogin(); await refresh(); return r },
+    // Sign-in is two steps wherever the API server brokers it: the password
+    // check returns a challenge (a code was just emailed) instead of a
+    // session, and verifyLoginOtp finishes it. In demo mode / direct-Supabase
+    // mode (no API server to hold tokens server-side) db.signInManager still
+    // completes immediately, same as always — detected by the absence of a
+    // challenge_id, so callers don't need to know which mode is active.
+    // Anyone who finishes sign-in (either way), or a quick unlock, starts the
+    // run unlocked — the lock screen is for returning to a running session.
+    async signInManager(creds) {
+      const r = await db.signInManager(creds)
+      if (r?.challenge_id) return r
+      markUnlocked(); clearSignedOut(r?.id); reportLogin(); await refresh()
+      return r
+    },
+    async signInTenant(creds) {
+      const r = await db.signInTenant(creds)
+      if (r?.challenge_id) return r
+      markUnlocked(); clearSignedOut(r?.id); reportLogin(); await refresh()
+      return r
+    },
+    async verifyLoginOtp({ challengeId, code }) {
+      const r = await db.verifyLoginOtp({ challengeId, code })
+      markUnlocked(); clearSignedOut(r?.id); reportLogin(); await refresh()
+      return r
+    },
+    async resendLoginOtp(challengeId) { return db.resendLoginOtp(challengeId) },
     async signUpManager(data) { const r = await db.signUpManager(data); markUnlocked(); await refresh(); return r },
     async resendVerification(email) { return db.resendVerification(email) },
-    async signInTenant(creds) { const r = await db.signInTenant(creds); markUnlocked(); clearSignedOut(r?.id); reportLogin(); await refresh(); return r },
     async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); markUnlocked(); clearSignedOut(userId); await refresh() },
     // Signing out is deliberate: stop offering password-free re-entry on the
     // landing screen, but keep the PIN/passkey so the lock screen still works

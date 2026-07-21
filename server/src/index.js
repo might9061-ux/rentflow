@@ -22,6 +22,7 @@ import platform from './routes/platform.js'
 import paynowResult from './routes/paynowResult.js'
 import loginEvents from './routes/loginEvents.js'
 import authReset from './routes/authReset.js'
+import loginOtp from './routes/loginOtp.js'
 
 const app = express()
 const PORT = process.env.PORT || 8787
@@ -56,6 +57,10 @@ app.use('/paynow', paynowResult)
 
 // Public (pre-auth) — role-scoped password reset, before the auth gate.
 app.use('/api/auth', authReset)
+
+// Public (pre-auth) — the mandatory emailed code step of signing in itself,
+// so it necessarily runs before any session/token exists.
+app.use('/api/login-otp', loginOtp)
 
 // Everything below requires a valid Supabase session token.
 app.use('/api', requireAuth)

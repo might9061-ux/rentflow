@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import AuthShell from '../AuthShell.jsx'
@@ -7,16 +7,17 @@ import ForgotPasswordModal from '../ForgotPasswordModal.jsx'
 import { Input, PasswordInput } from '../../components/Field.jsx'
 import { isEmailOrPhone } from '../../lib/validate.js'
 import { friendlyError } from '../../lib/errors.js'
+import LoginOtpStep from '../../components/LoginOtpStep.jsx'
 
 // Dedicated App-owner (platform admin) sign-in, reached only at /admin/login.
 // Not linked from anywhere public.
 export default function AdminAuth() {
   const { signInManager, session, profile } = useAuth()
   const toast = useToast()
-  const nav = useNavigate()
   const [busy, setBusy] = useState(false)
   const [forgot, setForgot] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
+  const [challenge, setChallenge] = useState(null) // set → show the emailed login-code step
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
   // Already signed in as the app owner → go straight to the console.
@@ -27,12 +28,19 @@ export default function AdminAuth() {
     if (!isEmailOrPhone(form.email)) return toast.error('Invalid login', 'Enter your email or phone number.')
     setBusy(true)
     try {
-      await signInManager({ identifier: form.email, password: form.password })
-      nav('/admin')
+      const r = await signInManager({ identifier: form.email, password: form.password })
+      if (r?.challenge_id) setChallenge(r)
     } catch (err) {
       toast.error('Sign in failed', friendlyError(err))
-      setBusy(false)
-    }
+    } finally { setBusy(false) }
+  }
+
+  if (challenge) {
+    return (
+      <AuthShell accent="gold" eyebrow="App owner" title="One more step">
+        <LoginOtpStep challenge={challenge} onBack={() => setChallenge(null)} onVerified={() => {}} />
+      </AuthShell>
+    )
   }
 
   return (

@@ -7,6 +7,7 @@ import ForgotPasswordModal from '../ForgotPasswordModal.jsx'
 import { Input, EmailInput, PasswordInput } from '../../components/Field.jsx'
 import { isEmailOrPhone } from '../../lib/validate.js'
 import { friendlyError } from '../../lib/errors.js'
+import LoginOtpStep from '../../components/LoginOtpStep.jsx'
 
 export default function TenantLogin() {
   const { signInTenant } = useAuth()
@@ -14,6 +15,7 @@ export default function TenantLogin() {
   const [busy, setBusy] = useState(false)
   const [forgot, setForgot] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
+  const [challenge, setChallenge] = useState(null) // set → show the emailed login-code step
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
   const submit = async (e) => {
@@ -22,10 +24,20 @@ export default function TenantLogin() {
     setBusy(true)
     try {
       const r = await signInTenant({ identifier: form.email, password: form.password })
-      if (r?.first_login) toast.info('Verify your account', 'Let’s confirm it’s you before you continue.')
+      if (r?.challenge_id) setChallenge(r)
+      else if (r?.first_login) toast.info('Verify your account', 'Let’s confirm it’s you before you continue.')
     } catch (err) {
       toast.error('Sign in failed', friendlyError(err))
     } finally { setBusy(false) }
+  }
+
+  if (challenge) {
+    return (
+      <AuthShell accent="green" eyebrow="Tenant" title="One more step">
+        <LoginOtpStep challenge={challenge} onBack={() => setChallenge(null)}
+          onVerified={(r) => { if (r?.first_login) toast.info('Verify your account', 'Let’s confirm it’s you before you continue.') }} />
+      </AuthShell>
+    )
   }
 
   return (

@@ -1,0 +1,182 @@
+// Mandatory emailed one-time code, required on every password sign-in for
+// every role (manager, staff, platform admin, tenant) — public/pre-auth,
+// mirroring authReset.js.
+//
+// Flow:
+//   1. POST /start   — verify the password against Supabase itself (this is
+//      the only way to check a Supabase Auth password without reimplementing
+//      hashing). On success we get a REAL session back, but we don't hand it
+//      to the browser yet: it's stashed in login_challenges keyed by a fresh
+//      challenge id, and a 6-digit code is emailed.
+//   2. POST /verify  — the code is checked against that row; only then are
+//      the stashed tokens released to the browser.
+//   3. POST /resend  — regenerate the code for an in-flight challenge.
+//
+// A stolen password alone is never enough to obtain a usable session — unlike
+// a client-side-only checkpoint, which would let anyone skip the code by
+// calling supabase.auth.signInWithPassword directly.
+import { Router } from 'express'
+import { createClient } from '@supabase/supabase-js'
+import { admin } from '../supabase.js'
+import { sendOtpEmail, emailConfigured } from '../lib/email.js'
+
+const router = Router()
+const CODE_TTL_MS = 10 * 60 * 1000
+const MAX_ATTEMPTS = 5
+const RESEND_COOLDOWN_MS = 20 * 1000
+
+// Fresh, throwaway client per password check — a password grant has nothing
+// to do with the shared service-role `admin` client (which bypasses RLS) and
+// must never share in-memory session state across concurrent requests.
+function passwordClient() {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
+
+function genCode() {
+  return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')
+}
+
+// Very small in-memory throttle on password attempts per identifier — this
+// process only; fine for the login screen, not a substitute for a WAF.
+const attemptLog = new Map() // identifier -> [timestamps]
+function tooManyStarts(identifier) {
+  const now = Date.now()
+  const hits = (attemptLog.get(identifier) || []).filter((t) => now - t < 15 * 60 * 1000)
+  hits.push(now)
+  attemptLog.set(identifier, hits)
+  if (attemptLog.size > 5000) for (const [k, v] of attemptLog) if (!v.some((t) => now - t < 15 * 60 * 1000)) attemptLog.delete(k)
+  return hits.length > 8
+}
+
+router.post('/start', async (req, res) => {
+  try {
+    const role = req.body?.role === 'tenant' ? 'tenant' : 'manager'
+    const identifier = String(req.body?.identifier || req.body?.email || '').trim()
+    const password = String(req.body?.password || '')
+    if (!identifier || !password) return res.status(400).json({ error: 'Enter your login and password.' })
+    if (tooManyStarts(identifier.toLowerCase())) {
+      return res.status(429).json({ error: 'Too many attempts. Wait a while and try again.' })
+    }
+
+    // Resolve phone → email exactly like the direct-Supabase client used to.
+    let email = identifier
+    if (!email.includes('@')) {
+      const { data } = await admin.rpc('email_for_login', { p_phone: identifier })
+      if (!data) return res.status(400).json({ error: 'No account found for that phone number.' })
+      email = data
+    }
+
+    const pw = passwordClient()
+    const { data, error } = await pw.auth.signInWithPassword({ email, password })
+    if (error || !data?.session) return res.status(400).json({ error: 'Incorrect email/phone or password. Please try again.' })
+
+    const table = role === 'tenant' ? 'tenants' : 'managers'
+    const { data: match } = await admin.from(table).select('id').eq('id', data.user.id).maybeSingle()
+    if (!match) {
+      const msg = role === 'tenant'
+        ? 'This login isn’t a tenant account. If you’re a property manager, use the manager sign-in page.'
+        : 'Your password is correct, but this account has no manager workspace set up. If you’re a tenant, use the tenant sign-in instead. Otherwise email support@rentloja.com and we’ll finish setting it up.'
+      return res.status(400).json({ error: msg })
+    }
+
+    // Opportunistic cleanup — no cron needed for a table this small.
+    await admin.from('login_challenges').delete().lt('expires_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+
+    const code = genCode()
+    const { data: row, error: insErr } = await admin.from('login_challenges').insert({
+      account_type: role,
+      account_id: data.user.id,
+      email,
+      code,
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_at: new Date(Date.now() + CODE_TTL_MS).toISOString(),
+    }).select('id').single()
+    if (insErr) throw new Error(insErr.message)
+
+    let dev_code
+    if (emailConfigured()) {
+      await sendOtpEmail(email, null, code)
+    } else {
+      // No RESEND_API_KEY in this environment (e.g. local dev) — surface the
+      // code directly instead of silently locking every login. Never happens
+      // once email is configured; mirrors the DEMO_MODE OTP fallback already
+      // used for tenant verification.
+      console.warn('[login-otp] RESEND_API_KEY not set — code for', email, 'is', code)
+      dev_code = code
+    }
+
+    res.json({ challenge_id: row.id, email, ...(dev_code ? { dev_code } : {}) })
+  } catch (e) {
+    console.error('[login-otp] start failed:', e?.message || e)
+    res.status(500).json({ error: 'Could not process the request. Please try again.' })
+  }
+})
+
+router.post('/verify', async (req, res) => {
+  try {
+    const challengeId = String(req.body?.challenge_id || '')
+    const code = String(req.body?.code || '').trim()
+    if (!challengeId || !code) return res.status(400).json({ error: 'Enter the 6-digit code.' })
+
+    const { data: row } = await admin.from('login_challenges').select('*').eq('id', challengeId).maybeSingle()
+    if (!row || row.consumed) return res.status(400).json({ error: 'This code has expired. Sign in again.' })
+    if (new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'This code has expired. Sign in again.' })
+    if (row.attempts >= MAX_ATTEMPTS) {
+      await admin.from('login_challenges').update({ consumed: true }).eq('id', challengeId)
+      return res.status(400).json({ error: 'Too many incorrect attempts. Sign in again.' })
+    }
+    if (row.code !== code) {
+      await admin.from('login_challenges').update({ attempts: row.attempts + 1 }).eq('id', challengeId)
+      return res.status(400).json({ error: 'Incorrect code. Check your email and try again.' })
+    }
+
+    await admin.from('login_challenges').update({ consumed: true }).eq('id', challengeId)
+
+    let first_login
+    if (row.account_type === 'tenant') {
+      const { data: t } = await admin.from('tenants').select('first_login').eq('id', row.account_id).maybeSingle()
+      first_login = t?.first_login
+    }
+
+    res.json({ access_token: row.access_token, refresh_token: row.refresh_token, first_login })
+  } catch (e) {
+    console.error('[login-otp] verify failed:', e?.message || e)
+    res.status(500).json({ error: 'Could not process the request. Please try again.' })
+  }
+})
+
+router.post('/resend', async (req, res) => {
+  try {
+    const challengeId = String(req.body?.challenge_id || '')
+    const { data: row } = await admin.from('login_challenges').select('*').eq('id', challengeId).maybeSingle()
+    if (!row || row.consumed || new Date(row.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'This code has expired. Sign in again.' })
+    }
+    if (Date.now() - new Date(row.created_at).getTime() < RESEND_COOLDOWN_MS) {
+      return res.status(429).json({ error: 'Wait a few seconds before requesting another code.' })
+    }
+
+    const code = genCode()
+    await admin.from('login_challenges').update({
+      code, attempts: 0, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + CODE_TTL_MS).toISOString(),
+    }).eq('id', challengeId)
+
+    let dev_code
+    if (emailConfigured()) {
+      await sendOtpEmail(row.email, null, code)
+    } else {
+      console.warn('[login-otp] RESEND_API_KEY not set — code for', row.email, 'is', code)
+      dev_code = code
+    }
+
+    res.json({ ok: true, ...(dev_code ? { dev_code } : {}) })
+  } catch (e) {
+    console.error('[login-otp] resend failed:', e?.message || e)
+    res.status(500).json({ error: 'Could not process the request. Please try again.' })
+  }
+})
+
+export default router

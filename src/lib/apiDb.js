@@ -36,6 +36,21 @@ export function createApiDb(sb) {
   return {
     ...sb, // auth, session, OTP, password, reminders, payroll, refunds, admin dashboards → direct Supabase
 
+    // ── sign-in: routed through the API so it can broker the mandatory
+    // emailed code — the browser never gets a session until the code is
+    // verified. Overrides the direct-Supabase versions spread in above.
+    signInManager: ({ email, identifier, password }) =>
+      req('POST', '/api/login-otp/start', { role: 'manager', identifier: identifier ?? email, password }),
+    signInTenant: ({ email, identifier, password }) =>
+      req('POST', '/api/login-otp/start', { role: 'tenant', identifier: identifier ?? email, password }),
+    async verifyLoginOtp({ challengeId, code }) {
+      const { access_token, refresh_token, first_login } = await req('POST', '/api/login-otp/verify', { challenge_id: challengeId, code })
+      const { data, error } = await supabase.auth.setSession({ access_token, refresh_token })
+      if (error) throw new Error(error.message)
+      return { id: data.user.id, first_login }
+    },
+    resendLoginOtp: (challengeId) => req('POST', '/api/login-otp/resend', { challenge_id: challengeId }),
+
     // ── managers / team ──────────────────────────────────────────────────────
     updateManagerSettings: (_managerId, patch) => req('PATCH', '/api/managers/me', patch),
     listTeam: () => req('GET', '/api/managers/team'),
