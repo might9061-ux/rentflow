@@ -12,6 +12,8 @@ import CredentialsModal from './CredentialsModal.jsx'
 import RecordPaymentModal from './RecordPaymentModal.jsx'
 import { IconArrowRight, IconEdit, IconKey, IconReceipt, IconMail, IconPhone, IconWallet, IconDownload } from '../../components/icons.jsx'
 import { downloadStatementCsv, printStatement } from '../../lib/statement.js'
+import { sendWhatsApp, receiptMessage } from '../../lib/whatsapp.js'
+import { formatPeriod } from '../../lib/billing.js'
 
 export default function TenantDetail() {
   const { id } = useParams()
@@ -51,6 +53,12 @@ export default function TenantDetail() {
     brandName: profile?.brand_name || 'RentLoja',
     brandColor: profile?.brand_color || '#c8a84b',
     workspace: profile?.brand_name || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+  }
+  // Resend a receipt to the tenant over WhatsApp (matches the Payments page).
+  const resendReceipt = (p) => {
+    if (!tenant.phone) return toast.error('No phone number', 'Add a phone number to send on WhatsApp.')
+    const msg = receiptMessage({ tenant, payment: p, manager: profile, periodLabel: formatPeriod({ from: p.period_from, to: p.period_to }) })
+    sendWhatsApp(tenant.phone, msg)
   }
   const downloadCsv = () => { setStmtOpen(false); downloadStatementCsv(tenant, payments); toast.success('Statement downloaded') }
   const printPdf = () => {
@@ -142,7 +150,7 @@ export default function TenantDetail() {
         </div>
       )}
 
-      {viewing && <ReceiptModal payment={viewing} tenant={tenant} manager={profile} property={property} onClose={() => setViewing(null)} />}
+      {viewing && <ReceiptModal payment={viewing} tenant={tenant} manager={profile} property={property} onClose={() => setViewing(null)} onWhatsapp={() => resendReceipt(viewing)} />}
       {editing && (
         <TenantModal tenant={tenant} properties={properties} userId={userId}
           onClose={() => setEditing(false)} onUpdated={() => { setEditing(false); load() }} onCreated={() => {}} />
