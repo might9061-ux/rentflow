@@ -1,11 +1,15 @@
+import { useState } from 'react'
 import Modal from './Modal.jsx'
 import { money, fmtDate, fullName } from '../lib/format.js'
 import { formatPeriod } from '../lib/billing.js'
-import { IconWhatsapp } from './icons.jsx'
+import { shareReceiptImage } from '../lib/receiptImage.js'
+import { IconWhatsapp, IconShare } from './icons.jsx'
 
 // Official receipt view. `onWhatsapp` (optional) shows a resend button.
 export default function ReceiptModal({ payment, tenant, manager, property, onClose, onWhatsapp }) {
   const period = formatPeriod({ from: payment.period_from, to: payment.period_to })
+  const [sharing, setSharing] = useState(false)
+  const brand = { brandName: manager?.brand_name || 'RentLoja', brandColor: manager?.brand_color || '#c8a84b' }
 
   const download = () => {
     const html = receiptHtml({ payment, tenant, manager, property, period })
@@ -17,17 +21,26 @@ export default function ReceiptModal({ payment, tenant, manager, property, onClo
     setTimeout(() => w.print(), 300)
   }
 
+  // Share as a PNG image — native sheet on mobile, download on desktop.
+  const shareImage = async () => {
+    setSharing(true)
+    try { await shareReceiptImage({ payment, tenant, manager, property, ...brand }) }
+    catch { /* user cancelled or unsupported — download path already handled */ }
+    finally { setSharing(false) }
+  }
+
   return (
     <Modal title="Receipt" onClose={onClose}
       footer={<>
         <button className="btn ghost" onClick={onClose}>Close</button>
         {onWhatsapp && <button className="btn wa" onClick={onWhatsapp}><IconWhatsapp size={16} /> Resend</button>}
-        <button className="btn primary" onClick={download}>Download / Print</button>
+        <button className="btn ghost" onClick={shareImage} disabled={sharing}><IconShare size={16} /> {sharing ? 'Preparing…' : 'Share image'}</button>
+        <button className="btn primary" onClick={download}>Print</button>
       </>}>
       <div className="receipt">
         <div className="r-head">
           <div>
-            <div style={{ fontFamily: 'var(--serif)', fontSize: '1.6rem', fontWeight: 700 }}>RentLoja</div>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: '1.6rem', fontWeight: 700 }}>{brand.brandName}</div>
             <div style={{ fontSize: '0.8rem', color: '#6b6258' }}>Official Rent Receipt</div>
           </div>
           <div className="r-stamp">Paid</div>
