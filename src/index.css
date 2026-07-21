@@ -585,6 +585,11 @@ table.data tbody tr.clickable-row { cursor: pointer; }
      whole page sideways. It now gets its own full-width row and scrolls. */
   .topbar { flex-wrap: wrap; gap: 10px; padding-top: 12px; padding-bottom: 12px; }
   .topbar > .seg { width: 100%; }
+  /* Segmented pickers WRAP on phones instead of scrolling. They hide their
+     scrollbar, so an overflowing option (e.g. "All time" on Finances) was
+     simply cut off with nothing to show it could be scrolled to. */
+  .seg { flex-wrap: wrap; overflow-x: visible; }
+  .seg button { padding: 7px 11px; font-size: 0.8rem; }
 }
 /* Nothing should ever make the app scroll horizontally. */
 html, body { overflow-x: hidden; max-width: 100%; }

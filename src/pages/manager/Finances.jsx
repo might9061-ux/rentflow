@@ -91,13 +91,13 @@ export default function Finances() {
 
   return (
     <div className="page" id="statement">
-      <div className="spread page-head">
+      <div className="spread page-head wrap" style={{ gap: 12 }}>
         <div>
           <div className="eyebrow">Finances</div>
           <h1>Statements</h1>
           <p>Rent collected against expenses, per property — your bottom line.</p>
         </div>
-        <div className="row gap no-print">
+        <div className="row gap wrap no-print">
           <button className="btn ghost" onClick={() => exportFinances(rows, unassignedExp, periodLabel)}><IconReceipt size={15} /> Excel</button>
           <button className="btn ghost" onClick={() => window.print()}><IconReceipt size={15} /> Print</button>
           <button className="btn primary" onClick={() => setAdding(true)}><IconPlus size={16} /> Add expense</button>
