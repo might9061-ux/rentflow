@@ -7,7 +7,7 @@ import { money, fmtDate, monthYear } from '../../lib/format.js'
 import {
   priceForCapacity, PLAN_PRESETS, PLAN_TIERS, tierForCapacity, MIN_CAPACITY, MAX_CAPACITY,
 } from '../../lib/pricing.js'
-import { Spinner, EmptyState } from '../../components/ui.jsx'
+import { Spinner } from '../../components/ui.jsx'
 import { IconTag, IconCheck, IconUsers, IconWarn, IconWallet, IconReceipt } from '../../components/icons.jsx'
 import PlanCheckout from './PlanCheckout.jsx'
 
@@ -53,6 +53,18 @@ export default function Plan() {
   const paidThisMonth = subPays.some((p) => {
     const d = new Date(p.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   })
+  // When the next installment falls due — a month on from the last payment, or
+  // from the plan start if none has been recorded yet.
+  const dueDate = nextDue(subPays[0]?.created_at || manager?.plan_started_at)
+  // Compare whole days, without mutating dueDate (setHours returns a timestamp
+  // but changes the Date in place — fmtDate below still needs the original).
+  const atMidnight = (d) => new Date(d).setHours(0, 0, 0, 0)
+  const dueDays = Math.round((atMidnight(dueDate) - atMidnight(new Date())) / 86400000)
+  const dueLabel = dueDays < 0 ? `${Math.abs(dueDays)} day${Math.abs(dueDays) === 1 ? '' : 's'} overdue`
+    : dueDays === 0 ? 'Due today'
+    : dueDays === 1 ? 'Due tomorrow'
+    : `Due in ${dueDays} days`
+
   const samePlan = active && capacity === manager.plan_capacity
   // Upgrading within a month you've already paid → only owe the difference.
   const isUpgrade = active && paidThisMonth && price > cur && !samePlan
@@ -216,7 +228,9 @@ export default function Plan() {
         </button>
       </div>
 
-      {/* Billing — payment method on file + installment history */}
+      {/* Billing — when the next installment falls due. Past installments are
+          deliberately not listed: what a manager needs here is what's coming,
+          not a ledger of what's gone. */}
       {active && (
         <div className="card pad" style={{ marginBottom: 18 }}>
           <div className="spread wrap" style={{ gap: 12, marginBottom: 14 }}>
@@ -226,33 +240,22 @@ export default function Plan() {
                 <h3 style={{ fontSize: '1.1rem' }}>Billing</h3>
                 <div className="muted" style={{ fontSize: '0.82rem' }}>
                   {manager.billing_card
-                    ? <>Card on file: <b className="mono" style={{ color: 'var(--text)' }}>{manager.billing_card.brand} ····{manager.billing_card.last4}</b> · exp {manager.billing_card.exp} · next due {fmtDate(nextDue(subPays[0]?.created_at || manager.plan_started_at))}</>
+                    ? <>Card on file: <b className="mono" style={{ color: 'var(--text)' }}>{manager.billing_card.brand} ····{manager.billing_card.last4}</b> · exp {manager.billing_card.exp}</>
                     : 'No card on file yet.'}
                 </div>
               </div>
             </div>
             <button className="btn primary sm" onClick={payInstallment}>Pay installment now</button>
           </div>
-          {subPays.length === 0 ? (
-            <EmptyState icon="🧾" title="No installments yet" />
-          ) : (
-            <div className="table-wrap">
-              <table className="data">
-                <thead><tr><th>Date</th><th>Period</th><th>Amount</th><th>Method</th><th>Reference</th></tr></thead>
-                <tbody>
-                  {subPays.map((p) => (
-                    <tr key={p.id}>
-                      <td className="nowrap">{fmtDate(p.created_at)}</td>
-                      <td>{p.period}</td>
-                      <td className="mono" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
-                      <td className="mono">{p.method}</td>
-                      <td className="muted mono">{p.reference}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+          <div className="next-due">
+            <div>
+              <div className="eyebrow" style={{ color: 'var(--gold)' }}>Next payment</div>
+              <div className="nd-date">{fmtDate(dueDate)}</div>
+              <div className={`nd-when ${dueDays < 0 ? 'late' : ''}`}>{dueLabel}</div>
             </div>
-          )}
+            <div className="nd-amount mono">{money(manager.plan_price)}</div>
+          </div>
         </div>
       )}
 
@@ -301,6 +304,15 @@ export default function Plan() {
         <PlanCheckout {...checkout} manager={manager}
           onClose={() => setCheckout(null)} onPaid={handlePaid} />
       )}
+
+      <style>{`
+        .next-due { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+          padding: 16px 18px; border-radius: var(--radius); background: var(--gold-bg); border: 1px solid var(--gold-line); }
+        .next-due .nd-date { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1.2; margin-top: 2px; }
+        .next-due .nd-when { font-size: 0.84rem; color: var(--text-dim); margin-top: 2px; }
+        .next-due .nd-when.late { color: var(--danger); font-weight: 600; }
+        .next-due .nd-amount { font-family: var(--serif); font-size: 1.9rem; font-weight: 700; color: var(--gold); }
+      `}</style>
     </div>
   )
 }
