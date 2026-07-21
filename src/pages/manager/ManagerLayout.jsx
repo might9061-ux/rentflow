@@ -30,7 +30,10 @@ const NAV = [
   { to: '/manager/team', label: 'Agents', icon: IconShield, owner: true },
   { to: '/manager/plan', label: 'Plan', icon: IconTag, owner: true },
   { to: '/manager/branding', label: 'Branding', icon: IconPalette, owner: true },
-  { to: '/manager/demo', label: 'Demo', icon: IconSparkle, owner: true },
+  // The demo/tour is a "try before you buy" tour of fake data. Once the owner
+  // has actually paid for a plan they have the real thing, so it just clutters
+  // the menu — `preSale` hides it for subscribers.
+  { to: '/manager/demo', label: 'Demo', icon: IconSparkle, owner: true, preSale: true },
   { to: '/manager/settings', label: 'Settings', icon: IconSettings, owner: true },
 ]
 
@@ -114,6 +117,12 @@ export default function ManagerLayout() {
   if (!canPayroll && loc.pathname.startsWith('/manager/payroll')) {
     return <Navigate to="/manager" replace />
   }
+  // Paid up? The demo tour is no longer relevant — hide it and send anyone who
+  // reaches the URL (old link, bookmark) to their real dashboard.
+  const hasPlan = !!profile?.plan_active
+  if (hasPlan && loc.pathname.startsWith('/manager/demo')) {
+    return <Navigate to="/manager" replace />
+  }
 
   const brandName = profile?.brand_name || 'RentLoja'
   const brandMark = profile?.brand_name ? profile.brand_name.slice(0, 2).toUpperCase() : 'RL'
@@ -134,6 +143,7 @@ export default function ManagerLayout() {
 
         {NAV.filter((n) => {
           if (n.perm === 'payroll') return canPayroll
+          if (n.preSale && hasPlan) return false
           return !n.owner || isOwner
         }).map((n) => {
           const Icon = n.icon
