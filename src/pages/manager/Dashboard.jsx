@@ -33,20 +33,27 @@ export default function ManagerDashboard() {
   const [frame, setFrame] = useState(6)
 
   const load = useCallback(async () => {
-    const [props, tenants, payments] = await Promise.all([
+    const [props, tenants, payments, openRepairs, dueReminders] = await Promise.all([
       db.listProperties(userId), db.listTenants(userId), db.listPayments(userId),
+      db.maintenanceOpenCount(userId).catch(() => 0),
+      db.dueRemindersCount(userId).catch(() => 0),
     ])
     const approved = payments.filter((p) => p.status === 'approved')
     const pending = payments.filter((p) => p.status === 'pending')
     const collected = approved.reduce((s, p) => s + Number(p.amount), 0)
-    const outstanding = tenants
-      .filter((t) => t.status !== 'paid' && t.account_status === 'active')
-      .reduce((s, t) => s + Math.max(0, Number(t.rent) - Number(t.credit_balance)), 0)
+    const activeUnpaid = tenants.filter((t) => t.status !== 'paid' && t.account_status === 'active')
+    const outstanding = activeUnpaid.reduce((s, t) => s + Math.max(0, Number(t.rent) - Number(t.credit_balance)), 0)
+    // Only tenants genuinely LATE (status 'overdue'), not those merely in an
+    // unpaid current month ('due') — calling the latter "overdue" would be wrong.
+    const overdue = activeUnpaid.filter((t) => t.status === 'overdue')
     const totalUnits = props.reduce((s, p) => s + Number(p.units || 0), 0)
     const occupied = tenants.filter((t) => t.property_id && t.account_status !== 'suspended').length
     const occupancy = totalUnits ? Math.round((occupied / totalUnits) * 100) : 0
 
-    setData({ props, tenants, payments, approved, pending, collected, outstanding, occupancy, occupied, totalUnits })
+    setData({
+      props, tenants, payments, approved, pending, collected, outstanding,
+      occupancy, occupied, totalUnits, overdue: overdue.length, openRepairs, dueReminders,
+    })
     setLoading(false)
   }, [userId])
 
@@ -65,6 +72,8 @@ export default function ManagerDashboard() {
         <h1>Good day, {profile?.first_name}</h1>
         <p>Here’s how your portfolio is doing today.</p>
       </div>
+
+      <AttentionBar data={data} nav={nav} />
 
       <div className="grid stats" style={{ marginBottom: 20 }}>
         <StatCard label="Total collected" value={money(data.collected)} sub={`${data.approved.length} approved payments`} icon={<IconWallet size={18} />} onClick={() => nav('/manager/payments')} />
@@ -163,6 +172,55 @@ export default function ManagerDashboard() {
           .card-head { padding: 16px 16px 10px; }
           .card-head h3 { font-size: 1.08rem; }
         }
+      `}</style>
+    </div>
+  )
+}
+
+// A banking-app style "needs attention" strip: the things to act on today, each
+// a tap straight to where it's handled. Hidden entirely when nothing's pending,
+// replaced by a quiet "all caught up" so the dashboard leads with actions.
+function AttentionBar({ data, nav }) {
+  const items = [
+    { n: data.pending.length, label: data.pending.length === 1 ? 'payment to approve' : 'payments to approve', to: '/manager/approvals', tone: 'gold', icon: <IconCheckCircle size={16} /> },
+    { n: data.overdue, label: data.overdue === 1 ? 'tenant overdue' : 'tenants overdue', to: '/manager/tenants', tone: 'red', icon: <IconClock size={16} /> },
+    { n: data.dueReminders, label: 'reminders due', to: '/manager/reminders', tone: 'gold', icon: <IconClock size={16} /> },
+    { n: data.openRepairs, label: data.openRepairs === 1 ? 'open repair' : 'open repairs', to: '/manager/maintenance', tone: 'blue', icon: <IconBuilding size={16} /> },
+  ].filter((i) => i.n > 0)
+
+  if (items.length === 0) {
+    return (
+      <div className="attn-clear">
+        <IconCheckCircle size={16} /> <span>You’re all caught up — nothing needs your attention.</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="attn-row">
+      {items.map((i) => (
+        <button key={i.label} className={`attn-chip ${i.tone}`} onClick={() => nav(i.to)}>
+          <span className="attn-ico">{i.icon}</span>
+          <span className="attn-n">{i.n}</span>
+          <span className="attn-label">{i.label}</span>
+          <IconArrowRight size={14} className="attn-go" />
+        </button>
+      ))}
+
+      <style>{`
+        .attn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .attn-chip { display: inline-flex; align-items: center; gap: 9px; padding: 11px 15px; border-radius: 12px;
+          background: var(--surface); border: 1px solid var(--line); cursor: pointer; transition: all 0.15s; text-align: left; }
+        .attn-chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-soft); }
+        .attn-ico { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; }
+        .attn-n { font-size: 1.15rem; font-weight: 700; }
+        .attn-label { font-size: 0.86rem; color: var(--text-dim); }
+        .attn-go { color: var(--text-faint); margin-left: 2px; }
+        .attn-chip.gold { border-color: var(--gold-line); } .attn-chip.gold .attn-ico { background: var(--gold-bg); color: var(--gold); }
+        .attn-chip.red  { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); } .attn-chip.red .attn-ico { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+        .attn-chip.blue { border-color: var(--green-line); } .attn-chip.blue .attn-ico { background: var(--green-bg); color: var(--green); }
+        .attn-clear { display: flex; align-items: center; gap: 9px; margin-bottom: 20px; padding: 12px 15px;
+          border-radius: 12px; background: var(--green-bg); border: 1px solid var(--green-line); color: var(--green); font-size: 0.88rem; }
       `}</style>
     </div>
   )
