@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../context/ToastContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { db, DEMO_MODE } from '../lib/db.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { friendlyError } from '../lib/errors.js'
@@ -16,6 +17,10 @@ import { Spinner } from '../components/ui.jsx'
 export default function ResetPassword() {
   const toast = useToast()
   const nav = useNavigate()
+  // The recovery link creates a real session, so by the time the form shows the
+  // app already knows whose account this is — use it to route and style.
+  const { role, signOut } = useAuth()
+  const accent = role === 'tenant' ? 'green' : 'gold'
   const [pw, setPw] = useState('')
   const [pw2, setPw2] = useState('')
   const [busy, setBusy] = useState(false)
@@ -57,14 +62,21 @@ export default function ResetPassword() {
     setBusy(true)
     try {
       await db.completePasswordReset(null, null, pw)
-      toast.success('Password updated', 'Sign in with your new password.')
-      nav('/')
+      // Work out which sign-in this account belongs to BEFORE signing out.
+      let r = role
+      if (!r) { try { r = (await db.resolveSession())?.role } catch { /* fall back below */ } }
+      const dest = r === 'tenant' ? '/tenant/login' : r === 'manager' ? '/manager/auth' : '/'
+      // A reset link must not silently log anyone in — end the recovery session
+      // and send them to sign in fresh with the new password.
+      try { await signOut() } catch { /* ignore */ }
+      toast.success('Password updated', 'Please sign in with your new password.')
+      nav(dest, { replace: true })
     } catch (err) { toast.error('Could not reset password', friendlyError(err)); setBusy(false) }
   }
 
   if (checking) {
     return (
-      <AuthShell accent="gold" eyebrow="Account recovery" title="Checking your link" subtitle="One moment…">
+      <AuthShell accent={accent} eyebrow="Account recovery" title="Checking your link" subtitle="One moment…">
         <div className="center" style={{ padding: 24 }}><Spinner /></div>
       </AuthShell>
     )
@@ -72,7 +84,7 @@ export default function ResetPassword() {
 
   if (!ready) {
     return (
-      <AuthShell accent="gold" eyebrow="Account recovery" title="Link expired"
+      <AuthShell accent={accent} eyebrow="Account recovery" title="Link expired"
         subtitle="This password reset link is no longer valid.">
         <p className="muted" style={{ fontSize: '0.9rem' }}>
           Reset links can only be used once and expire after a short time. Go back to the sign-in screen,
@@ -84,7 +96,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <AuthShell accent="gold" eyebrow="Account recovery" title="Set a new password"
+    <AuthShell accent={accent} eyebrow="Account recovery" title="Set a new password"
       subtitle="Choose a new password for your RentLoja account.">
       {DEMO_MODE && (
         <div className="banner gold" style={{ marginBottom: 16 }}>
