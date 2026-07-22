@@ -11,7 +11,16 @@ export default function TenantVerify() {
   const { profile, userId, refresh, signOut } = useAuth()
   const toast = useToast()
 
-  const [step, setStep] = useState('verify') // 'verify' | 'password'
+  // Signing in already required a 6-digit code sent to the registered email, so
+  // contact details are proven by the time anyone reaches this screen. Asking
+  // for a second code to the same address is pure repetition — skip straight to
+  // the one thing that genuinely hasn't happened yet: choosing a password of
+  // their own, so the manager-issued one stops working.
+  //
+  // The verify step is still reachable for anyone who somehow arrives unproven
+  // (e.g. an older account created before login codes were mandatory).
+  const verified = profile?.email_verified || profile?.phone_verified
+  const [step, setStep] = useState(verified ? 'password' : 'verify')
   const [emailDone, setEmailDone] = useState(profile?.email_verified || false)
   const [phoneDone, setPhoneDone] = useState(profile?.phone_verified || false)
   const canProceed = emailDone || phoneDone
@@ -55,7 +64,7 @@ export default function TenantVerify() {
             </>
           ) : (
             <SetPassword
-              onBack={() => setStep('verify')}
+              onBack={verified ? null : () => setStep('verify')}
               onDone={async (pw) => {
                 await db.setTenantPassword(userId, pw)
                 await db.completeFirstLogin(userId)
@@ -155,7 +164,7 @@ function SetPassword({ onDone, onBack }) {
       <PasswordInput label="New password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus required minLength={6} />
       <PasswordInput label="Confirm password" value={pw2} onChange={(e) => setPw2(e.target.value)} required minLength={6} />
       <div className="row gap" style={{ marginTop: 6 }}>
-        <button type="button" className="btn ghost" onClick={onBack}>Back</button>
+        {onBack && <button type="button" className="btn ghost" onClick={onBack}>Back</button>}
         <button className="btn primary grow lg" disabled={busy}>{busy ? 'Saving…' : 'Finish & enter RentLoja'}</button>
       </div>
     </form>

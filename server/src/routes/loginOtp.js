@@ -139,6 +139,13 @@ router.post('/verify', async (req, res) => {
     if (row.account_type === 'tenant') {
       const { data: t } = await admin.from('tenants').select('first_login').eq('id', row.account_id).maybeSingle()
       first_login = t?.first_login
+      // The code they just entered was emailed to the address their manager
+      // registered, so getting here IS proof of that address. Record it, rather
+      // than asking them to prove the same thing a second time on the next
+      // screen. Best-effort: a failed flag update must never fail a sign-in.
+      const { error: vErr } = await admin.from('tenants')
+        .update({ email_verified: true }).eq('id', row.account_id).eq('email_verified', false)
+      if (vErr) console.error('[login-otp] could not mark email verified:', vErr.message)
     }
 
     res.json({ access_token: row.access_token, refresh_token: row.refresh_token, first_login })
