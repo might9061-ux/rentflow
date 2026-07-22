@@ -36,7 +36,7 @@ export default function QuickUnlockSetup({ meta, onClose }) {
     finally { setBusy(false) }
   }
 
-  const done = pinSaved || bioSaved
+  const done = pinSaved
   return (
     <Modal title="Secure this device" onClose={onClose}
       footer={<button className="btn ghost" onClick={onClose}>{done ? 'Done' : 'Not now'}</button>}>
@@ -44,26 +44,14 @@ export default function QuickUnlockSetup({ meta, onClose }) {
         Next time you open RentLoja on this device, unlock quickly without re-typing your password.
       </p>
 
-      {bioOk && (
-        <div className="ql-card">
-          <div className="row gap">
-            <span className="ql-ico"><IconShield size={18} /></span>
-            <div>
-              <div style={{ fontWeight: 600 }}>Fingerprint / Face ID</div>
-              <div className="muted" style={{ fontSize: '0.8rem' }}>Use your phone’s biometrics.</div>
-            </div>
-          </div>
-          {bioSaved ? <span className="pill ok"><IconCheck size={12} /> On</span>
-            : <button className="btn sm primary" disabled={busy} onClick={enableBio}>Enable</button>}
-        </div>
-      )}
-
+      {/* PIN first: it is the prerequisite, because it is the only thing that
+          still works when a fingerprint doesn't. */}
       <div className="ql-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 11 }}>
         <div className="row gap">
           <span className="ql-ico"><IconKey size={18} /></span>
           <div>
             <div style={{ fontWeight: 600 }}>App PIN {pinSaved && <span className="pill ok" style={{ marginLeft: 6 }}><IconCheck size={12} /> Set</span>}</div>
-            <div className="muted" style={{ fontSize: '0.8rem' }}>A 4–6 digit code{bioOk ? ' as a fallback' : ''}.</div>
+            <div className="muted" style={{ fontSize: '0.8rem' }}>A 4–6 digit code{bioOk ? ' — and your fallback if biometrics fail' : ''}.</div>
           </div>
         </div>
         <div className="field-row">
@@ -74,6 +62,22 @@ export default function QuickUnlockSetup({ meta, onClose }) {
         </div>
         <button className="btn sm primary block" disabled={busy || !pin} onClick={savePin}>{pinSaved ? 'Update PIN' : 'Set PIN'}</button>
       </div>
+
+      {bioOk && (
+        <div className="ql-card">
+          <div className="row gap">
+            <span className="ql-ico" style={{ opacity: pinSaved ? 1 : 0.5 }}><IconShield size={18} /></span>
+            <div>
+              <div style={{ fontWeight: 600 }}>Fingerprint / Face ID</div>
+              <div className="muted" style={{ fontSize: '0.8rem' }}>
+                {pinSaved ? 'Use your phone’s biometrics.' : 'Set your PIN above first.'}
+              </div>
+            </div>
+          </div>
+          {bioSaved ? <span className="pill ok"><IconCheck size={12} /> On</span>
+            : <button className="btn sm primary" disabled={busy || !pinSaved} onClick={enableBio}>Enable</button>}
+        </div>
+      )}
 
       <style>{`
         .ql-card { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:13px 15px; border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; }

@@ -97,6 +97,14 @@ const b64url = {
 
 // Register this device's fingerprint/Face ID. Stores the new credential id.
 export async function registerBiometric(meta) {
+  // A PIN has to exist first. Biometrics fail in ordinary ways — wet or cut
+  // finger, a sensor that stops working, a face the phone stops recognising —
+  // and with nothing to fall back on the lock screen has no way through.
+  // Enforced here rather than only in the setup UI so the rule holds wherever
+  // this is called from.
+  if (!hasPin(meta.userId)) {
+    throw new Error('Set your app PIN first — it\'s the fallback if fingerprint or Face ID doesn\'t work.')
+  }
   const challenge = crypto.getRandomValues(new Uint8Array(32))
   const userId = new TextEncoder().encode(meta.userId)
   const cred = await navigator.credentials.create({
