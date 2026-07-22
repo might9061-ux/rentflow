@@ -25,6 +25,10 @@ const CODE_TTL_MS = 10 * 60 * 1000
 const MAX_ATTEMPTS = 5
 const RESEND_COOLDOWN_MS = 20 * 1000
 
+// Shape of a manager-issued password — see tempPassword() in routes/admin.js.
+// Anything else means the tenant chose it themselves.
+const TEMP_PASSWORD_RE = /^TEMP-[A-Z0-9]{4}$/
+
 // Fresh, throwaway client per password check — a password grant has nothing
 // to do with the shared service-role `admin` client (which bypasses RLS) and
 // must never share in-memory session state across concurrent requests.
@@ -79,6 +83,24 @@ router.post('/start', async (req, res) => {
         ? 'This login isn’t a tenant account. If you’re a property manager, use the manager sign-in page.'
         : 'Your password is correct, but this account has no manager workspace set up. If you’re a tenant, use the tenant sign-in instead. Otherwise email support@rentloja.com and we’ll finish setting it up.'
       return res.status(400).json({ error: msg })
+    }
+
+    // A tenant signing in with a password that is NOT the manager-issued temp
+    // one has, by definition, already chosen their own — so stop sending them
+    // to "Set your password". first_login used to be cleared only by that
+    // screen, which meant anyone who set their password another way (the reset
+    // link) kept being asked to set one they already had.
+    //
+    // Safe to judge by shape: every manager-issued password is minted by
+    // tempPassword() in routes/admin.js as TEMP-XXXX, and a manager has no way
+    // to choose a custom one. If it doesn't match, the tenant picked it.
+    //
+    // Only ever clears the flag — a tenant still on TEMP-XXXX keeps it, so the
+    // password their manager knows can never quietly become permanent.
+    if (role === 'tenant' && !TEMP_PASSWORD_RE.test(password)) {
+      const { error: clrErr } = await admin.from('tenants')
+        .update({ first_login: false }).eq('id', data.user.id).eq('first_login', true)
+      if (clrErr) console.error('[login-otp] could not clear first_login:', clrErr.message)
     }
 
     // Opportunistic cleanup — no cron needed for a table this small.
