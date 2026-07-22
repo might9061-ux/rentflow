@@ -1,139 +1,142 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { fullName, timeAgo } from '../../lib/format.js'
 import { Spinner, CountBadge, EmptyState } from '../../components/ui.jsx'
-import { IconSend, IconSparkle, IconChevron } from '../../components/icons.jsx'
+import MessageThread from '../../components/MessageThread.jsx'
+import { IconChevron, IconShield } from '../../components/icons.jsx'
 
-// Manager side: a list of tenant conversations, and the open one beside it.
+// Conversation list plus the open thread. The other party is a tenant, or —
+// for the workspace owner — one of their agents.
 export default function ManagerMessages() {
-  const { userId } = useAuth()
-  const toast = useToast()
+  const { userId, profile } = useAuth()
+  const isOwner = profile?.role !== 'staff'
+
   const [loading, setLoading] = useState(true)
   const [threads, setThreads] = useState([])
   const [tenants, setTenants] = useState([])
-  const [openId, setOpenId] = useState(null)
+  const [team, setTeam] = useState([])
+  const [open, setOpen] = useState(null)      // { id, kind }
   const [items, setItems] = useState([])
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const bodyRef = useRef(null)
 
   const loadThreads = useCallback(async () => {
-    const [th, ts] = await Promise.all([db.listMessageThreads(userId), db.listTenants(userId)])
-    setThreads(th); setTenants(ts); setLoading(false)
-  }, [userId])
+    const [th, ts, tm] = await Promise.all([
+      db.listMessageThreads(userId),
+      db.listTenants(userId),
+      // Only an owner has agents to talk to; staff message their owner instead.
+      isOwner ? db.listTeam(userId).catch(() => []) : Promise.resolve([]),
+    ])
+    setThreads(th); setTenants(ts); setTeam(tm)
+    setLoading(false)
+  }, [userId, isOwner])
   useEffect(() => { loadThreads() }, [loadThreads])
 
-  const openThread = useCallback(async (tenantId) => {
-    setOpenId(tenantId)
-    setItems(await db.listMessages(userId, tenantId))
-    await db.markMessagesRead(userId, tenantId)
+  const openThread = useCallback(async (id, kind) => {
+    setOpen({ id, kind })
+    setItems(await db.listMessages(userId, id))
+    await db.markMessagesRead(userId, id)
     loadThreads()
   }, [userId, loadThreads])
 
-  useEffect(() => { bodyRef.current?.scrollTo(0, bodyRef.current.scrollHeight) }, [items])
+  const refresh = useCallback(async () => {
+    if (open) setItems(await db.listMessages(userId, open.id))
+    loadThreads()
+  }, [userId, open, loadThreads])
 
-  const tenantOf = (id) => tenants.find((t) => t.id === id)
-  const nameOf = (id) => { const t = tenantOf(id); return t ? fullName(t) : 'Tenant' }
-
-  const send = async (e) => {
-    e?.preventDefault()
-    const body = text.trim()
-    if (!body || busy || !openId) return
-    setBusy(true)
-    try {
-      await db.sendMessage(userId, { tenantId: openId, body })
-      setText('')
-      setItems(await db.listMessages(userId, openId))
-      loadThreads()
-    } catch (err) { toast.error('Could not send', err.message) }
-    finally { setBusy(false) }
-  }
-
-  // Anyone with an active tenancy can be messaged, not just those who wrote first.
-  const startable = tenants.filter((t) => t.account_status === 'active' && !threads.some((th) => th.tenant_id === t.id))
+  const personOf = (id) => tenants.find((t) => t.id === id) || team.find((s) => s.id === id)
+  const nameOf = (id) => { const p = personOf(id); return p ? fullName(p) : 'Conversation' }
+  const isAgent = (id) => team.some((s) => s.id === id)
 
   if (loading) return <div className="page center" style={{ minHeight: 300 }}><Spinner /></div>
+
+  // Anyone reachable who hasn't written yet — tenants, plus agents for an owner.
+  const started = new Set(threads.map((t) => t.party_id))
+  const newTenants = tenants.filter((t) => t.account_status === 'active' && !started.has(t.id))
+  const newAgents = team.filter((s) => !started.has(s.id))
+
+  const Row = ({ id, sub, unread, preview, when, agent }) => (
+    <button className={`msg-row ${open?.id === id ? 'on' : ''}`} onClick={() => openThread(id, agent ? 'staff' : 'tenant')}>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="spread" style={{ gap: 8 }}>
+          <span className="row gap" style={{ fontWeight: 600, minWidth: 0 }}>
+            {agent && <span style={{ color: 'var(--accent)' }} title="Agent"><IconShield size={12} /></span>}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameOf(id)}</span>
+          </span>
+          {unread > 0 && <CountBadge n={unread} />}
+        </div>
+        {preview && <div className="muted msg-preview">{preview}</div>}
+        {sub && !preview && <div className="muted" style={{ fontSize: '0.76rem' }}>{sub}</div>}
+        {when && <div className="muted" style={{ fontSize: '0.7rem', marginTop: 2 }}>{when}</div>}
+      </div>
+    </button>
+  )
 
   return (
     <div className="page" style={{ maxWidth: 1040 }}>
       <div className="page-head">
         <div className="eyebrow">Messages</div>
-        <h1>Tenant messages</h1>
-        <p>Direct conversations with your tenants. They get a pop-up on their phone as soon as you reply.</p>
+        <h1>{isOwner ? 'Messages' : 'Tenant messages'}</h1>
+        <p>
+          {isOwner
+            ? 'Conversations with your tenants and your agents. They get a pop-up on their phone as soon as you reply.'
+            : 'Conversations with the tenants you look after, and with the property owner.'}
+        </p>
       </div>
 
       <div className="msg-grid">
-        {/* Conversation list */}
-        <div className={`card msg-list ${openId ? 'hide-sm' : ''}`}>
-          {threads.length === 0 && startable.length === 0 ? (
+        <div className={`card msg-list ${open ? 'hide-sm' : ''}`}>
+          {threads.length === 0 && newTenants.length === 0 && newAgents.length === 0 ? (
             <EmptyState icon="💬" title="No conversations yet">Tenants can message you from their app.</EmptyState>
           ) : (
             <>
               {threads.map((th) => (
-                <button key={th.tenant_id} className={`msg-row ${openId === th.tenant_id ? 'on' : ''}`} onClick={() => openThread(th.tenant_id)}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="spread" style={{ gap: 8 }}>
-                      <span style={{ fontWeight: 600 }}>{nameOf(th.tenant_id)}</span>
-                      {th.unread > 0 && <CountBadge n={th.unread} />}
-                    </div>
-                    <div className="muted msg-preview">
-                      {th.last.sender_role === 'manager' ? 'You: ' : ''}{th.last.body}
-                    </div>
-                    <div className="muted" style={{ fontSize: '0.7rem', marginTop: 2 }}>{timeAgo(th.last.created_at)}</div>
-                  </div>
-                </button>
+                <Row key={th.party_id} id={th.party_id} unread={th.unread} agent={th.kind === 'staff'}
+                  preview={`${th.last.sender_role === 'manager' ? 'You: ' : ''}${th.last.deleted_at ? 'Message deleted' : th.last.body}`}
+                  when={timeAgo(th.last.created_at)} />
               ))}
-              {startable.length > 0 && (
+
+              {!isOwner && (
                 <div className="msg-start">
-                  <div className="muted" style={{ fontSize: '0.74rem', padding: '10px 12px 6px', textTransform: 'uppercase', letterSpacing: '.05em' }}>Start a conversation</div>
-                  {startable.map((t) => (
-                    <button key={t.id} className="msg-row" onClick={() => openThread(t.id)}>
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ fontWeight: 600 }}>{fullName(t)}</span>
-                        <div className="muted" style={{ fontSize: '0.76rem' }}>{t.unit || '—'}</div>
-                      </div>
-                    </button>
-                  ))}
+                  <div className="msg-start-head">Property owner</div>
+                  <Row id={profile?.owner_id} sub="Message the owner" agent />
+                </div>
+              )}
+
+              {(newTenants.length > 0 || newAgents.length > 0) && (
+                <div className="msg-start">
+                  <div className="msg-start-head">Start a conversation</div>
+                  {newAgents.map((s) => <Row key={s.id} id={s.id} sub="Agent" agent />)}
+                  {newTenants.map((t) => <Row key={t.id} id={t.id} sub={t.unit || '—'} />)}
                 </div>
               )}
             </>
           )}
         </div>
 
-        {/* Open conversation */}
-        <div className={`card msg-card ${openId ? '' : 'hide-sm'}`}>
-          {!openId ? (
-            <div className="center" style={{ flex: 1 }}>
-              <span className="muted">Pick a conversation.</span>
-            </div>
+        <div className={open ? '' : 'hide-sm'} style={{ minWidth: 0 }}>
+          {!open ? (
+            <div className="card msg-card"><div className="center" style={{ flex: 1 }}><span className="muted">Pick a conversation.</span></div></div>
           ) : (
-            <>
-              <div className="msg-head">
-                <button className="btn sm ghost back-sm" onClick={() => setOpenId(null)}>
-                  <IconChevron size={14} style={{ transform: 'rotate(90deg)' }} /> Back
-                </button>
-                <b>{nameOf(openId)}</b>
-                <span className="muted" style={{ fontSize: '0.78rem' }}>{tenantOf(openId)?.unit || ''}</span>
-              </div>
-              <div className="msg-body" ref={bodyRef}>
-                {items.length === 0
-                  ? <div className="center" style={{ flex: 1 }}><span className="muted">No messages yet — say hello.</span></div>
-                  : items.map((m) => (
-                    <div key={m.id} className={`msg ${m.sender_role === 'manager' ? 'mine' : 'theirs'}`}>
-                      {m.from_assistant && <div className="msg-tag"><IconSparkle size={11} /> Copilot couldn’t answer this</div>}
-                      <div className="msg-text">{m.body}</div>
-                      <div className="msg-time">{timeAgo(m.created_at)}</div>
-                    </div>
-                  ))}
-              </div>
-              <form className="msg-input" onSubmit={send}>
-                <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a reply…" rows={1}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
-                <button type="submit" disabled={busy || !text.trim()} aria-label="Send"><IconSend size={16} /></button>
-              </form>
-            </>
+            <MessageThread
+              items={items}
+              myId={userId}
+              placeholder="Write a reply…"
+              header={(
+                <div className="msg-head">
+                  <button className="btn sm ghost back-sm" onClick={() => setOpen(null)}>
+                    <IconChevron size={14} style={{ transform: 'rotate(90deg)' }} /> Back
+                  </button>
+                  <b>{nameOf(open.id)}</b>
+                  <span className="muted" style={{ fontSize: '0.78rem' }}>
+                    {isAgent(open.id) ? 'Agent' : personOf(open.id)?.unit || ''}
+                  </span>
+                </div>
+              )}
+              empty={<div className="center" style={{ flex: 1 }}><span className="muted">No messages yet — say hello.</span></div>}
+              onSend={async (body) => { await db.sendMessage(userId, { partyId: open.id, body }); await refresh() }}
+              onEdit={async (id, body) => { await db.editMessage(userId, id, body); await refresh() }}
+              onDelete={async (id) => { await db.deleteMessage(userId, id); await refresh() }}
+            />
           )}
         </div>
       </div>
@@ -147,6 +150,8 @@ export default function ManagerMessages() {
         .msg-row.on { background: var(--accent-bg); border: 1px solid var(--accent-line); }
         .msg-preview { font-size: 0.78rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .msg-start { border-top: 1px solid var(--line-soft); margin-top: 6px; }
+        .msg-start-head { padding: 10px 12px 6px; font-size: 0.74rem; color: var(--text-faint);
+          text-transform: uppercase; letter-spacing: .05em; }
         .msg-head { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line-soft); }
         .back-sm { display: none; }
         @media (max-width: 820px) {

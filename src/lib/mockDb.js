@@ -708,52 +708,98 @@ export const mockApi = {
     if (touched) save(d)
   },
 
-  // ── tenant ↔ manager messages ──────────────────────────────────────────
-  async listMessages(userId, tenantId) {
+  // ── messages (tenant ↔ manager, and owner ↔ agent) ─────────────────────
+  async listMessages(userId, partyId) {
     await delay(30); const d = db()
-    const id = tenantId || userId
-    return (d.messages || []).filter((m) => m.tenant_id === id)
+    const id = partyId || userId
+    return (d.messages || []).filter((m) => m.tenant_id === id || m.staff_id === id)
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(clone)
   },
   async listMessageThreads(userId) {
     await delay(30); const d = db(); const { ownerId } = scopeOf(d, userId)
     const rows = (d.messages || []).filter((m) => m.manager_id === ownerId).sort(byCreatedDesc)
-    const byTenant = new Map()
+    const byParty = new Map()
     for (const m of rows) {
-      let t = byTenant.get(m.tenant_id)
-      if (!t) { t = { tenant_id: m.tenant_id, last: clone(m), unread: 0 }; byTenant.set(m.tenant_id, t) }
-      if (m.sender_role === 'tenant' && !m.read_by_manager) t.unread += 1
+      const party = m.tenant_id || m.staff_id
+      if (!party) continue
+      let t = byParty.get(party)
+      if (!t) {
+        t = { party_id: party, kind: m.staff_id ? 'staff' : 'tenant', last: clone(m), unread: 0 }
+        byParty.set(party, t)
+      }
+      if ((m.sender_role === 'tenant' || m.sender_role === 'staff') && !m.read_by_manager) t.unread += 1
     }
-    return [...byTenant.values()]
+    return [...byParty.values()]
   },
   async messagesUnread(userId) {
     const d = db()
     if (d.tenants.some((t) => t.id === userId)) {
       return (d.messages || []).filter((m) => m.tenant_id === userId && m.sender_role === 'manager' && !m.read_by_tenant).length
     }
-    const { ownerId } = scopeOf(d, userId)
-    return (d.messages || []).filter((m) => m.manager_id === ownerId && m.sender_role === 'tenant' && !m.read_by_manager).length
+    const { ownerId, isStaff } = scopeOf(d, userId)
+    const fromOthers = (d.messages || []).filter((m) => m.manager_id === ownerId
+      && (m.sender_role === 'tenant' || m.sender_role === 'staff') && !m.read_by_manager).length
+    const mine = isStaff
+      ? (d.messages || []).filter((m) => m.staff_id === userId && m.sender_role === 'manager' && !m.read_by_tenant).length
+      : 0
+    return fromOthers + mine
   },
-  async sendMessage(userId, { tenantId, body, fromAssistant }) {
+  async sendMessage(userId, { partyId, body, fromAssistant }) {
     await delay(40); const d = db()
     d.messages = d.messages || []
+    const base = { id: uid(), body, from_assistant: false, edited_at: null, deleted_at: null, created_at: new Date().toISOString() }
     const asTenant = d.tenants.find((t) => t.id === userId)
-    const m = asTenant
-      ? { id: uid(), manager_id: asTenant.manager_id, tenant_id: userId, sender_role: 'tenant', sender_id: userId, body, from_assistant: !!fromAssistant, read_by_tenant: true, read_by_manager: false, created_at: new Date().toISOString() }
-      : { id: uid(), manager_id: scopeOf(d, userId).ownerId, tenant_id: tenantId, sender_role: 'manager', sender_id: userId, body, from_assistant: false, read_by_tenant: false, read_by_manager: true, created_at: new Date().toISOString() }
+    let m
+    if (asTenant) {
+      m = { ...base, manager_id: asTenant.manager_id, tenant_id: userId, staff_id: null,
+        sender_role: 'tenant', sender_id: userId, from_assistant: !!fromAssistant,
+        read_by_tenant: true, read_by_manager: false }
+    } else {
+      const { ownerId, isStaff, m: me } = scopeOf(d, userId)
+      if (isStaff && (!partyId || partyId === me.owner_id)) {
+        m = { ...base, manager_id: me.owner_id, tenant_id: null, staff_id: userId,
+          sender_role: 'staff', sender_id: userId, read_by_tenant: true, read_by_manager: false }
+      } else {
+        const isTenantParty = d.tenants.some((t) => t.id === partyId)
+        m = { ...base, manager_id: ownerId,
+          tenant_id: isTenantParty ? partyId : null, staff_id: isTenantParty ? null : partyId,
+          sender_role: 'manager', sender_id: userId, read_by_tenant: false, read_by_manager: true }
+      }
+    }
     d.messages.push(m); save(d); return clone(m)
   },
-  async markMessagesRead(userId, tenantId) {
+  // Mirrors edit_message(): your own message, 15-minute window, marked edited.
+  async editMessage(userId, id, body) {
+    const d = db()
+    const m = (d.messages || []).find((x) => x.id === id)
+    if (!m) throw new Error('Message not found')
+    if (m.sender_id !== userId) throw new Error('You can only edit your own messages')
+    if (m.deleted_at) throw new Error('That message was deleted')
+    if (Date.now() - new Date(m.created_at).getTime() > 15 * 60 * 1000) {
+      throw new Error('Messages can only be edited for 15 minutes after sending')
+    }
+    m.body = body.trim(); m.edited_at = new Date().toISOString(); save(d)
+  },
+  // Tombstone, not erasure — the row stays so the other side sees it existed.
+  async deleteMessage(userId, id) {
+    const d = db()
+    const m = (d.messages || []).find((x) => x.id === id)
+    if (!m) throw new Error('Message not found')
+    if (m.sender_id !== userId) throw new Error('You can only delete your own messages')
+    m.deleted_at = new Date().toISOString(); m.body = ''; save(d)
+  },
+  async markMessagesRead(userId, partyId) {
     const d = db()
     d.messages = d.messages || []
     const asTenant = d.tenants.some((t) => t.id === userId)
-    const id = tenantId || userId
+    const id = partyId || userId
     let touched = false
     d.messages.forEach((m) => {
-      if (m.tenant_id !== id) return
+      if (m.tenant_id !== id && m.staff_id !== id) return
       // Only ever mark the OTHER side's messages as read.
-      if (asTenant && m.sender_role === 'manager' && !m.read_by_tenant) { m.read_by_tenant = true; touched = true }
-      if (!asTenant && m.sender_role === 'tenant' && !m.read_by_manager) { m.read_by_manager = true; touched = true }
+      const mineIsParty = m.tenant_id === userId || m.staff_id === userId
+      if (mineIsParty && m.sender_role === 'manager' && !m.read_by_tenant) { m.read_by_tenant = true; touched = true }
+      if (!mineIsParty && m.sender_role !== 'manager' && !m.read_by_manager) { m.read_by_manager = true; touched = true }
     })
     if (touched) save(d)
   },

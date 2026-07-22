@@ -449,23 +449,31 @@ const sb = {
   async markTenantQuestionsRead(managerId) {
     ok(await supabase.from('tenant_questions').update({ read_by_manager: true }).eq('manager_id', managerId).eq('read_by_manager', false))
   },
-  // ── tenant ↔ manager messages ──────────────────────────────────────────
-  // RLS decides which conversation the caller can see, so these read plainly.
-  async listMessages(userId, tenantId) {
-    const id = tenantId || userId
-    return ok(await supabase.from('messages').select('*').eq('tenant_id', id).order('created_at', { ascending: true }))
+  // ── messages (tenant ↔ manager, and owner ↔ agent) ─────────────────────
+  // A conversation's other party is a tenant OR a staff agent. RLS decides
+  // which ones the caller can see, so these read plainly.
+  async listMessages(userId, partyId) {
+    const id = partyId || userId
+    return ok(await supabase.from('messages').select('*')
+      .or(`tenant_id.eq.${id},staff_id.eq.${id}`)
+      .order('created_at', { ascending: true }))
   },
   async listMessageThreads(userId) {
     const wm = await this.getWorkspaceManager(userId)
     const rows = ok(await supabase.from('messages').select('*').eq('manager_id', wm.id).order('created_at', { ascending: false }))
-    const byTenant = new Map()
+    const byParty = new Map()
     for (const m of rows) {
-      // newest-first, so the first row seen for a tenant is their latest message
-      let t = byTenant.get(m.tenant_id)
-      if (!t) { t = { tenant_id: m.tenant_id, last: m, unread: 0 }; byTenant.set(m.tenant_id, t) }
-      if (m.sender_role === 'tenant' && !m.read_by_manager) t.unread += 1
+      const party = m.tenant_id || m.staff_id
+      if (!party) continue
+      // newest-first, so the first row seen for a party is their latest message
+      let t = byParty.get(party)
+      if (!t) {
+        t = { party_id: party, kind: m.staff_id ? 'staff' : 'tenant', last: m, unread: 0 }
+        byParty.set(party, t)
+      }
+      if ((m.sender_role === 'tenant' || m.sender_role === 'staff') && !m.read_by_manager) t.unread += 1
     }
-    return [...byTenant.values()]
+    return [...byParty.values()]
   },
   async messagesUnread(userId) {
     // Tenants and managers are different tables keyed by the same auth id.
@@ -475,20 +483,46 @@ const sb = {
         .eq('tenant_id', userId).eq('sender_role', 'manager').eq('read_by_tenant', false))
       return rows.length
     }
+    const me = ok(await supabase.from('managers').select('id, role, owner_id').eq('id', userId).single())
     const wm = await this.getWorkspaceManager(userId)
-    const rows = ok(await supabase.from('messages').select('id')
-      .eq('manager_id', wm.id).eq('sender_role', 'tenant').eq('read_by_manager', false))
-    return rows.length
+    const fromOthers = ok(await supabase.from('messages').select('id')
+      .eq('manager_id', wm.id).in('sender_role', ['tenant', 'staff']).eq('read_by_manager', false))
+    let mine = []
+    if (me.role === 'staff') {
+      mine = ok(await supabase.from('messages').select('id')
+        .eq('staff_id', userId).eq('sender_role', 'manager').eq('read_by_tenant', false))
+    }
+    return fromOthers.length + mine.length
   },
-  async sendMessage(userId, { tenantId, body, fromAssistant }) {
+  async sendMessage(userId, { partyId, body, fromAssistant }) {
     const { data: asTenant } = await supabase.from('tenants').select('manager_id').eq('id', userId).maybeSingle()
-    const row = asTenant
-      ? { manager_id: asTenant.manager_id, tenant_id: userId, sender_role: 'tenant', sender_id: userId, body, from_assistant: !!fromAssistant }
-      : { manager_id: (await this.getWorkspaceManager(userId)).id, tenant_id: tenantId, sender_role: 'manager', sender_id: userId, body }
+    if (asTenant) {
+      return ok(await supabase.from('messages').insert({
+        manager_id: asTenant.manager_id, tenant_id: userId, sender_role: 'tenant', sender_id: userId,
+        body, from_assistant: !!fromAssistant,
+      }).select().single())
+    }
+    const me = ok(await supabase.from('managers').select('id, role, owner_id').eq('id', userId).single())
+    // An agent with no party id is writing to their own owner.
+    if (me.role === 'staff' && (!partyId || partyId === me.owner_id)) {
+      return ok(await supabase.from('messages').insert({
+        manager_id: me.owner_id, staff_id: userId, sender_role: 'staff', sender_id: userId, body,
+      }).select().single())
+    }
+    const wm = await this.getWorkspaceManager(userId)
+    // Which column the party belongs in — a tenant, or one of our agents.
+    const { data: t } = await supabase.from('tenants').select('id').eq('id', partyId).maybeSingle()
+    const row = t
+      ? { manager_id: wm.id, tenant_id: partyId, sender_role: 'manager', sender_id: userId, body }
+      : { manager_id: wm.id, staff_id: partyId, sender_role: 'manager', sender_id: userId, body }
     return ok(await supabase.from('messages').insert(row).select().single())
   },
-  async markMessagesRead(userId, tenantId) {
-    ok(await supabase.rpc('mark_messages_read', { p_tenant_id: tenantId || userId }))
+  // Edit and delete go through SECURITY DEFINER functions: the table grants no
+  // UPDATE, so neither side can rewrite the other's words.
+  async editMessage(_userId, id, body) { ok(await supabase.rpc('edit_message', { p_id: id, p_body: body })) },
+  async deleteMessage(_userId, id) { ok(await supabase.rpc('delete_message', { p_id: id })) },
+  async markMessagesRead(userId, partyId) {
+    ok(await supabase.rpc('mark_messages_read', { p_tenant_id: partyId || userId }))
   },
 
   async getTenantManager(tenantId) {

@@ -184,15 +184,18 @@ export function createApiDb(sb) {
     async tenantQuestionsUnread() { const r = await req('GET', '/api/tenant-questions/unread'); return r.unread || 0 },
     markTenantQuestionsRead: () => req('POST', '/api/tenant-questions/read'),
 
-    // ── tenant ↔ manager messages ────────────────────────────────────────
-    // A tenant has one conversation, so they pass no tenant_id; the server
-    // takes it from their own row rather than trusting the client.
-    listMessages: (_userId, tenantId) => req('GET', `/api/messages${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ''}`),
+    // ── messages (tenant ↔ manager, and owner ↔ agent) ───────────────────
+    // A tenant or agent has one conversation and passes no party id; the
+    // server takes it from their own row rather than trusting the client.
+    listMessages: (_userId, partyId) =>
+      req('GET', `/api/messages${partyId ? `?party_id=${encodeURIComponent(partyId)}` : ''}`),
     listMessageThreads: () => req('GET', '/api/messages/threads'),
     async messagesUnread() { const r = await req('GET', '/api/messages/unread'); return r.unread || 0 },
-    sendMessage: (_userId, { tenantId, body, fromAssistant }) =>
-      req('POST', '/api/messages', { tenant_id: tenantId, body, from_assistant: !!fromAssistant }),
-    markMessagesRead: (_userId, tenantId) => req('POST', '/api/messages/read', { tenant_id: tenantId }),
+    sendMessage: (_userId, { partyId, body, fromAssistant }) =>
+      req('POST', '/api/messages', { party_id: partyId, body, from_assistant: !!fromAssistant }),
+    editMessage: (_userId, id, body) => req('POST', `/api/messages/${id}/edit`, { body }),
+    deleteMessage: (_userId, id) => req('POST', `/api/messages/${id}/delete`),
+    markMessagesRead: (_userId, partyId) => req('POST', '/api/messages/read', { party_id: partyId }),
 
     // ── tenant first-login / OTP ──────────────────────────────────────────────────
     async requestOtp(_tenantId, channel) { await req('POST', '/api/otp/request', { channel }); return {} },
