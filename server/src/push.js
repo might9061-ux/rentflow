@@ -36,9 +36,21 @@ export function pushPublicKey() { return PUBLIC_KEY || null }
 
 // Save (or refresh) one device's subscription. Keyed on endpoint, so the same
 // device re-subscribing updates rather than duplicating.
+// Web Push fixes these sizes: p256dh is an uncompressed P-256 point (65 bytes)
+// and auth is a 16-byte secret. Anything else can never be encrypted to, so it
+// would sit in the table failing on every send forever — reject it on the way
+// in rather than storing a subscription we know is dead.
+function keysWellFormed(keys) {
+  try {
+    return Buffer.from(keys.p256dh, 'base64url').length === 65
+        && Buffer.from(keys.auth, 'base64url').length === 16
+  } catch { return false }
+}
+
 export async function saveSubscription({ userId, subscription, userAgent, label }) {
   const { endpoint, keys } = subscription || {}
   if (!endpoint || !keys?.p256dh || !keys?.auth) throw new Error('Invalid push subscription')
+  if (!keysWellFormed(keys)) throw new Error('Invalid push subscription')
   const { error } = await admin.from('push_subscriptions').upsert({
     endpoint,
     user_id: userId,
