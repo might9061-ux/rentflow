@@ -23,6 +23,7 @@ const TenantDetail = lazy(() => import('./pages/manager/TenantDetail.jsx'))
 const Approvals = lazy(() => import('./pages/manager/Approvals.jsx'))
 const Payments = lazy(() => import('./pages/manager/Payments.jsx'))
 const ManagerNotifications = lazy(() => import('./pages/manager/Notifications.jsx'))
+const ManagerMessages = lazy(() => import('./pages/manager/Messages.jsx'))
 const Reminders = lazy(() => import('./pages/manager/Reminders.jsx'))
 const Maintenance = lazy(() => import('./pages/manager/Maintenance.jsx'))
 const Finances = lazy(() => import('./pages/manager/Finances.jsx'))
@@ -38,6 +39,7 @@ const TenantDashboard = lazy(() => import('./pages/tenant/Dashboard.jsx'))
 const SubmitPayment = lazy(() => import('./pages/tenant/SubmitPayment.jsx'))
 const PaymentHistory = lazy(() => import('./pages/tenant/PaymentHistory.jsx'))
 const TenantNotifications = lazy(() => import('./pages/tenant/Notifications.jsx'))
+const TenantMessages = lazy(() => import('./pages/tenant/Messages.jsx'))
 const TenantMaintenance = lazy(() => import('./pages/tenant/Maintenance.jsx'))
 const AdminAuth = lazy(() => import('./pages/admin/AdminAuth.jsx'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'))
@@ -135,6 +137,7 @@ export default function App() {
         <Route path="arrears" element={<Navigate to="/manager/payments" replace />} />
         <Route path="advance" element={<Navigate to="/manager/payments" replace />} />
         <Route path="notifications" element={<ManagerNotifications />} />
+        <Route path="messages" element={<ManagerMessages />} />
         <Route path="reminders" element={<Reminders />} />
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="finances" element={<Finances />} />
@@ -153,6 +156,7 @@ export default function App() {
         <Route path="history" element={<PaymentHistory />} />
         <Route path="maintenance" element={<TenantMaintenance />} />
         <Route path="notifications" element={<TenantNotifications />} />
+        <Route path="messages" element={<TenantMessages />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

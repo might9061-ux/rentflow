@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { db } from '../lib/db.js'
 import { askAssistant, isLiveAI } from '../lib/ai.js'
+import { groupsFor } from '../lib/copilotPrompts.js'
 import { acceptedMethods } from '../lib/methods.js'
 import { currentPeriod } from '../lib/billing.js'
 import { fullName, timeAgo } from '../lib/format.js'
@@ -19,7 +21,10 @@ export default function AssistantWidget({ role }) {
   const [ctx, setCtx] = useState(null)
   const [questions, setQuestions] = useState([])
   const [unread, setUnread] = useState(0)
+  const [openGroup, setOpenGroup] = useState(null)
   const bodyRef = useRef(null)
+  const navigate = useNavigate()
+  const groups = groupsFor(role)
 
   const greeting = role === 'manager'
     ? `Hi ${profile?.first_name || ''} — ask me about outstanding rent, approvals, occupancy or how to do anything in RentLoja.`
@@ -58,11 +63,22 @@ export default function AssistantWidget({ role }) {
   }, [open, ctx, loadContext, greeting])
   useEffect(() => { bodyRef.current?.scrollTo(0, bodyRef.current.scrollHeight) }, [messages, busy])
 
-  const send = async (e) => {
+  // Hand the last thing the tenant asked to a human, pre-filled so they don't
+  // have to type it twice. The Copilot's own reply stays out of it — the
+  // manager wants the question, not a transcript.
+  const escalate = () => {
+    const lastAsked = [...messages].reverse().find((m) => m.role === 'user')?.text || input.trim()
+    setOpen(false)
+    navigate(`/tenant/messages${lastAsked ? `?q=${encodeURIComponent(lastAsked)}` : ''}`)
+  }
+
+  const ask = (text) => { setOpenGroup(null); send(null, text) }
+
+  const send = async (e, preset) => {
     e?.preventDefault()
-    const text = input.trim()
+    const text = (preset ?? input).trim()
     if (!text || busy) return
-    setInput('')
+    if (!preset) setInput('')
     setMessages((m) => [...m, { role: 'user', text }])
     setBusy(true)
     try {
@@ -126,7 +142,38 @@ export default function AssistantWidget({ role }) {
                   <div key={i} className={`ai-msg ${m.role}`}>{m.text}</div>
                 ))}
                 {busy && <div className="ai-msg assistant ai-typing"><span /><span /><span /></div>}
+
+                {/* Grouped starters, kept visible for the whole conversation:
+                    they're the honest advertisement of what the Copilot actually
+                    knows, so people aren't guessing at a blank box. Tapping a
+                    group swaps the chips for that group's questions. */}
+                {!busy && (
+                  <div className="ai-sugs">
+                    {openGroup ? (
+                      <>
+                        <button className="ai-sug-back" onClick={() => setOpenGroup(null)}>← {openGroup.icon} {openGroup.label}</button>
+                        {openGroup.questions.map((q) => (
+                          <button key={q} className="ai-sug" onClick={() => ask(q)}>{q}</button>
+                        ))}
+                      </>
+                    ) : (
+                      groups.map((g) => (
+                        <button key={g.id} className="ai-sug group" onClick={() => setOpenGroup(g)}>
+                          <span>{g.icon}</span> {g.label}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* When the Copilot can't help, a human can. */}
+              {role === 'tenant' && (
+                <button className="ai-escalate" onClick={escalate}>
+                  <IconSend size={12} /> Didn’t answer your question? Message your manager
+                </button>
+              )}
+
               <form className="ai-input" onSubmit={send}>
                 <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask anything…" autoFocus />
                 <button type="submit" disabled={busy || !input.trim()} aria-label="Send"><IconSend size={16} /></button>
@@ -183,6 +230,17 @@ export default function AssistantWidget({ role }) {
         .ai-input button { width: 40px; height: 40px; border-radius: 99px; border: none; background: linear-gradient(180deg, var(--accent-soft), var(--accent)); color: #14110b; display: grid; place-items: center; }
         .ai-input button:disabled { opacity: .5; }
         .ai-q { padding: 11px 12px; border: 1px solid var(--line-soft); border-radius: 11px; background: var(--bg); }
+        .ai-sugs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+        .ai-sug { background: var(--bg); border: 1px solid var(--line); color: var(--text-dim); border-radius: 99px;
+          padding: 7px 12px; font-size: 0.78rem; text-align: left; line-height: 1.35; }
+        .ai-sug:hover { border-color: var(--accent-line); color: var(--text); background: var(--accent-bg); }
+        .ai-sug.group { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+        .ai-sug-back { background: transparent; border: none; color: var(--accent-soft); font-size: 0.78rem;
+          font-weight: 600; padding: 4px 2px; width: 100%; text-align: left; }
+        .ai-escalate { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+          background: transparent; border: none; border-top: 1px solid var(--line-soft); color: var(--text-dim);
+          font-size: 0.76rem; padding: 10px 12px; }
+        .ai-escalate:hover { color: var(--accent-soft); background: var(--accent-bg); }
       `}</style>
     </>
   )

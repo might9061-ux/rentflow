@@ -14,7 +14,7 @@ import { setActiveCurrency } from '../../lib/format.js'
 import { currencyByCode, marketFor } from '../../lib/markets.js'
 import TenantVerify from './TenantVerify.jsx'
 import {
-  IconHome, IconWallet, IconReceipt, IconBell, IconLogout, IconMenu, IconUsers, IconWarn, IconInfo, IconKey, IconArrowRight, IconWrench, IconSun, IconMoon, IconSettings,
+  IconHome, IconWallet, IconReceipt, IconBell, IconLogout, IconMenu, IconUsers, IconWarn, IconInfo, IconKey, IconArrowRight, IconWrench, IconSun, IconMoon, IconSettings, IconMail,
 } from '../../components/icons.jsx'
 
 const NAV = [
@@ -22,6 +22,7 @@ const NAV = [
   { to: '/tenant/pay', label: 'Submit payment', icon: IconWallet },
   { to: '/tenant/history', label: 'Payment history', icon: IconReceipt },
   { to: '/tenant/maintenance', label: 'Maintenance', icon: IconWrench },
+  { to: '/tenant/messages', label: 'Messages', icon: IconMail, badge: 'messages' },
   { to: '/tenant/notifications', label: 'Notifications', icon: IconBell },
 ]
 
@@ -33,7 +34,15 @@ export default function TenantLayout() {
   const [showQuickUnlock, setShowQuickUnlock] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [brandMgr, setBrandMgr] = useState(null)
+  const [unreadMsgs, setUnreadMsgs] = useState(0)
   const loc = useLocation()
+
+  // Refreshed on every navigation so the badge clears as soon as the tenant
+  // opens the conversation.
+  useEffect(() => {
+    if (!userId) return
+    db.messagesUnread(userId).then(setUnreadMsgs).catch(() => {})
+  }, [userId, loc.pathname])
 
   const firstNav = useRef(true)
   useEffect(() => {
@@ -85,6 +94,7 @@ export default function TenantLayout() {
           return (
             <NavLink key={n.to} to={n.to} end={n.end} className="nav-link">
               <Icon className="ico" /><span>{n.label}</span>
+              {n.badge === 'messages' && unreadMsgs > 0 && <span className="nav-badge"><CountBadge n={unreadMsgs} /></span>}
             </NavLink>
           )
         })}

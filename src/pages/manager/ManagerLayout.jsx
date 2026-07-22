@@ -12,7 +12,7 @@ import GlobalSearch from '../../components/GlobalSearch.jsx'
 import { hasQuickUnlock } from '../../lib/quickUnlock.js'
 import {
   IconGrid, IconBuilding, IconUsers, IconCheckCircle, IconWallet,
-  IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconTag, IconSparkle, IconPalette, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash, IconSearch,
+  IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconTag, IconSparkle, IconPalette, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash, IconSearch, IconMail,
 } from '../../components/icons.jsx'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
 
@@ -26,6 +26,7 @@ const NAV = [
   { to: '/manager/maintenance', label: 'Maintenance', icon: IconWrench, badge: 'maintenance' },
   { to: '/manager/finances', label: 'Finances', icon: IconChart },
   { to: '/manager/payroll', label: 'Payroll', icon: IconCash, perm: 'payroll' },
+  { to: '/manager/messages', label: 'Messages', icon: IconMail, badge: 'messages' },
   { to: '/manager/notifications', label: 'Notifications', icon: IconBell },
   { to: '/manager/team', label: 'Agents', icon: IconShield, owner: true },
   { to: '/manager/plan', label: 'Plan', icon: IconTag, owner: true },
@@ -47,6 +48,7 @@ export default function ManagerLayout() {
   const [pending, setPending] = useState(0)
   const [dueReminders, setDueReminders] = useState(0)
   const [openRepairs, setOpenRepairs] = useState(0)
+  const [unreadMsgs, setUnreadMsgs] = useState(0)
   const [showChangePw, setShowChangePw] = useState(false)
   const [showQuickUnlock, setShowQuickUnlock] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -67,12 +69,13 @@ export default function ManagerLayout() {
 
   const loadPending = useCallback(async () => {
     if (!userId) return
-    const [rows, due, repairs] = await Promise.all([
+    const [rows, due, repairs, msgs] = await Promise.all([
       db.listPayments(userId, { status: 'pending' }),
       db.dueRemindersCount(userId),
       db.maintenanceOpenCount(userId),
+      db.messagesUnread(userId).catch(() => 0),
     ])
-    setPending(rows.length); setDueReminders(due); setOpenRepairs(repairs)
+    setPending(rows.length); setDueReminders(due); setOpenRepairs(repairs); setUnreadMsgs(msgs)
   }, [userId])
 
   useEffect(() => { loadPending() }, [loadPending, loc.pathname])
@@ -154,6 +157,7 @@ export default function ManagerLayout() {
               {n.badge === 'pending' && pending > 0 && <span className="nav-badge"><CountBadge n={pending} /></span>}
               {n.badge === 'reminders' && dueReminders > 0 && <span className="nav-badge"><CountBadge n={dueReminders} /></span>}
               {n.badge === 'maintenance' && openRepairs > 0 && <span className="nav-badge"><CountBadge n={openRepairs} /></span>}
+              {n.badge === 'messages' && unreadMsgs > 0 && <span className="nav-badge"><CountBadge n={unreadMsgs} /></span>}
             </NavLink>
           )
         })}

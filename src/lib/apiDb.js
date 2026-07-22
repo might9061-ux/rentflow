@@ -184,6 +184,16 @@ export function createApiDb(sb) {
     async tenantQuestionsUnread() { const r = await req('GET', '/api/tenant-questions/unread'); return r.unread || 0 },
     markTenantQuestionsRead: () => req('POST', '/api/tenant-questions/read'),
 
+    // ── tenant ↔ manager messages ────────────────────────────────────────
+    // A tenant has one conversation, so they pass no tenant_id; the server
+    // takes it from their own row rather than trusting the client.
+    listMessages: (_userId, tenantId) => req('GET', `/api/messages${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ''}`),
+    listMessageThreads: () => req('GET', '/api/messages/threads'),
+    async messagesUnread() { const r = await req('GET', '/api/messages/unread'); return r.unread || 0 },
+    sendMessage: (_userId, { tenantId, body, fromAssistant }) =>
+      req('POST', '/api/messages', { tenant_id: tenantId, body, from_assistant: !!fromAssistant }),
+    markMessagesRead: (_userId, tenantId) => req('POST', '/api/messages/read', { tenant_id: tenantId }),
+
     // ── tenant first-login / OTP ──────────────────────────────────────────────────
     async requestOtp(_tenantId, channel) { await req('POST', '/api/otp/request', { channel }); return {} },
     verifyOtp: (_tenantId, channel, code) => req('POST', '/api/otp/verify', { channel, code }),

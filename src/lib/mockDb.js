@@ -695,6 +695,56 @@ export const mockApi = {
     if (touched) save(d)
   },
 
+  // ── tenant ↔ manager messages ──────────────────────────────────────────
+  async listMessages(userId, tenantId) {
+    await delay(30); const d = db()
+    const id = tenantId || userId
+    return (d.messages || []).filter((m) => m.tenant_id === id)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(clone)
+  },
+  async listMessageThreads(userId) {
+    await delay(30); const d = db(); const { ownerId } = scopeOf(d, userId)
+    const rows = (d.messages || []).filter((m) => m.manager_id === ownerId).sort(byCreatedDesc)
+    const byTenant = new Map()
+    for (const m of rows) {
+      let t = byTenant.get(m.tenant_id)
+      if (!t) { t = { tenant_id: m.tenant_id, last: clone(m), unread: 0 }; byTenant.set(m.tenant_id, t) }
+      if (m.sender_role === 'tenant' && !m.read_by_manager) t.unread += 1
+    }
+    return [...byTenant.values()]
+  },
+  async messagesUnread(userId) {
+    const d = db()
+    if (d.tenants.some((t) => t.id === userId)) {
+      return (d.messages || []).filter((m) => m.tenant_id === userId && m.sender_role === 'manager' && !m.read_by_tenant).length
+    }
+    const { ownerId } = scopeOf(d, userId)
+    return (d.messages || []).filter((m) => m.manager_id === ownerId && m.sender_role === 'tenant' && !m.read_by_manager).length
+  },
+  async sendMessage(userId, { tenantId, body, fromAssistant }) {
+    await delay(40); const d = db()
+    d.messages = d.messages || []
+    const asTenant = d.tenants.find((t) => t.id === userId)
+    const m = asTenant
+      ? { id: uid(), manager_id: asTenant.manager_id, tenant_id: userId, sender_role: 'tenant', sender_id: userId, body, from_assistant: !!fromAssistant, read_by_tenant: true, read_by_manager: false, created_at: new Date().toISOString() }
+      : { id: uid(), manager_id: scopeOf(d, userId).ownerId, tenant_id: tenantId, sender_role: 'manager', sender_id: userId, body, from_assistant: false, read_by_tenant: false, read_by_manager: true, created_at: new Date().toISOString() }
+    d.messages.push(m); save(d); return clone(m)
+  },
+  async markMessagesRead(userId, tenantId) {
+    const d = db()
+    d.messages = d.messages || []
+    const asTenant = d.tenants.some((t) => t.id === userId)
+    const id = tenantId || userId
+    let touched = false
+    d.messages.forEach((m) => {
+      if (m.tenant_id !== id) return
+      // Only ever mark the OTHER side's messages as read.
+      if (asTenant && m.sender_role === 'manager' && !m.read_by_tenant) { m.read_by_tenant = true; touched = true }
+      if (!asTenant && m.sender_role === 'tenant' && !m.read_by_manager) { m.read_by_manager = true; touched = true }
+    })
+    if (touched) save(d)
+  },
+
   // ── properties ────────────────────────────────────────────────────────────
   async listProperties(userId) {
     await delay(60)
@@ -1308,5 +1358,5 @@ function seed() {
     payroll.push({ id: uid(), manager_id: managerId, payee_id: p.id, name: p.name, category: p.category, amount: p.amount, period, method: 'Bank Transfer', paid_on: isoDay(monthsAgo(1)), note: '', expense_id: exId, created_at: monthsAgo(1).toISOString() })
   })
 
-  return { managers: [manager, ...staff, admin, ...extraOwners], properties: [prop1, prop2], tenants: [...tenants, ...extraTenants], payments: [...payments, ...extraPayments], notifications, reads, otps: [], resets: [], questions: [], expenses, sub_payments, reminder_log: [], maintenance, payees, payroll, refunds: [], receipt_seq: 1000 + payments.length }
+  return { managers: [manager, ...staff, admin, ...extraOwners], properties: [prop1, prop2], tenants: [...tenants, ...extraTenants], payments: [...payments, ...extraPayments], notifications, reads, otps: [], resets: [], questions: [], expenses, sub_payments, reminder_log: [], messages: [], maintenance, payees, payroll, refunds: [], receipt_seq: 1000 + payments.length }
 }

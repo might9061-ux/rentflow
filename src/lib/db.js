@@ -446,6 +446,48 @@ const sb = {
   async markTenantQuestionsRead(managerId) {
     ok(await supabase.from('tenant_questions').update({ read_by_manager: true }).eq('manager_id', managerId).eq('read_by_manager', false))
   },
+  // ── tenant ↔ manager messages ──────────────────────────────────────────
+  // RLS decides which conversation the caller can see, so these read plainly.
+  async listMessages(userId, tenantId) {
+    const id = tenantId || userId
+    return ok(await supabase.from('messages').select('*').eq('tenant_id', id).order('created_at', { ascending: true }))
+  },
+  async listMessageThreads(userId) {
+    const wm = await this.getWorkspaceManager(userId)
+    const rows = ok(await supabase.from('messages').select('*').eq('manager_id', wm.id).order('created_at', { ascending: false }))
+    const byTenant = new Map()
+    for (const m of rows) {
+      // newest-first, so the first row seen for a tenant is their latest message
+      let t = byTenant.get(m.tenant_id)
+      if (!t) { t = { tenant_id: m.tenant_id, last: m, unread: 0 }; byTenant.set(m.tenant_id, t) }
+      if (m.sender_role === 'tenant' && !m.read_by_manager) t.unread += 1
+    }
+    return [...byTenant.values()]
+  },
+  async messagesUnread(userId) {
+    // Tenants and managers are different tables keyed by the same auth id.
+    const { data: asTenant } = await supabase.from('tenants').select('id').eq('id', userId).maybeSingle()
+    if (asTenant) {
+      const rows = ok(await supabase.from('messages').select('id')
+        .eq('tenant_id', userId).eq('sender_role', 'manager').eq('read_by_tenant', false))
+      return rows.length
+    }
+    const wm = await this.getWorkspaceManager(userId)
+    const rows = ok(await supabase.from('messages').select('id')
+      .eq('manager_id', wm.id).eq('sender_role', 'tenant').eq('read_by_manager', false))
+    return rows.length
+  },
+  async sendMessage(userId, { tenantId, body, fromAssistant }) {
+    const { data: asTenant } = await supabase.from('tenants').select('manager_id').eq('id', userId).maybeSingle()
+    const row = asTenant
+      ? { manager_id: asTenant.manager_id, tenant_id: userId, sender_role: 'tenant', sender_id: userId, body, from_assistant: !!fromAssistant }
+      : { manager_id: (await this.getWorkspaceManager(userId)).id, tenant_id: tenantId, sender_role: 'manager', sender_id: userId, body }
+    return ok(await supabase.from('messages').insert(row).select().single())
+  },
+  async markMessagesRead(userId, tenantId) {
+    ok(await supabase.rpc('mark_messages_read', { p_tenant_id: tenantId || userId }))
+  },
+
   async getTenantManager(tenantId) {
     const t = ok(await supabase.from('tenants').select('manager_id').eq('id', tenantId).single())
     return ok(await supabase.from('managers').select('*').eq('id', t.manager_id).single())

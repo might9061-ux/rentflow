@@ -25,6 +25,7 @@ import authReset from './routes/authReset.js'
 import loginOtp from './routes/loginOtp.js'
 import assistant from './routes/assistant.js'
 import push from './routes/push.js'
+import messages from './routes/messages.js'
 
 const app = express()
 const PORT = process.env.PORT || 8787
@@ -84,6 +85,7 @@ app.use('/api/platform', platform)
 app.use('/api/login-events', loginEvents)
 app.use('/api/assistant', assistant)
 app.use('/api/push', push)
+app.use('/api/messages', messages)
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }))
 
