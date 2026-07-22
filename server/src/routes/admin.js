@@ -53,6 +53,8 @@ router.post('/tenants', h(async (req, res) => {
     due_day: Number(b.due_day) || 1, lease_start: b.lease_start ?? null,
     status: 'pending', account_status: 'pending_verification',
     first_login: true, email_verified: false, phone_verified: false,
+    // Starts the temp password's clock: single-use, and dead after a week.
+    temp_password_issued_at: new Date().toISOString(), temp_password_used_at: null,
   })
   if (profile.error) {
     await admin.auth.admin.deleteUser(tenantId) // rollback the orphaned auth user
@@ -72,6 +74,8 @@ router.post('/tenants/:id/resend-credentials', h(async (req, res) => {
   if (upd.error) throw new Error(upd.error.message)
   await admin.from('tenants').update({
     first_login: true, email_verified: false, phone_verified: false, account_status: 'pending_verification',
+    // A brand-new temp password, so its clock restarts and it is unused again.
+    temp_password_issued_at: new Date().toISOString(), temp_password_used_at: null,
   }).eq('id', req.params.id)
   res.json({ tempPassword: pw })
 }))

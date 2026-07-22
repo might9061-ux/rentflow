@@ -29,6 +29,38 @@ const RESEND_COOLDOWN_MS = 20 * 1000
 // Anything else means the tenant chose it themselves.
 const TEMP_PASSWORD_RE = /^TEMP-[A-Z0-9]{4}$/
 
+// A temp password is a shared secret: the manager typed it and usually sent it
+// over WhatsApp, where it stays in the chat forever. So it dies on a timer even
+// if never used…
+const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000
+// …and it is single-use, with a short window after the first sign-in so an
+// interrupted setup (dropped signal, app closed on the password screen) isn't
+// instantly fatal. Setting their own password replaces it outright anyway.
+const TEMP_PASSWORD_GRACE_MS = 60 * 60 * 1000
+
+// Decide whether a manager-issued password may still be used.
+// Never blocks on a lookup failure: if the columns aren't there yet (code
+// deployed ahead of migration 0027) sign-in must keep working.
+async function checkTempPassword(tenantId) {
+  const { data: t, error } = await admin.from('tenants')
+    .select('temp_password_issued_at, temp_password_used_at').eq('id', tenantId).maybeSingle()
+  if (error || !t) return { ok: true }
+
+  const now = Date.now()
+  const askManager = 'Ask your property manager to send you a new one.'
+
+  if (t.temp_password_issued_at && now - new Date(t.temp_password_issued_at).getTime() > TEMP_PASSWORD_TTL_MS) {
+    return { ok: false, error: `That temporary password has expired. ${askManager}` }
+  }
+  if (t.temp_password_used_at && now - new Date(t.temp_password_used_at).getTime() > TEMP_PASSWORD_GRACE_MS) {
+    return { ok: false, error: `That temporary password has already been used. ${askManager}` }
+  }
+  if (!t.temp_password_used_at) {
+    await admin.from('tenants').update({ temp_password_used_at: new Date().toISOString() }).eq('id', tenantId)
+  }
+  return { ok: true }
+}
+
 // Fresh, throwaway client per password check — a password grant has nothing
 // to do with the shared service-role `admin` client (which bypasses RLS) and
 // must never share in-memory session state across concurrent requests.
@@ -85,22 +117,25 @@ router.post('/start', async (req, res) => {
       return res.status(400).json({ error: msg })
     }
 
-    // A tenant signing in with a password that is NOT the manager-issued temp
-    // one has, by definition, already chosen their own — so stop sending them
-    // to "Set your password". first_login used to be cleared only by that
-    // screen, which meant anyone who set their password another way (the reset
-    // link) kept being asked to set one they already had.
-    //
-    // Safe to judge by shape: every manager-issued password is minted by
-    // tempPassword() in routes/admin.js as TEMP-XXXX, and a manager has no way
-    // to choose a custom one. If it doesn't match, the tenant picked it.
-    //
-    // Only ever clears the flag — a tenant still on TEMP-XXXX keeps it, so the
-    // password their manager knows can never quietly become permanent.
-    if (role === 'tenant' && !TEMP_PASSWORD_RE.test(password)) {
-      const { error: clrErr } = await admin.from('tenants')
-        .update({ first_login: false }).eq('id', data.user.id).eq('first_login', true)
-      if (clrErr) console.error('[login-otp] could not clear first_login:', clrErr.message)
+    if (role === 'tenant') {
+      // Every manager-issued password is minted by tempPassword() in
+      // routes/admin.js as TEMP-XXXX, and a manager has no way to choose a
+      // custom one — so the shape tells us which kind this is.
+      if (TEMP_PASSWORD_RE.test(password)) {
+        const gate = await checkTempPassword(data.user.id)
+        if (!gate.ok) return res.status(400).json({ error: gate.error })
+      } else {
+        // Not a temp password, so the tenant has already chosen their own —
+        // stop sending them to "Set your password". first_login used to be
+        // cleared only by that screen, so anyone who set their password another
+        // way (the reset link) kept being asked to set one they already had.
+        //
+        // Only ever clears the flag: a tenant still on TEMP-XXXX keeps it, so
+        // the password their manager knows can never become permanent.
+        const { error: clrErr } = await admin.from('tenants')
+          .update({ first_login: false }).eq('id', data.user.id).eq('first_login', true)
+        if (clrErr) console.error('[login-otp] could not clear first_login:', clrErr.message)
+      }
     }
 
     // Opportunistic cleanup — no cron needed for a table this small.
