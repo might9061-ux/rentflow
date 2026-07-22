@@ -217,6 +217,19 @@ export const mockApi = {
     save(d)
   },
 
+  // Mirrors the finish_password_reset() RPC: acts on whoever is signed in, and
+  // deliberately never un-suspends anyone.
+  async finishPasswordReset() {
+    const d = db()
+    const s = getSession()
+    const t = s?.userId ? d.tenants.find((x) => x.id === s.userId) : null
+    if (!t) return   // manager, or nobody signed in
+    t.first_login = false
+    t.email_verified = true
+    if (t.account_status === 'pending_verification') t.account_status = 'active'
+    if (t.status === 'pending') t.status = 'due'
+    save(d)
+  },
   async completeFirstLogin(tenantId) {
     await delay()
     const d = db()

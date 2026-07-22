@@ -62,6 +62,11 @@ export default function ResetPassword() {
     setBusy(true)
     try {
       await db.completePasswordReset(null, null, pw)
+      // A tenant who resets their password HAS set one — clear the first-login
+      // flag, or they sign in and get shown "Set your password" all over again.
+      // Must happen while the recovery session is still alive. No-ops for
+      // managers, and never un-suspends anyone.
+      try { await db.finishPasswordReset() } catch { /* not fatal — the password did change */ }
       // Work out which sign-in this account belongs to BEFORE signing out.
       let r = role
       if (!r) { try { r = (await db.resolveSession())?.role } catch { /* fall back below */ } }

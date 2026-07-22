@@ -195,6 +195,9 @@ const sb = {
   async verifyOtp(tenantId, channel, code) { return ok(await supabase.rpc('verify_otp', { p_tenant_id: tenantId, p_channel: channel, p_code: code })) },
   async setTenantPassword(_tenantId, newPassword) { ok(await supabase.auth.updateUser({ password: newPassword })) },
   async completeFirstLogin(tenantId) { ok(await supabase.rpc('complete_first_login', { p_tenant_id: tenantId })); return this.getTenant(tenantId) },
+  // Clears first_login after a password reset. Takes no argument — it acts on
+  // whoever is signed in, so it cannot be pointed at another account.
+  async finishPasswordReset() { ok(await supabase.rpc('finish_password_reset')) },
 
   async getManager(id) { return ok(await supabase.from('managers').select('*').eq('id', id).single()) },
   async updateManagerSettings(managerId, patch) {
