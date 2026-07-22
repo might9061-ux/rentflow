@@ -23,6 +23,7 @@ import paynowResult from './routes/paynowResult.js'
 import loginEvents from './routes/loginEvents.js'
 import authReset from './routes/authReset.js'
 import loginOtp from './routes/loginOtp.js'
+import assistant from './routes/assistant.js'
 
 const app = express()
 const PORT = process.env.PORT || 8787
@@ -80,6 +81,7 @@ app.use('/api/tenant-questions', tenantQuestions)
 app.use('/api/otp', otp)
 app.use('/api/platform', platform)
 app.use('/api/login-events', loginEvents)
+app.use('/api/assistant', assistant)
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }))
 

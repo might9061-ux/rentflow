@@ -4,9 +4,9 @@
 //   • VITE_AI_PROVIDER unset / 'demo'  → a grounded, rule-based assistant that
 //     answers from the app's own data (rent, balance, arrears, advance, due
 //     dates, methods, stats…). Works with zero credentials.
-//   • VITE_AI_PROVIDER = 'claude'       → POSTs to the local /api/assistant
-//     endpoint (see vite.config.js), which calls Claude server-side with
-//     ANTHROPIC_API_KEY. Works in `npm run dev` / `vite preview` — no Supabase.
+//   • VITE_AI_PROVIDER = 'claude'       → POSTs to VITE_API_URL/api/assistant on
+//     the RentLoja API server, which calls Claude with ANTHROPIC_API_KEY. The
+//     key and the system prompt both stay server-side. ← the live setup.
 //   • VITE_AI_PROVIDER = 'anthropic'    → POSTs to the Supabase Edge Function
 //     `assistant`, which calls Claude server-side (production).
 //
@@ -22,6 +22,7 @@ import { computeArrears, computeAdvance } from './arrears.js'
 import { paymentMethodsFor } from './methods.js'
 
 export const AI_PROVIDER = import.meta.env.VITE_AI_PROVIDER?.trim() || 'demo'
+const API_BASE = (import.meta.env.VITE_API_URL?.trim() || '').replace(/\/+$/, '')
 export const isLiveAI = AI_PROVIDER === 'claude' || AI_PROVIDER === 'anthropic'
 
 // role: 'manager' | 'tenant'; context: see buildContext in the widget.
@@ -48,12 +49,6 @@ function demoReply(role, message, context, facts) {
 
 // ── Live backend (Claude) ────────────────────────────────────────────────────
 async function askClaude({ role, message, context, facts, history }) {
-  const system = systemPrompt(role, context, facts)
-  const messages = [
-    ...history.map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text })),
-    { role: 'user', content: message },
-  ]
-
   if (AI_PROVIDER === 'anthropic') {
     // Supabase Edge Function builds its own prompt server-side; pass facts along.
     const { data, error } = await supabase.functions.invoke('assistant', {
@@ -63,41 +58,38 @@ async function askClaude({ role, message, context, facts, history }) {
     return data.reply
   }
 
-  // AI_PROVIDER === 'claude' → local same-origin endpoint.
-  const res = await fetch('/api/assistant', {
+  // AI_PROVIDER === 'claude' → the RentLoja API server.
+  //
+  // We deliberately do NOT send a system prompt: the server builds it. Letting
+  // the browser supply one would turn this endpoint into a general-purpose
+  // Claude proxy for anyone who found it, billed to us. We send only the role,
+  // the question, and the caller's own facts.
+  //
+  // The request goes to VITE_API_URL, not a relative path — in production the
+  // app is on rentloja.com and the API is on a different host, so a same-origin
+  // "/api/assistant" would never reach the server.
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch(`${API_BASE}/api/assistant`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ system, messages }),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    },
+    body: JSON.stringify({
+      role,
+      message,
+      facts,
+      history: history.map((m) => ({ role: m.role, text: m.text })),
+    }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data?.error || `assistant endpoint ${res.status}`)
   return data.reply
 }
 
-// A rich, grounded system prompt — the "advanced" brain. Claude answers strictly
-// from the computed facts so it never hallucinates rent figures or names.
-function systemPrompt(role, context, facts) {
-  const persona =
-    `You are RentLoja Copilot, an expert assistant embedded in RentLoja — a property-rental ` +
-    `management app built for the African market. You are helping a ${role}.`
-  const style =
-    `Be concise, warm and practical. Use USD and Zimbabwean payment methods (EcoCash, InnBucks, ` +
-    `Cash USD, Bank Transfer, Mukuru). Prefer short sentences and tight bullet lists. Use the ` +
-    `person's first name when it feels natural.`
-  const grounding =
-    `Ground EVERY answer in the DATA below. Never invent figures, names, tenants or account details. ` +
-    `You may do arithmetic on the numbers given — totals, how much is still owed, how many months a ` +
-    `credit covers. If the answer isn't in the data, say so plainly and point to where in the app to ` +
-    `look${role === 'tenant' ? ', or suggest contacting their property manager.' : '.'}`
-  const capability = role === 'manager'
-    ? `You can summarise outstanding rent (including balances carried over from previous months), who's ` +
-      `paid ahead and how long their credit lasts, pending approvals, collections, and occupancy; and ` +
-      `explain how to add tenants/properties, record a cash payment, or send notices.`
-    : `You can explain this tenant's rent, balance, any arrears carried over, credit/advance and how long ` +
-      `it lasts, how and where to pay, receipts, and verification.`
-
-  return [persona, style, grounding, capability, '', 'DATA (JSON):', JSON.stringify(facts ?? {}, null, 2)].join('\n')
-}
+// NOTE: the system prompt used to be built here and POSTed to the server. It now
+// lives in server/src/routes/assistant.js — see the comment in askClaude above
+// for why the browser must not be the one writing the model's instructions.
 
 // ── Derived facts (shared by demo + live) ────────────────────────────────────
 function managerFacts(ctx = {}) {
