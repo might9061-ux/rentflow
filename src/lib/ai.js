@@ -228,13 +228,29 @@ function has(raw, ...phrases) {
   })
 }
 
+// Whole-word match. `has` matches single words as substrings, which is what we
+// want for "due" → "overdue" or "owe" → "owed", but wrong for short greetings:
+// "hi" otherwise matches inside "history" and "behind", so "payment history"
+// and "am I behind?" were both answered with a cheery hello.
+function hasWord(raw, ...words) {
+  const tokens = normalize(raw).split(' ').filter(Boolean)
+  return words.some((w) => tokens.includes(normalize(w)))
+}
+
 function tenantReply(raw, ctx, f) {
   const q = (raw || '').toLowerCase()
 
-  if (has(q, 'hello', 'hi ', 'hey', 'help', 'what can you', 'morning', 'good day')) {
+  if (hasWord(q, 'hi', 'hey', 'hello') || has(q, 'help', 'what can you', 'morning', 'good day')) {
     return `Hi ${f.firstName} 👋 I'm your RentLoja assistant. I can help with:\n• Your rent, balance and what's due\n• Any balance carried over from past months\n• Credit / paying ahead and how long it lasts\n• How and where to pay\n• Receipts and history\nWhat would you like to know?`
   }
-  if (has(q, 'balance', 'owe', 'owing', 'how much', 'outstanding', 'due', 'arrear', 'behind', 'carried', 'previous')) {
+  // "What's my rent?" is the single most common question, so 'rent' has to be a
+  // trigger — but it's a broad word that would otherwise swallow "how do I pay
+  // rent" and "rent receipt", which want the more specific answers below. Those
+  // intents are checked first and this one steps aside for them.
+  const wantsPayInfo = has(q, 'pay', 'method', 'ecocash', 'bank', 'innbucks', 'mukuru', 'card')
+  const wantsReceipt = has(q, 'receipt', 'history', 'proof', 'statement')
+  if (!wantsPayInfo && !wantsReceipt
+    && has(q, 'balance', 'owe', 'owing', 'how much', 'outstanding', 'due', 'arrear', 'behind', 'carried', 'previous', 'rent')) {
     let r = `Your rent is ${money(f.rent)} per month and your status is "${f.status}".`
     if (f.period) r += `\nCurrent billing period: ${f.period}.`
     if (f.arrears.broughtForward > 0) {
@@ -257,7 +273,9 @@ function tenantReply(raw, ctx, f) {
     }
     return `You don't have any credit right now. If you pay more than ${money(f.rent)} in one go, the extra becomes credit and is applied automatically to your next month's rent — and I'll tell you how many months it covers.`
   }
-  if (has(q, 'pay', 'method', 'ecocash', 'bank', 'cash', 'innbucks', 'mukuru', 'card', 'where', 'send', 'how do i')) {
+  // Guarded the same way: "payment history" contains "pay", but it's asking for
+  // receipts, not for how to pay.
+  if (!wantsReceipt && has(q, 'pay', 'method', 'ecocash', 'bank', 'cash', 'innbucks', 'mukuru', 'card', 'where', 'send', 'how do i')) {
     let r = `You can pay via: ${f.acceptedMethods.join(', ') || 'the methods your manager enabled'}.\nGo to "Make a payment", enter the amount, and pick a method.`
     for (const [label, details] of Object.entries(f.payDetails)) {
       if (q.includes(label.toLowerCase().split(' ')[0])) r += `\n\nFor ${label}, send to:\n${details}`
@@ -284,7 +302,7 @@ function managerReply(raw, ctx, f) {
   const named = findTenant(q, ctx?.tenants)
   if (named) return tenantSummaryForManager(named, ctx)
 
-  if (has(q, 'hello', 'hi ', 'hey', 'help', 'what can you', 'morning', 'good day')) {
+  if (hasWord(q, 'hi', 'hey', 'hello') || has(q, 'help', 'what can you', 'morning', 'good day')) {
     return `Hi ${f.managerName?.split(' ')[0] || ''} 👋 I'm your RentLoja copilot. Ask me about:\n• Who's behind & how much is carried over from past months\n• Who's paid ahead & how long their credit lasts\n• Pending approvals, collections & occupancy\n• How to add tenants/properties, record a cash payment, or send notices\nWhat do you need?`
   }
   // Advance is checked before arrears so "who's paid ahead?" isn't swallowed by
