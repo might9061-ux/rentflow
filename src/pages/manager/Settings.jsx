@@ -23,6 +23,8 @@ export default function Settings() {
   const [enabled, setEnabled] = useState(new Set())
   const [details, setDetails] = useState({}) // { [methodKey]: 'where to pay…' }
   const [notifyAi, setNotifyAi] = useState(false)
+  const [notifyAgentThreads, setNotifyAgentThreads] = useState(false)
+  const [hasAgents, setHasAgents] = useState(false)
   const [aiSelf, setAiSelf] = useState(true)
   const [aiTenants, setAiTenants] = useState(true)
   const [refundsEnabled, setRefundsEnabled] = useState(false)
@@ -40,6 +42,7 @@ export default function Settings() {
       setEnabled(new Set(acceptedMethods(m)))
       setDetails(m?.payment_details || {})
       setNotifyAi(!!m?.notify_on_tenant_ai)
+      setNotifyAgentThreads(!!m?.notify_agent_threads)
       setRefundsEnabled(!!m?.refunds_enabled)
       setAiSelf(m?.ai_enabled_self !== false)
       setAiTenants(m?.ai_enabled_tenants !== false)
@@ -47,6 +50,9 @@ export default function Settings() {
         enabled: !!m?.late_fee_enabled, type: m?.late_fee_type || 'flat',
         amount: m?.late_fee_amount ?? '', grace: m?.late_fee_grace_days ?? 3,
       })
+      // Only worth offering the agent switch if there are agents. A failure
+      // here just hides an optional toggle, so it must not block Settings.
+      try { setHasAgents((await db.listTeam(userId)).some((x) => x.role === 'staff')) } catch { /* solo */ }
       setLoading(false)
     })()
   }, [userId])
@@ -87,6 +93,7 @@ export default function Settings() {
         country, currency, currencies,
         accepted_methods: list, payment_details: cleanDetails,
         notify_on_tenant_ai: notifyAi, ai_enabled_self: aiSelf, ai_enabled_tenants: aiTenants,
+        notify_agent_threads: notifyAgentThreads,
         refunds_enabled: refundsEnabled,
         late_fee_enabled: lateFee.enabled, late_fee_type: lateFee.type,
         late_fee_amount: Number(lateFee.amount) || 0, late_fee_grace_days: Number(lateFee.grace) || 0,
@@ -216,6 +223,12 @@ export default function Settings() {
           title="Tenant copilot"
           desc="Let your tenants use the AI assistant in their portal."
           on={aiTenants} onToggle={() => setAiTenants((v) => !v)} />
+        {hasAgents && (
+          <ToggleRow
+            title="Copy me on messages my agents handle"
+            desc="Tenant messages go to the agent assigned to that property. You always SEE every conversation and can reply — this only controls whether your phone buzzes too. Off keeps your alerts to properties you handle yourself."
+            on={notifyAgentThreads} onToggle={() => setNotifyAgentThreads((v) => !v)} />
+        )}
         {aiTenants && (
           <ToggleRow
             title="Notify me of tenant questions"

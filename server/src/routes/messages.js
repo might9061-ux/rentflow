@@ -30,11 +30,26 @@ async function alertTargets(managerId, tenantId) {
       const { data: agents } = await admin.from('managers').select('id')
         .eq('owner_id', managerId).eq('role', 'staff').eq('account_status', 'active')
         .contains('assigned_property_ids', [t.property_id])
-      if (agents?.length) return agents.map((a) => a.id)
+      if (agents?.length) {
+        const ids = agents.map((a) => a.id)
+        // The owner can opt to be copied on conversations their agents handle
+        // — off by default, so a big portfolio doesn't drown them. Looked up in
+        // its OWN try: if this fails (e.g. the code is deployed before 0025
+        // runs) we must still alert the agents, not silently fall back to
+        // alerting nobody but the owner.
+        try {
+          const { data: owner } = await admin.from('managers')
+            .select('notify_agent_threads').eq('id', managerId).maybeSingle()
+          if (owner?.notify_agent_threads) ids.push(managerId)
+        } catch { /* preference unavailable — default is off anyway */ }
+        return ids
+      }
     }
   } catch (e) {
     console.error('[messages] could not resolve alert targets:', e.message)
   }
+  // No agent covers this property (or the lookup failed) — the owner is the
+  // only person who can answer, so a message is never sent into a void.
   return [managerId]
 }
 
