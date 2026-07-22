@@ -41,7 +41,10 @@ export const TENANT_GROUPS = [
       'Do I have any credit?',
       'How many months does my credit cover?',
       'Until when am I paid up?',
-      'If I pay $200 now, how far does that take me?',
+      // Deliberately not "if I pay $200, how far does that take me?" — that
+      // needs arithmetic on a number in the question, which the rule-based
+      // assistant cannot do. Only offer chips it can actually answer.
+      'What happens if I pay extra?',
     ],
   },
   {

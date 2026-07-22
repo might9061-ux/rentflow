@@ -241,8 +241,13 @@ function tenantReply(raw, ctx, f) {
   // intents are checked first and this one steps aside for them.
   const wantsPayInfo = has(q, 'pay', 'method', 'ecocash', 'bank', 'innbucks', 'mukuru', 'card')
   const wantsReceipt = has(q, 'receipt', 'history', 'proof', 'statement')
-  if (!wantsPayInfo && !wantsReceipt
-    && has(q, 'balance', 'owe', 'owing', 'how much', 'outstanding', 'due', 'arrear', 'behind', 'carried', 'previous', 'rent')) {
+  // "Have I paid this month?", "am I paid up?" and "what period am I paying
+  // for?" are asking about STATUS, but every one of them contains "pay" inside
+  // paid/paying — which sent them to the how-to-pay answer instead. Status is
+  // the more specific intent, so it wins over both of the guards above.
+  const wantsStatus = has(q, 'have i paid', 'did i pay', 'am i paid', 'paid this', 'paid up', 'up to date', 'period')
+  if (wantsStatus || (!wantsPayInfo && !wantsReceipt
+    && has(q, 'balance', 'owe', 'owing', 'how much', 'outstanding', 'due', 'arrear', 'behind', 'carried', 'previous', 'rent'))) {
     let r = `Your rent is ${money(f.rent)} per month and your status is "${f.status}".`
     if (f.period) r += `\nCurrent billing period: ${f.period}.`
     if (f.arrears.broughtForward > 0) {
@@ -267,7 +272,7 @@ function tenantReply(raw, ctx, f) {
   }
   // Guarded the same way: "payment history" contains "pay", but it's asking for
   // receipts, not for how to pay.
-  if (!wantsReceipt && has(q, 'pay', 'method', 'ecocash', 'bank', 'cash', 'innbucks', 'mukuru', 'card', 'where', 'send', 'how do i')) {
+  if (!wantsReceipt && !wantsStatus && has(q, 'pay', 'method', 'ecocash', 'bank', 'cash', 'innbucks', 'mukuru', 'card', 'where', 'send', 'how do i')) {
     let r = `You can pay via: ${f.acceptedMethods.join(', ') || 'the methods your manager enabled'}.\nGo to "Make a payment", enter the amount, and pick a method.`
     for (const [label, details] of Object.entries(f.payDetails)) {
       if (q.includes(label.toLowerCase().split(' ')[0])) r += `\n\nFor ${label}, send to:\n${details}`
@@ -327,8 +332,12 @@ function managerReply(raw, ctx, f) {
   if (has(q, 'collected', 'revenue', 'total', 'income', 'earned', 'received')) {
     return `You've collected ${money(f.collected)} across ${f.approvedCount} approved payments. Outstanding across tenants behind is ${money(f.arrearsTotal)}, and ${money(f.advanceTotal)} is sitting as advance credit.`
   }
-  if (has(q, 'occupancy', 'vacant', 'units', 'empty', 'occupied')) {
+  // 'tenant' belongs here too: "how many tenants do I have?" is the same
+  // question as occupancy from the other side, and the counts are already
+  // computed — it used to fall through to the generic reply.
+  if (has(q, 'occupancy', 'vacant', 'units', 'empty', 'occupied', 'tenant', 'how many')) {
     return `Occupancy is ${f.occupancyPct}% — ${f.occupied} of ${f.totalUnits} units across ${f.propertiesCount} propert${f.propertiesCount === 1 ? 'y' : 'ies'}.`
+      + `\nYou have ${f.activeCount} active tenant${f.activeCount === 1 ? '' : 's'}${f.tenantsCount !== f.activeCount ? ` (${f.tenantsCount} on file in total)` : ''}.`
   }
   if (has(q, 'cash', 'record payment', 'paid cash', 'mark paid')) {
     return `When a tenant pays you in cash, open their profile (or Payments → Owing) and tap "Record payment". Enter the amount, method and date — it's logged as an approved payment, applies any extra as credit, and clears them from the Owing list.`
