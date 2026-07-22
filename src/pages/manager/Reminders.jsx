@@ -74,9 +74,17 @@ export default function Reminders() {
     if (channel === 'sms') sendSMS(item.tenant.phone, item.message)
     else sendWhatsApp(item.tenant.phone, item.message)
   }
+  // The message text and rule kind go up with the log entry so the server can
+  // also drop the reminder into the tenant's in-app inbox and pop it up on
+  // their phone — WhatsApp alone is easy to miss in a busy chat list.
+  const logEntry = (item) => ({
+    tenant_id: item.tenant.id, rule_id: item.rule.id, period: item.periodId, channel, amount: item.amount,
+    subject: item.rule.label || 'Rent reminder', message: item.message, kind: item.rule.kind,
+  })
+
   const sendOne = async (item) => {
     dispatch(item)
-    await db.logReminderSent(userId, { tenant_id: item.tenant.id, rule_id: item.rule.id, period: item.periodId, channel, amount: item.amount })
+    await db.logReminderSent(userId, logEntry(item))
     toast.success(`Reminder sent to ${item.tenant.first_name}`)
     load()
   }
@@ -84,7 +92,7 @@ export default function Reminders() {
     if (!due.length) return
     for (let i = 0; i < due.length; i++) {
       dispatch(due[i])
-      await db.logReminderSent(userId, { tenant_id: due[i].tenant.id, rule_id: due[i].rule.id, period: due[i].periodId, channel, amount: due[i].amount })
+      await db.logReminderSent(userId, logEntry(due[i]))
       await new Promise((r) => setTimeout(r, 600))
     }
     toast.info(channel === 'whatsapp' ? 'Opening WhatsApp' : 'Opening Messages', `Allow pop-ups to send all ${due.length} reminders.`)

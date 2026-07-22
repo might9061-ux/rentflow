@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { timeAgo } from '../../lib/format.js'
 import { Spinner, EmptyState } from '../../components/ui.jsx'
+import PushToggle from '../../components/PushToggle.jsx'
 import { IconBell, IconWarn, IconInfo } from '../../components/icons.jsx'
 
 const PRIO = {
@@ -31,8 +32,10 @@ export default function TenantNotifications() {
       <div className="page-head">
         <div className="eyebrow">Inbox</div>
         <h1>Notifications</h1>
-        <p>Notices from your property manager.</p>
+        <p>Rent reminders and notices from your property manager.</p>
       </div>
+
+      <PushToggle blurb="Get rent reminders on this device the moment they're sent — even when RentLoja is closed." />
 
       {loading ? <div className="center" style={{ minHeight: 200 }}><Spinner /></div>
         : items.length === 0 ? (

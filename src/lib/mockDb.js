@@ -338,6 +338,17 @@ export const mockApi = {
       period: entry.period, channel: entry.channel || 'whatsapp', amount: Number(entry.amount) || 0,
       created_at: new Date().toISOString(),
     }
+    // Mirror the live behaviour: a sent reminder also lands in the tenant's
+    // in-app inbox, so the demo shows what really happens.
+    if (entry.message && entry.tenant_id) {
+      d.notifications.push({
+        id: uid(), manager_id: ownerId, recipient_scope: 'individual',
+        property_id: null, tenant_id: entry.tenant_id,
+        subject: entry.subject || 'Rent reminder', message: entry.message,
+        priority: entry.kind === 'overdue' ? 'urgent' : entry.kind === 'upcoming' ? 'info' : 'normal',
+        created_at: new Date().toISOString(),
+      })
+    }
     d.reminder_log.push(e); save(d); return clone(e)
   },
   // Skip a tenant for the CURRENT billing period only (they return next period).

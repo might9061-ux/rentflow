@@ -6,6 +6,7 @@ import { db } from '../../lib/db.js'
 import { paymentMethodsFor, acceptedMethods } from '../../lib/methods.js'
 import { CURRENCIES, marketFor, currencyOptions } from '../../lib/markets.js'
 import { Spinner } from '../../components/ui.jsx'
+import PushToggle from '../../components/PushToggle.jsx'
 import { IconWallet, IconPhone, IconReceipt, IconSun, IconMoon, IconCheck } from '../../components/icons.jsx'
 
 const onlineIcon = (k) => (k === 'card' ? IconWallet : IconPhone)
@@ -109,8 +110,10 @@ export default function Settings() {
       <div className="page-head">
         <div className="eyebrow">Configuration</div>
         <h1>Settings</h1>
-        <p>Appearance, payment methods and more.</p>
+        <p>Appearance, notifications, payment methods and more.</p>
       </div>
+
+      <PushToggle blurb="Get alerted on this device when a payment comes in or a tenant sends a message — even when RentLoja is closed." />
 
       <Section title="Appearance" subtitle="Choose a dark or light background for the app.">
         <div className="row gap wrap">

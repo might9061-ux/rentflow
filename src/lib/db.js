@@ -233,7 +233,22 @@ const sb = {
   },
   async logReminderSent(userId, entry) {
     const wm = await this.getWorkspaceManager(userId)
-    return ok(await supabase.from('reminder_log').insert({ manager_id: wm.id, ...entry }).select().single())
+    // subject/message/kind describe the notice, not the log row — they exist so
+    // the reminder can also reach the tenant's in-app inbox.
+    const { subject, message, kind, ...row } = entry
+    const log = ok(await supabase.from('reminder_log').insert({ manager_id: wm.id, ...row }).select().single())
+    if (message && row.tenant_id) {
+      const priority = kind === 'overdue' ? 'urgent' : kind === 'upcoming' ? 'info' : 'normal'
+      // Best-effort: the reminder really was sent, so a failure here must not
+      // make it look otherwise.
+      try {
+        ok(await supabase.from('notifications').insert({
+          manager_id: wm.id, recipient_scope: 'individual', tenant_id: row.tenant_id,
+          subject: subject || 'Rent reminder', message, priority,
+        }))
+      } catch (e) { console.warn('[reminders] in-app notice not saved:', e.message) }
+    }
+    return log
   },
   // A daily Edge Function cron computes & sends these server-side; this client
   // count is best-effort for the nav badge.

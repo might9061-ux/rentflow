@@ -1,6 +1,7 @@
 // Notifications a manager sends to tenants (all / a property / an individual).
 import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
+import { pushSafe } from '../push.js'
 
 const router = Router()
 
@@ -27,8 +28,39 @@ router.get('/unread-count', h(async (req, res) => {
 
 router.post('/', h(async (req, res) => {
   const manager_id = await ownerId(req)
-  res.json(ok(await req.db.from('notifications').insert({ ...req.body, manager_id }).select().single()))
+  const notice = ok(await req.db.from('notifications').insert({ ...req.body, manager_id }).select().single())
+
+  // Also raise it as a pop-up on each recipient's phone. Best-effort: the notice
+  // is already saved, and a push failure must not make the manager think the
+  // send failed.
+  try {
+    for (const tenantId of await recipientIds(req, notice)) {
+      pushSafe(tenantId, {
+        title: notice.subject,
+        body: notice.message,
+        url: '/tenant/notifications',
+        tag: `notice-${notice.id}`,
+        priority: notice.priority,
+      })
+    }
+  } catch (e) {
+    console.error('[notifications] could not resolve push recipients:', e.message)
+  }
+
+  res.json(notice)
 }))
+
+// Which tenants a notice is addressed to. Read under the caller's own RLS, so a
+// staff manager can only ever reach the tenants they're allowed to see.
+async function recipientIds(req, notice) {
+  if (notice.recipient_scope === 'individual') return notice.tenant_id ? [notice.tenant_id] : []
+  let q = req.db.from('tenants').select('id').eq('account_status', 'active')
+  if (notice.recipient_scope === 'property') {
+    if (!notice.property_id) return []
+    q = q.eq('property_id', notice.property_id)
+  }
+  return ok(await q).map((t) => t.id)
+}
 
 // A tenant marks a notification read (via the SECURITY DEFINER RPC).
 router.post('/:id/read', h(async (req, res) => {
