@@ -16,17 +16,20 @@ export default function ManagerMessages() {
   const [threads, setThreads] = useState([])
   const [tenants, setTenants] = useState([])
   const [team, setTeam] = useState([])
+  const [owner, setOwner] = useState(null)   // for an agent: who they report to
   const [open, setOpen] = useState(null)      // { id, kind }
   const [items, setItems] = useState([])
 
   const loadThreads = useCallback(async () => {
-    const [th, ts, tm] = await Promise.all([
+    const [th, ts, tm, own] = await Promise.all([
       db.listMessageThreads(userId),
       db.listTenants(userId),
       // Only an owner has agents to talk to; staff message their owner instead.
       isOwner ? db.listTeam(userId).catch(() => []) : Promise.resolve([]),
+      // An agent needs the owner's name to label their own conversation.
+      isOwner ? Promise.resolve(null) : db.getWorkspaceManager(userId).catch(() => null),
     ])
-    setThreads(th); setTenants(ts); setTeam(tm)
+    setThreads(th); setTenants(ts); setTeam(tm); setOwner(own)
     setLoading(false)
   }, [userId, isOwner])
   useEffect(() => { loadThreads() }, [loadThreads])
@@ -43,9 +46,9 @@ export default function ManagerMessages() {
     loadThreads()
   }, [userId, open, loadThreads])
 
-  const personOf = (id) => tenants.find((t) => t.id === id) || team.find((s) => s.id === id)
+  const personOf = (id) => tenants.find((t) => t.id === id) || team.find((s) => s.id === id) || (owner?.id === id ? owner : null)
   const nameOf = (id) => { const p = personOf(id); return p ? fullName(p) : 'Conversation' }
-  const isAgent = (id) => team.some((s) => s.id === id)
+  const isAgent = (id) => team.some((s) => s.id === id) || owner?.id === id
 
   if (loading) return <div className="page center" style={{ minHeight: 300 }}><Spinner /></div>
 
@@ -98,7 +101,7 @@ export default function ManagerMessages() {
               {!isOwner && (
                 <div className="msg-start">
                   <div className="msg-start-head">Property owner</div>
-                  <Row id={profile?.owner_id} sub="Message the owner" agent />
+                  <Row id={owner?.id || profile?.owner_id} sub="Message the owner" agent />
                 </div>
               )}
 
