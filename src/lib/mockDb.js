@@ -938,9 +938,7 @@ export const mockApi = {
     t.temp_password = tempPassword
     t.password = null
     t.first_login = true
-    t.email_verified = false
-    t.phone_verified = false
-    t.account_status = 'pending_verification'
+    // Verification + account_status deliberately preserved — see db.js.
     save(d)
     return { tempPassword }
   },

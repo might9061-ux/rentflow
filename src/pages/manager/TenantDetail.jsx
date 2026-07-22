@@ -100,7 +100,14 @@ export default function TenantDetail() {
                 </>
               )}
             </div>
-            <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
+            {/* Only while the tenant is still on the password you issued. Once
+                they have chosen their own, there is no temp password to share —
+                showing one would hand out a credential that no longer works, and
+                issuing a fresh one would lock them out of the password they know.
+                A tenant who forgets theirs uses "Forgot password?" themselves. */}
+            {tenant.first_login && (
+              <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
+            )}
             <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>
             <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>
           </div>

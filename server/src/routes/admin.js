@@ -73,7 +73,11 @@ router.post('/tenants/:id/resend-credentials', h(async (req, res) => {
   const upd = await admin.auth.admin.updateUserById(req.params.id, { password: pw })
   if (upd.error) throw new Error(upd.error.message)
   await admin.from('tenants').update({
-    first_login: true, email_verified: false, phone_verified: false, account_status: 'pending_verification',
+    // Back on a manager-issued password, so they must pick their own again.
+    // Their email/phone verification and account_status are NOT touched: those
+    // describe their contact details, not their password. Wiping them here is
+    // what silently dragged verified, active tenants back to unverified.
+    first_login: true,
     // A brand-new temp password, so its clock restarts and it is unused again.
     temp_password_issued_at: new Date().toISOString(), temp_password_used_at: null,
   }).eq('id', req.params.id)

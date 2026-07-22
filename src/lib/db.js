@@ -543,7 +543,9 @@ const sb = {
   async updateTenant(id, patch) { return ok(await supabase.from('tenants').update(patch).eq('id', id).select().single()) },
   async resendCredentials(tenantId) {
     const tempPassword = genTempPassword()
-    ok(await supabase.from('tenants').update({ first_login: true, email_verified: false, phone_verified: false, account_status: 'pending_verification' }).eq('id', tenantId))
+    // Only the password changes — verification and account_status describe
+    // their contact details and must survive a credentials resend.
+    ok(await supabase.from('tenants').update({ first_login: true }).eq('id', tenantId))
     // Edge Function resets the auth password to tempPassword in production.
     return { tempPassword }
   },
