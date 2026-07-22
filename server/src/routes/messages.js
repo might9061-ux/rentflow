@@ -5,11 +5,38 @@
 // ever a lookup key, never a grant.
 import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
+import { admin } from '../supabase.js'
 import { pushSafe } from '../push.js'
 
 const router = Router()
 
 const MAX_BODY = 4000
+
+// Who should be alerted when a tenant writes?
+//
+// The agent assigned to that tenant's property — they're the one handling it.
+// The owner still SEES every conversation (RLS gives them the whole workspace)
+// and can step in, but their phone stays quiet: on a portfolio with several
+// agents, alerting the owner on every tenant message makes the alerts
+// worthless. Falls back to the owner when no agent covers the property, so a
+// message is never sent into a void.
+//
+// Uses the service role because the sender is a tenant, and a tenant's own RLS
+// scope cannot see the managers table.
+async function alertTargets(managerId, tenantId) {
+  try {
+    const { data: t } = await admin.from('tenants').select('property_id').eq('id', tenantId).maybeSingle()
+    if (t?.property_id) {
+      const { data: agents } = await admin.from('managers').select('id')
+        .eq('owner_id', managerId).eq('role', 'staff').eq('account_status', 'active')
+        .contains('assigned_property_ids', [t.property_id])
+      if (agents?.length) return agents.map((a) => a.id)
+    }
+  } catch (e) {
+    console.error('[messages] could not resolve alert targets:', e.message)
+  }
+  return [managerId]
+}
 
 // Is the caller a tenant? Tenants and managers live in different tables, both
 // keyed by their auth id, so this is the cheap way to tell them apart.
@@ -81,12 +108,14 @@ router.post('/', h(async (req, res) => {
   // Pop it up on the other party's phone. Best-effort — the message is already
   // stored, and a delivery problem must not look like a send failure.
   if (saved.sender_role === 'tenant') {
-    pushSafe(saved.manager_id, {
-      title: 'New message from a tenant',
-      body: body.slice(0, 140),
-      url: '/manager/messages',
-      tag: `msg-${saved.tenant_id}`,
-    })
+    for (const id of await alertTargets(saved.manager_id, saved.tenant_id)) {
+      pushSafe(id, {
+        title: 'New message from a tenant',
+        body: body.slice(0, 140),
+        url: '/manager/messages',
+        tag: `msg-${saved.tenant_id}`,
+      })
+    }
   } else {
     pushSafe(saved.tenant_id, {
       title: 'Message from your property manager',
