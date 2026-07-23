@@ -13,6 +13,8 @@ const ManagerAuth = lazy(() => import('./pages/manager/ManagerAuth.jsx'))
 const TenantLogin = lazy(() => import('./pages/tenant/TenantLogin.jsx'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'))
 const Privacy = lazy(() => import('./pages/Privacy.jsx'))
+const PublicListings = lazy(() => import('./pages/public/Listings.jsx'))
+const PublicListing = lazy(() => import('./pages/public/Listing.jsx'))
 
 const ManagerLayout = lazy(() => import('./pages/manager/ManagerLayout.jsx'))
 const ManagerDashboard = lazy(() => import('./pages/manager/Dashboard.jsx'))
@@ -124,6 +126,9 @@ export default function App() {
       <Route path="/tenant/login" element={session ? <Navigate to="/tenant" replace /> : <TenantLogin />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacy" element={<Privacy />} />
+      {/* Public property marketplace — no login. */}
+      <Route path="/rent" element={<PublicListings />} />
+      <Route path="/rent/:id" element={<PublicListing />} />
 
       {/* Manager app */}
       <Route path="/manager" element={<RequireRole role="manager"><ManagerLayout /></RequireRole>}>

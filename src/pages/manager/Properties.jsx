@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { fileToProof } from '../../lib/upload.js'
+import { toInternational } from '../../lib/phone.js'
 import { PROPERTY_TYPES, FURNISHED, UTILITIES_INCLUDED, AMENITY_GROUPS } from '../../lib/propertyOptions.js'
 import Modal from '../../components/Modal.jsx'
 import { Input, Textarea, Select, Row } from '../../components/Field.jsx'
@@ -132,6 +133,8 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
     description: property.description || '', rules: property.rules || '',
     caretaker_name: property.caretaker_name || '', caretaker_phone: property.caretaker_phone || '',
     is_advertised: property.is_advertised || false,
+    ad_rent: property.ad_rent ?? '', ad_currency: property.ad_currency || 'USD',
+    ad_contact_name: property.ad_contact_name || '', ad_contact_phone: property.ad_contact_phone || '',
   })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const toggleArr = (k, v) => setForm((f) => ({ ...f, [k]: f[k].includes(v) ? f[k].filter((x) => x !== v) : [...f[k], v] }))
@@ -159,6 +162,11 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
         year_built: num(form.year_built), storeys: num(form.storeys),
         deposit: num(form.deposit), max_occupants: num(form.max_occupants), levy_fee: num(form.levy_fee),
         available_from: form.available_from || null,
+        ad_rent: num(form.ad_rent),
+        // Normalise the public enquiry number to +263… so the wa.me link on the
+        // listing works regardless of how the manager typed it.
+        ad_contact_phone: form.ad_contact_phone ? toInternational(form.ad_contact_phone) : null,
+        ad_contact_name: form.ad_contact_name || null,
       }
       if (isNew) await db.createProperty(userId, payload)
       else await db.updateProperty(property.id, payload)
@@ -287,6 +295,41 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
             <span className="track" />
           </span>
         </label>
+
+        {/* Public-listing details — only relevant, and only shown, once it's
+            being advertised. The contact number is the ONLY thing that becomes
+            public; it's separate so the manager chooses it deliberately. */}
+        {form.is_advertised && (
+          <div style={{ marginTop: 10, padding: '14px', border: '1px solid var(--accent-line)', borderRadius: 'var(--radius)', background: 'var(--accent-bg)' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 4 }}>Public listing details</div>
+            <div className="muted" style={{ fontSize: '0.78rem', marginBottom: 12 }}>
+              Shown on your shareable rentloja.com/rent page. Tenants’ details are never included.
+            </div>
+            <div className="field-row">
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label>Asking rent / month</label>
+                <input className="input" inputMode="decimal" placeholder="e.g. 350" value={form.ad_rent}
+                  onChange={(e) => setForm((f) => ({ ...f, ad_rent: e.target.value.replace(/[^\d.]/g, '') }))} />
+              </div>
+              <div className="field" style={{ marginBottom: 10, maxWidth: 120 }}>
+                <label>Currency</label>
+                <select className="select" value={form.ad_currency} onChange={set('ad_currency')}>
+                  <option value="USD">USD</option><option value="ZWG">ZWG</option>
+                </select>
+              </div>
+            </div>
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label>Enquiries WhatsApp number <span className="muted" style={{ fontWeight: 400 }}>· shown publicly</span></label>
+              <input className="input" inputMode="tel" placeholder="e.g. 0771 234 567" value={form.ad_contact_phone}
+                onChange={(e) => setForm((f) => ({ ...f, ad_contact_phone: e.target.value }))} />
+            </div>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>Contact name <span className="muted" style={{ fontWeight: 400 }}>· optional</span></label>
+              <input className="input" placeholder="Who renters will be talking to" value={form.ad_contact_name}
+                onChange={set('ad_contact_name')} />
+            </div>
+          </div>
+        )}
       </form>
     </Modal>
   )

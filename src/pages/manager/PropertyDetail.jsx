@@ -7,7 +7,7 @@ import { money, fullName, fmtDate } from '../../lib/format.js'
 import { AMENITY_GROUPS } from '../../lib/propertyOptions.js'
 import { sendWhatsApp, listingMessage } from '../../lib/whatsapp.js'
 import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
-import { IconArrowRight, IconBuilding, IconUsers, IconWallet, IconClock, IconEdit, IconWhatsapp, IconCheck } from '../../components/icons.jsx'
+import { IconArrowRight, IconBuilding, IconUsers, IconWallet, IconClock, IconEdit, IconWhatsapp, IconCheck, IconEye, IconShare } from '../../components/icons.jsx'
 import { PropertyModal } from './Properties.jsx'
 
 export default function PropertyDetail() {
@@ -56,7 +56,12 @@ export default function PropertyDetail() {
     P.storeys != null && [`${P.storeys}`, 'Storeys'],
   ].filter(Boolean)
 
-  const shareListing = () => sendWhatsApp(null, listingMessage(P, profile))
+  const publicUrl = `${window.location.origin}/rent/${P.id}`
+  const shareListing = () => sendWhatsApp(null, listingMessage(P, profile, publicUrl))
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(publicUrl); toast.success('Link copied', 'Paste it into any group or portal.') }
+    catch { toast.error('Could not copy', 'Long-press the link on the public page instead.') }
+  }
 
   return (
     <div className="page">
@@ -65,7 +70,11 @@ export default function PropertyDetail() {
           <IconArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> Properties
         </button>
         <div className="row gap">
-          {P.is_advertised && <button className="btn wa sm" onClick={shareListing}><IconWhatsapp size={14} /> Share listing</button>}
+          {P.is_advertised && <>
+            <a className="btn ghost sm" href={publicUrl} target="_blank" rel="noopener noreferrer"><IconEye size={14} /> View public page</a>
+            <button className="btn ghost sm" onClick={copyLink}><IconShare size={14} /> Copy link</button>
+            <button className="btn wa sm" onClick={shareListing}><IconWhatsapp size={14} /> Share on WhatsApp</button>
+          </>}
           <button className="btn primary sm" onClick={() => setEditing(true)}><IconEdit size={14} /> Edit</button>
         </div>
       </div>

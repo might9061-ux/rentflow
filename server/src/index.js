@@ -23,6 +23,7 @@ import paynowResult from './routes/paynowResult.js'
 import loginEvents from './routes/loginEvents.js'
 import authReset from './routes/authReset.js'
 import loginOtp from './routes/loginOtp.js'
+import publicListings from './routes/publicListings.js'
 import assistant from './routes/assistant.js'
 import push from './routes/push.js'
 import messages from './routes/messages.js'
@@ -60,6 +61,9 @@ app.use('/paynow', paynowResult)
 
 // Public (pre-auth) — role-scoped password reset, before the auth gate.
 app.use('/api/auth', authReset)
+
+// Public (pre-auth) — advertised property listings for anonymous visitors.
+app.use('/api/public/listings', publicListings)
 
 // Public (pre-auth) — the mandatory emailed code step of signing in itself,
 // so it necessarily runs before any session/token exists.

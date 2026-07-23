@@ -56,8 +56,9 @@ Unit: ${tenant.unit || '—'}`
 }
 
 // "To let" advert for an advertised property.
-export function listingMessage(p, manager) {
-  const lines = [`🏠 *FOR RENT — ${p.name}*`]
+export function listingMessage(p, manager, publicUrl) {
+  const rent = p.ad_rent != null ? ` — $${Number(p.ad_rent).toFixed(0)}${p.ad_currency && p.ad_currency !== 'USD' ? ` ${p.ad_currency}` : ''}/mo` : ''
+  const lines = [`🏠 *FOR RENT — ${p.name}*${rent}`]
   const loc = [p.suburb, p.city].filter(Boolean).join(', ') || p.location
   if (loc) lines.push(`📍 ${loc}`)
   const specs = []
@@ -68,10 +69,12 @@ export function listingMessage(p, manager) {
   if (p.type) lines.push(`🏢 ${p.type}`)
   if (p.deposit != null) lines.push(`💵 Deposit: $${Number(p.deposit).toFixed(2)}`)
   if (p.available_from) lines.push(`📅 Available from ${new Date(p.available_from).toLocaleDateString()}`)
-  if (p.description) lines.push(`\n${p.description}`)
-  if (p.map_link) lines.push(`\n📌 ${p.map_link}`)
-  const contact = manager?.phone || p.caretaker_phone
-  if (contact) lines.push(`\n📞 Enquiries: ${contact}`)
+  if (p.description) lines.push(`\n${p.description.slice(0, 200)}${p.description.length > 200 ? '…' : ''}`)
+  // The link is the point — full photos and details live on the public page.
+  if (publicUrl) lines.push(`\n👉 See photos & details: ${publicUrl}`)
+  else if (p.map_link) lines.push(`\n📌 ${p.map_link}`)
+  const contact = p.ad_contact_phone || manager?.phone || p.caretaker_phone
+  if (contact) lines.push(`📞 Enquiries: ${contact}`)
   lines.push(`\n— via RentLoja`)
   return lines.join('\n')
 }
