@@ -338,9 +338,10 @@ table.data tbody tr.clickable-row { cursor: pointer; }
 @keyframes slidein { from { opacity: 0; transform: translateX(20px); } }
 
 /* ── OTP input ───────────────────────────────────────────────────────────── */
-.otp { display: flex; gap: 10px; justify-content: center; }
+.otp { display: flex; gap: clamp(6px, 2.2vw, 10px); justify-content: center; width: 100%; }
 .otp input {
-  width: 52px; height: 60px; text-align: center; font-size: 1.6rem; font-weight: 600;
+  flex: 1 1 0; min-width: 0; max-width: 52px; height: 60px;
+  text-align: center; font-size: 1.6rem; font-weight: 600;
   background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
   color: var(--text); font-family: var(--serif);
 }

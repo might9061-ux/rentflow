@@ -39,7 +39,7 @@ export default function LoginOtpStep({ challenge, onVerified, onBack }) {
       <div className="row gap" style={{ color: 'var(--accent-soft)', marginBottom: 10 }}>
         <IconMail size={17} /><span style={{ fontWeight: 600 }}>Check your email</span>
       </div>
-      <p className="muted" style={{ marginTop: 0, marginBottom: 18, fontSize: '0.9rem' }}>
+      <p className="muted" style={{ marginTop: 0, marginBottom: 18, fontSize: '0.9rem', overflowWrap: 'anywhere' }}>
         We sent a 6-digit code to <b>{challenge.email}</b>. Enter it to finish signing in.
       </p>
 

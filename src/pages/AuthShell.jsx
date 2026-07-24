@@ -5,7 +5,7 @@ import { IconArrowRight } from '../components/icons.jsx'
 export default function AuthShell({ accent = 'gold', eyebrow, title, subtitle, children, footer }) {
   return (
     <div className={accent === 'green' ? 'theme-tenant' : ''}
-      style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 420 }}>
         <Link to="/" className="row gap" style={{ color: 'var(--text-faint)', fontSize: '0.84rem', marginBottom: 20 }}>
           <IconArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to role selection
