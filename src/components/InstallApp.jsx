@@ -43,7 +43,7 @@ export default function InstallApp() {
     <div className="install-wrap">
       <button className="install-btn" onClick={install}>
         <IconDownload size={15} />
-        <span>Install app on this phone</span>
+        <span>Install app on this device</span>
       </button>
 
       {iosHelp && (
