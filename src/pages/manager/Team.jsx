@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
@@ -18,12 +19,30 @@ export default function Team() {
   const [properties, setProperties] = useState([])
   const [editing, setEditing] = useState(null) // staff object or {} for new
   const [creds, setCreds] = useState(null)
+  const [q, setQ] = useState('')
+  const [params, setParams] = useSearchParams()
 
   const load = useCallback(async () => {
     const [t, p] = await Promise.all([db.listTeam(userId), db.listProperties(userId)])
     setTeam(t); setProperties(p); setLoading(false)
   }, [userId])
   useEffect(() => { load() }, [load])
+
+  // Arriving from global search (?agent=<id>) opens that agent straight away.
+  useEffect(() => {
+    const id = params.get('agent')
+    if (!id || !team.length) return
+    const s = team.find((x) => x.id === id)
+    if (s) setEditing(s)
+    setParams({}, { replace: true })
+  }, [params, team, setParams])
+
+  // Filter the visible list — names, email or phone.
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase()
+    if (!term) return team
+    return team.filter((s) => `${fullName(s)} ${s.email || ''} ${s.phone || ''}`.toLowerCase().includes(term))
+  }, [q, team])
 
   if (loading) return <div className="page center" style={{ minHeight: 300 }}><Spinner /></div>
 
@@ -62,13 +81,21 @@ export default function Team() {
       {team.length === 0 ? (
         <div className="card"><EmptyState icon="🛡️" title="No agents yet">Invite an agent and choose which properties they can access.</EmptyState></div>
       ) : (
+        <>
+        {team.length > 4 && (
+          <input className="input" style={{ maxWidth: 340, marginBottom: 14 }} placeholder="Search agents by name, email or phone…"
+            value={q} onChange={(e) => setQ(e.target.value)} />
+        )}
+        {filtered.length === 0 ? (
+          <div className="card"><EmptyState icon="🔍" title="No matches">No agent matches “{q.trim()}”.</EmptyState></div>
+        ) : (
         <div className="table-wrap">
           <table className="data">
             <thead>
               <tr><th>Agent</th><th>Contact</th><th>Assigned properties</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
-              {team.map((s) => (
+              {filtered.map((s) => (
                 <tr key={s.id}>
                   <td>
                     <div className="row gap">
@@ -103,6 +130,8 @@ export default function Team() {
             </tbody>
           </table>
         </div>
+        )}
+        </>
       )}
 
       {editing && (

@@ -4,13 +4,14 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { db } from '../lib/db.js'
 import { fullName } from '../lib/format.js'
 import { prettyPhone } from '../lib/phone.js'
-import { IconUsers, IconBuilding, IconArrowRight } from './icons.jsx'
+import { IconUsers, IconBuilding, IconArrowRight, IconShield } from './icons.jsx'
 
-// Spotlight-style search across the workspace: tenants and properties.
-// Data volumes here are small (tens–hundreds), so it filters in memory — no
-// need for a search endpoint. Opens on the topbar box, Ctrl/⌘-K, or "/".
+// Spotlight-style search across the workspace: tenants, properties, and (for the
+// owner) agents. Data volumes here are small (tens–hundreds), so it filters in
+// memory — no need for a search endpoint. Opens on the topbar box, Ctrl/⌘-K, or "/".
 export default function GlobalSearch({ open, onClose }) {
-  const { userId } = useAuth()
+  const { userId, profile } = useAuth()
+  const isOwner = profile?.role !== 'staff'
   const nav = useNavigate()
   const [q, setQ] = useState('')
   const [data, setData] = useState(null)
@@ -23,12 +24,17 @@ export default function GlobalSearch({ open, onClose }) {
     setQ(''); setActive(0)
     ;(async () => {
       try {
-        const [tenants, properties] = await Promise.all([db.listTenants(userId), db.listProperties(userId)])
-        setData({ tenants, properties })
-      } catch { setData({ tenants: [], properties: [] }) }
+        const [tenants, properties, team] = await Promise.all([
+          db.listTenants(userId),
+          db.listProperties(userId),
+          // Agents are an owner-only concept; staff can't list the team.
+          isOwner ? db.listTeam(userId).catch(() => []) : Promise.resolve([]),
+        ])
+        setData({ tenants, properties, team })
+      } catch { setData({ tenants: [], properties: [], team: [] }) }
     })()
     setTimeout(() => inputRef.current?.focus(), 30)
-  }, [open, userId])
+  }, [open, userId, isOwner])
 
   const results = useMemo(() => {
     if (!data) return []
@@ -52,6 +58,16 @@ export default function GlobalSearch({ open, onClose }) {
         to: `/manager/properties/${p.id}`,
       })
     }
+    for (const s of (data.team || [])) {
+      const name = fullName(s).toLowerCase()
+      const hay = `${name} ${s.email || ''} ${s.phone || ''}`.toLowerCase()
+      if (hay.includes(term)) hits.push({
+        type: 'agent', id: s.id, title: fullName(s),
+        sub: [s.email, s.phone && prettyPhone(s.phone), s.account_status === 'suspended' && 'Suspended'].filter(Boolean).join(' · '),
+        // Agents have no detail page of their own — the Team page opens them.
+        to: `/manager/team?agent=${s.id}`,
+      })
+    }
     return hits.slice(0, 12)
   }, [q, data])
 
@@ -71,7 +87,7 @@ export default function GlobalSearch({ open, onClose }) {
     <div className="gs-overlay" onClick={onClose}>
       <div className="gs-panel" onClick={(e) => e.stopPropagation()}>
         <input
-          ref={inputRef} className="gs-input" placeholder="Search tenants, properties…"
+          ref={inputRef} className="gs-input" placeholder={isOwner ? 'Search tenants, properties, agents…' : 'Search tenants, properties…'}
           value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} />
 
         <div className="gs-results">
@@ -82,7 +98,9 @@ export default function GlobalSearch({ open, onClose }) {
             <button key={`${r.type}-${r.id}`} className={`gs-row ${i === active ? 'on' : ''}`}
               onMouseEnter={() => setActive(i)} onClick={() => go(r)}>
               <span className={`gs-ico ${r.type}`}>
-                {r.type === 'tenant' ? <IconUsers size={16} /> : <IconBuilding size={16} />}
+                {r.type === 'tenant' ? <IconUsers size={16} />
+                  : r.type === 'agent' ? <IconShield size={16} />
+                  : <IconBuilding size={16} />}
               </span>
               <span className="gs-text">
                 <span className="gs-title">{r.title}</span>
@@ -111,6 +129,7 @@ export default function GlobalSearch({ open, onClose }) {
           background: var(--surface-2); border: 1px solid var(--line); color: var(--text-dim); }
         .gs-ico.tenant { background: var(--green-bg); border-color: var(--green-line); color: var(--green); }
         .gs-ico.property { background: var(--gold-bg); border-color: var(--gold-line); color: var(--gold); }
+        .gs-ico.agent { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent); }
         .gs-text { min-width: 0; flex: 1; display: flex; flex-direction: column; }
         .gs-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .gs-sub { font-size: 0.8rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
