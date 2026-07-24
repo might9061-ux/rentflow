@@ -9,6 +9,10 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Recovered chat transcripts — personal, keep local only
+recovered-chats/
+
 *.log
 npm-debug.log*
 yarn-debug.log*
