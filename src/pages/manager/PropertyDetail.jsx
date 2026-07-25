@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, fullName, fmtDate } from '../../lib/format.js'
-import { AMENITY_GROUPS } from '../../lib/propertyOptions.js'
+import { AMENITY_GROUPS, dwellingNoun, propertyUnitSlots } from '../../lib/propertyOptions.js'
 import { sendWhatsApp, listingMessage } from '../../lib/whatsapp.js'
 import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
 import { IconArrowRight, IconBuilding, IconUsers, IconWallet, IconClock, IconEdit, IconWhatsapp, IconCheck, IconEye, IconShare } from '../../components/icons.jsx'
@@ -42,6 +42,10 @@ export default function PropertyDetail() {
   const outstanding = active.filter((t) => t.status !== 'paid').reduce((s, t) => s + Math.max(0, Number(t.rent) - Number(t.credit_balance)), 0)
   const occ = active.length === 0 ? { cls: 'neutral', label: 'Vacant' }
     : active.every((t) => t.status === 'paid') ? { cls: 'ok', label: 'All Paid' } : { cls: 'due', label: 'Partial' }
+  // The property's dwellings (named or numbered) and how many sit empty.
+  const slots = propertyUnitSlots(P)
+  const noun = dwellingNoun(P.type)
+  const vacantCount = slots.filter((s) => !active.some((t) => String(t.unit) === String(s))).length
   const fullAddress = [P.address, P.suburb, P.city, P.province].filter(Boolean).join(', ') || P.location
   const photos = P.photos || []
 
@@ -176,6 +180,33 @@ export default function PropertyDetail() {
             })}
           </div>
         </div>
+      )}
+
+      {/* Units — each dwelling with its tenant or vacancy at a glance */}
+      {slots.length > 0 && (
+        <>
+          <h3 style={{ marginBottom: 12 }}>{noun === 'House' ? 'Houses' : 'Units'} <span className="muted" style={{ fontWeight: 400, fontSize: '0.9rem' }}>· {slots.length - vacantCount} of {slots.length} occupied</span></h3>
+          <div className="card pad" style={{ marginBottom: 24 }}>
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
+              {slots.map((slot) => {
+                const t = active.find((x) => String(x.unit) === String(slot))
+                return (
+                  <div key={slot} onClick={t ? () => nav(`/manager/tenants/${t.id}`) : undefined}
+                    style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '12px 14px',
+                      background: t ? 'var(--bg)' : 'var(--surface)', cursor: t ? 'pointer' : 'default' }}>
+                    <div className="spread" style={{ gap: 8 }}>
+                      <b style={{ fontSize: '0.9rem' }}>{slot}</b>
+                      {t ? <StatusPill status={t.status} /> : <span className="pill neutral">Vacant</span>}
+                    </div>
+                    <div className="muted" style={{ fontSize: '0.82rem', marginTop: 6 }}>
+                      {t ? <span className="row gap"><IconUsers size={13} /> {fullName(t)}</span> : 'No tenant assigned'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Tenants */}

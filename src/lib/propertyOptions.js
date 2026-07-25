@@ -7,6 +7,14 @@ export const PROPERTY_TYPES = ['Apartment block', 'Townhouse', 'Cluster house', 
 export const HOUSE_TYPES = ['Cluster house', 'House', 'Townhouse', 'Cottage']
 export const dwellingNoun = (type) => (HOUSE_TYPES.includes(type) ? 'House' : 'Unit')
 
+// The ordered list of a property's dwellings: the manager's custom names when
+// set, otherwise generated from the count ("House 1…" / "Unit 1…").
+export const propertyUnitSlots = (prop) => {
+  if (Array.isArray(prop?.unit_labels) && prop.unit_labels.length) return prop.unit_labels
+  const noun = dwellingNoun(prop?.type)
+  return Array.from({ length: Number(prop?.units) || 0 }, (_, i) => `${noun} ${i + 1}`)
+}
+
 export const FURNISHED = ['Unfurnished', 'Part-furnished', 'Furnished']
 
 export const UTILITIES_INCLUDED = ['Water', 'Electricity', 'WiFi', 'Refuse', 'Levy']

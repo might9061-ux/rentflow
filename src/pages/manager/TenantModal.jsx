@@ -6,20 +6,13 @@ import { isValidEmail, fullName } from '../../lib/format.js'
 import Modal from '../../components/Modal.jsx'
 import { Field, Input, EmailInput, Select, Row } from '../../components/Field.jsx'
 import PhoneInput from '../../components/PhoneInput.jsx'
-import { dwellingNoun } from '../../lib/propertyOptions.js'
+import { dwellingNoun, propertyUnitSlots } from '../../lib/propertyOptions.js'
 import { IconReceipt } from '../../components/icons.jsx'
 
 const STATUSES = ['pending', 'paid', 'due', 'overdue', 'inactive']
 const ACCOUNT_STATUSES = ['pending_verification', 'active', 'suspended']
 
-// The dwelling labels a property offers. If the manager named its units those
-// are used verbatim; otherwise they're generated from the count — houses and
-// clusters numbered "House 1…", units inside a block "Unit 1…".
-const unitSlots = (prop) => {
-  if (Array.isArray(prop?.unit_labels) && prop.unit_labels.length) return prop.unit_labels
-  const noun = dwellingNoun(prop?.type)
-  return Array.from({ length: Number(prop?.units) || 0 }, (_, i) => `${noun} ${i + 1}`)
-}
+const unitSlots = propertyUnitSlots
 
 // Add (new) or Edit (all fields incl. rent, unit, due_day, status, credit) a tenant.
 export default function TenantModal({ tenant, properties, tenants = [], userId, onClose, onCreated, onUpdated }) {
