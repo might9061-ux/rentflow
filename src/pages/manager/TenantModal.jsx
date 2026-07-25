@@ -44,12 +44,8 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const fileRef = useRef(null)
 
-  // Unit picker: offer the property's units as a dropdown; keep a free-text
-  // "custom" escape hatch for buildings with named units (e.g. A2). Start in
-  // custom mode if the existing unit isn't one of the generated slots.
-  const initSlots = unitSlots(properties.find((p) => p.id === (tenant?.property_id || properties[0]?.id)))
-  const [customUnit, setCustomUnit] = useState(Boolean(tenant?.unit && !initSlots.includes(tenant.unit)))
-
+  // Tenants are placed in one of the property's real houses/units, picked from a
+  // fixed list — no free-text, so no phantom dwelling outside the list is created.
   const selectedProp = properties.find((p) => p.id === form.property_id)
   const slots = unitSlots(selectedProp)
   const noun = dwellingNoun(selectedProp?.type)          // 'House' | 'Unit'
@@ -60,7 +56,9 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
     tenants.filter((t) => t.property_id === form.property_id && t.id !== tenant?.id && t.unit).map((t) => String(t.unit)),
   )
   const availableCount = slots.filter((s) => !takenUnits.has(s)).length
-  const useUnitDropdown = slots.length > 0 && !customUnit
+  // When editing, keep the tenant's current dwelling selectable even if it now
+  // falls outside the list (e.g. the count was lowered), so saving never wipes it.
+  const unitOptions = tenant?.unit && !slots.includes(tenant.unit) ? [...slots, tenant.unit] : slots
 
   // Who (if anyone) already lives in the unit that's picked/typed — covers both
   // the dropdown and the free-text custom label, and ignores this same tenant.
@@ -74,12 +72,6 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
     // Follow the newly chosen property's price; keep the current figure only
     // when that property has no price set, so we never blank a real amount.
     setForm((f) => ({ ...f, property_id: e.target.value, unit: '', rent: r !== '' ? r : f.rent }))
-    setCustomUnit(false)
-  }
-  const onUnitSelect = (e) => {
-    const v = e.target.value
-    if (v === '__custom__') { setCustomUnit(true); setForm((f) => ({ ...f, unit: '' })) }
-    else setForm((f) => ({ ...f, unit: v }))
   }
 
   const onLeaseFile = async (e) => {
@@ -139,23 +131,18 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
             <option value="">— Unassigned —</option>
             {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
-          {useUnitDropdown ? (
-            <Select label={unitLabel} value={slots.includes(form.unit) ? form.unit : ''} onChange={onUnitSelect}
-              hint={selectedProp ? `${availableCount} of ${slots.length} ${nounLower}${slots.length > 1 ? 's' : ''} free` : undefined}>
+          {unitOptions.length > 0 ? (
+            <Select label={unitLabel} value={unitOptions.includes(form.unit) ? form.unit : ''} onChange={set('unit')}
+              hint={slots.length > 0 ? `${availableCount} of ${slots.length} ${nounLower}${slots.length > 1 ? 's' : ''} free` : undefined}>
               <option value="">— Select a {nounLower} —</option>
-              {slots.map((s) => {
+              {unitOptions.map((s) => {
                 const taken = takenUnits.has(s) && s !== tenant?.unit
                 return <option key={s} value={s} disabled={taken}>{s}{taken ? ' — occupied' : ''}</option>
               })}
-              <option value="__custom__">Custom…</option>
             </Select>
           ) : (
-            <Field label={unitLabel} hint={slots.length > 0 ? 'Typing a custom label' : (selectedProp ? `Set this property’s ${nounLower} count to pick from a list` : undefined)}>
-              <input className="input" value={form.unit} onChange={set('unit')} placeholder={noun === 'House' ? 'e.g. House 5' : 'e.g. A2'} />
-              {slots.length > 0 && (
-                <button type="button" className="link-btn" style={{ fontSize: '0.8rem', marginTop: 6 }}
-                  onClick={() => { setCustomUnit(false); setForm((f) => ({ ...f, unit: '' })) }}>Choose from the list instead</button>
-              )}
+            <Field label={unitLabel} hint={selectedProp ? `Set this property’s number of ${nounLower}s to assign one.` : 'Assign a property first.'}>
+              <input className="input" value="" disabled placeholder="—" />
             </Field>
           )}
         </Row>
