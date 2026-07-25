@@ -26,6 +26,7 @@ const NAV = [
   { to: '/manager/maintenance', label: 'Maintenance', icon: IconWrench, badge: 'maintenance' },
   { to: '/manager/finances', label: 'Finances', icon: IconChart },
   { to: '/manager/payroll', label: 'Payroll', icon: IconCash, perm: 'payroll' },
+  { to: '/manager/workers', label: 'Workers', icon: IconUsers, perm: 'payroll' },
   { to: '/manager/messages', label: 'Messages', icon: IconMail, badge: 'messages' },
   { to: '/manager/notifications', label: 'Notifications', icon: IconBell },
   { to: '/manager/team', label: 'Agents', icon: IconShield, owner: true },
@@ -117,7 +118,7 @@ export default function ManagerLayout() {
   }
   // Payroll is owner OR a staff member the owner granted payroll access.
   const canPayroll = isOwner || !!profile?.can_payroll
-  if (!canPayroll && loc.pathname.startsWith('/manager/payroll')) {
+  if (!canPayroll && (loc.pathname.startsWith('/manager/payroll') || loc.pathname.startsWith('/manager/workers'))) {
     return <Navigate to="/manager" replace />
   }
   // Paid up? The demo tour is no longer relevant — hide it and send anyone who

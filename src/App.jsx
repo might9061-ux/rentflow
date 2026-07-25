@@ -30,6 +30,7 @@ const Reminders = lazy(() => import('./pages/manager/Reminders.jsx'))
 const Maintenance = lazy(() => import('./pages/manager/Maintenance.jsx'))
 const Finances = lazy(() => import('./pages/manager/Finances.jsx'))
 const Payroll = lazy(() => import('./pages/manager/Payroll.jsx'))
+const Workers = lazy(() => import('./pages/manager/Workers.jsx'))
 const Settings = lazy(() => import('./pages/manager/Settings.jsx'))
 const Plan = lazy(() => import('./pages/manager/Plan.jsx'))
 const Demo = lazy(() => import('./pages/manager/Demo.jsx'))
@@ -147,6 +148,7 @@ export default function App() {
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="finances" element={<Finances />} />
         <Route path="payroll" element={<Payroll />} />
+        <Route path="workers" element={<Workers />} />
         <Route path="settings" element={<Settings />} />
         <Route path="plan" element={<Plan />} />
         <Route path="branding" element={<Branding />} />
