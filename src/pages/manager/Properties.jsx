@@ -133,7 +133,7 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
     description: property.description || '', rules: property.rules || '',
     caretaker_name: property.caretaker_name || '', caretaker_phone: property.caretaker_phone || '',
     is_advertised: property.is_advertised || false,
-    ad_rent: property.ad_rent ?? '', ad_currency: property.ad_currency || 'USD',
+    ad_rent: property.ad_rent != null && property.ad_rent !== '' ? String(Math.round(Number(property.ad_rent))) : '', ad_currency: property.ad_currency || 'USD',
     ad_contact_name: property.ad_contact_name || '', ad_contact_phone: property.ad_contact_phone || '',
   })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -257,8 +257,8 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
         {/* Terms */}
         <Section title="Rental terms" />
         <Row>
-          <Input label="Rent / month (USD)" type="number" min="0" step="0.01" value={form.ad_rent}
-            onChange={(e) => setForm((f) => ({ ...f, ad_rent: e.target.value.replace(/[^\d.]/g, '') }))}
+          <Input label="Rent / month (USD)" type="number" min="0" step="1" value={form.ad_rent}
+            onChange={(e) => setForm((f) => ({ ...f, ad_rent: e.target.value.replace(/\D/g, '') }))}
             hint="Default rent for tenants added here — and the price shown if you advertise this property." />
           <Input label="Deposit (USD)" type="number" min="0" step="0.01" value={form.deposit} onChange={set('deposit')} />
         </Row>

@@ -23,14 +23,14 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
   // A property's set price (its "Asking rent / month") is the rent a tenant on it
   // inherits — the manager set it once on the property, so there's no need to
   // retype it here. Blank when the property has no price set yet.
-  const propRent = (prop) => (prop && prop.ad_rent != null && prop.ad_rent !== '' ? Number(prop.ad_rent) : '')
+  const propRent = (prop) => (prop && prop.ad_rent != null && prop.ad_rent !== '' ? String(Math.round(Number(prop.ad_rent))) : '')
   const initialPropId = tenant?.property_id || (properties[0]?.id || '')
 
   const [form, setForm] = useState({
     first_name: tenant?.first_name || '', last_name: tenant?.last_name || '',
     email: tenant?.email || '', phone: tenant?.phone || '',
     property_id: initialPropId,
-    unit: tenant?.unit || '', rent: tenant?.rent ?? propRent(properties.find((p) => p.id === initialPropId)), due_day: tenant?.due_day ?? 1,
+    unit: tenant?.unit || '', rent: tenant?.rent != null ? String(Math.round(Number(tenant.rent))) : propRent(properties.find((p) => p.id === initialPropId)), due_day: tenant?.due_day ?? 1,
     lease_start: tenant?.lease_start || '', lease_end: tenant?.lease_end || '', status: tenant?.status || 'pending',
     account_status: tenant?.account_status || 'pending_verification',
     credit_balance: tenant?.credit_balance ?? 0,
@@ -157,8 +157,9 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
           </div>
         )}
         <Row>
-          <Input label="Monthly rent (USD)" type="number" min="0" step="0.01" value={form.rent} onChange={set('rent')} required
-            hint={selectedProp && propRent(selectedProp) !== '' ? 'From this property’s set price — edit if this unit differs.' : 'Tip: set the property’s asking rent to auto-fill this.'} />
+          <Input label="Monthly rent (USD)" type="number" min="0" step="1" value={form.rent}
+            onChange={(e) => setForm((f) => ({ ...f, rent: e.target.value.replace(/\D/g, '') }))} required
+            hint={selectedProp && propRent(selectedProp) !== '' ? 'From this property’s set price — edit if this unit differs.' : 'Tip: set the property’s rent to auto-fill this.'} />
           <Input label="Due day (1–31)" type="number" min="1" max="31" value={form.due_day} onChange={set('due_day')} required />
         </Row>
         <Row>
