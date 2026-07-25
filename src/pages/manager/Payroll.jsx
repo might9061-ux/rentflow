@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
-import { money, fmtDate } from '../../lib/format.js'
-import { WORKER_CATEGORIES, monthlyEstimate, thisPeriodLabel, inThisMonth } from '../../lib/payroll.js'
+import { money, fmtDate, fullName } from '../../lib/format.js'
+import { WORKER_CATEGORIES, monthlyEstimate, thisPeriodLabel, inThisMonth, workerKey } from '../../lib/payroll.js'
 import { StatCard, Spinner, EmptyState } from '../../components/ui.jsx'
 import { IconCash, IconUsers, IconWallet, IconArrowRight } from '../../components/icons.jsx'
 
@@ -12,10 +12,13 @@ export default function Payroll() {
   const [loading, setLoading] = useState(true)
   const [payees, setPayees] = useState([])
   const [payroll, setPayroll] = useState([])
+  const [team, setTeam] = useState([])
 
   const load = useCallback(async () => {
-    const [p, r] = await Promise.all([db.listPayees(userId), db.listPayroll(userId)])
-    setPayees(p); setPayroll(r); setLoading(false)
+    const [p, r, t] = await Promise.all([
+      db.listPayees(userId), db.listPayroll(userId), db.listTeam(userId).catch(() => []),
+    ])
+    setPayees(p); setPayroll(r); setTeam(t); setLoading(false)
   }, [userId])
   useEffect(() => { load() }, [load])
 
@@ -25,6 +28,10 @@ export default function Payroll() {
   const monthlyTotal = active.reduce((s, p) => s + monthlyEstimate(p), 0)
   const paidThisMonth = payroll.filter((p) => inThisMonth(p.paid_on || p.created_at)).reduce((s, p) => s + Number(p.amount), 0)
   const usedCategories = WORKER_CATEGORIES.filter((c) => active.some((p) => (p.category || 'Other') === c))
+  // Count unique people: payroll workers plus agents (an agent already added as a
+  // payee is only counted once — matched by name + phone, same as the Workers page).
+  const agentKeys = new Set(team.map((a) => workerKey(fullName(a), a.phone)))
+  const workerCount = active.filter((p) => !agentKeys.has(workerKey(p.name, p.phone))).length + team.length
 
   return (
     <div className="page" style={{ maxWidth: 940 }}>
@@ -40,7 +47,7 @@ export default function Payroll() {
       <div className="grid stats" style={{ marginBottom: 22 }}>
         <StatCard label="Est. monthly payroll" value={money(monthlyTotal)} sub="Fixed wages (excl. per-task)" icon={<IconCash size={18} />} />
         <StatCard label="Paid this month" value={money(paidThisMonth)} sub={thisPeriodLabel()} icon={<IconWallet size={18} />} />
-        <StatCard label="Workers" value={active.length} sub={`${usedCategories.length} categories`} icon={<IconUsers size={18} />} />
+        <StatCard label="Workers" value={workerCount} sub={team.length ? `Incl. ${team.length} agent${team.length === 1 ? '' : 's'}` : `${usedCategories.length} categories`} icon={<IconUsers size={18} />} />
       </div>
 
       <div className="card">

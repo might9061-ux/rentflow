@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { fileToProof } from '../../lib/upload.js'
-import { isValidEmail } from '../../lib/format.js'
+import { isValidEmail, fullName } from '../../lib/format.js'
 import Modal from '../../components/Modal.jsx'
 import { Field, Input, EmailInput, Select, Row } from '../../components/Field.jsx'
 import PhoneInput from '../../components/PhoneInput.jsx'
@@ -19,11 +19,18 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
   const toast = useToast()
   const isNew = !tenant?.id
   const [busy, setBusy] = useState(false)
+
+  // A property's set price (its "Asking rent / month") is the rent a tenant on it
+  // inherits — the manager set it once on the property, so there's no need to
+  // retype it here. Blank when the property has no price set yet.
+  const propRent = (prop) => (prop && prop.ad_rent != null && prop.ad_rent !== '' ? Number(prop.ad_rent) : '')
+  const initialPropId = tenant?.property_id || (properties[0]?.id || '')
+
   const [form, setForm] = useState({
     first_name: tenant?.first_name || '', last_name: tenant?.last_name || '',
     email: tenant?.email || '', phone: tenant?.phone || '',
-    property_id: tenant?.property_id || (properties[0]?.id || ''),
-    unit: tenant?.unit || '', rent: tenant?.rent ?? '', due_day: tenant?.due_day ?? 1,
+    property_id: initialPropId,
+    unit: tenant?.unit || '', rent: tenant?.rent ?? propRent(properties.find((p) => p.id === initialPropId)), due_day: tenant?.due_day ?? 1,
     lease_start: tenant?.lease_start || '', lease_end: tenant?.lease_end || '', status: tenant?.status || 'pending',
     account_status: tenant?.account_status || 'pending_verification',
     credit_balance: tenant?.credit_balance ?? 0,
@@ -47,7 +54,20 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
   const availableCount = slots.filter((s) => !takenUnits.has(s)).length
   const useUnitDropdown = slots.length > 0 && !customUnit
 
-  const onPropertyChange = (e) => { setForm((f) => ({ ...f, property_id: e.target.value, unit: '' })); setCustomUnit(false) }
+  // Who (if anyone) already lives in the unit that's picked/typed — covers both
+  // the dropdown and the free-text custom label, and ignores this same tenant.
+  const occupant = form.unit
+    ? tenants.find((t) => t.property_id === form.property_id && t.id !== tenant?.id && String(t.unit) === String(form.unit))
+    : null
+
+  const onPropertyChange = (e) => {
+    const prop = properties.find((p) => p.id === e.target.value)
+    const r = propRent(prop)
+    // Follow the newly chosen property's price; keep the current figure only
+    // when that property has no price set, so we never blank a real amount.
+    setForm((f) => ({ ...f, property_id: e.target.value, unit: '', rent: r !== '' ? r : f.rent }))
+    setCustomUnit(false)
+  }
   const onUnitSelect = (e) => {
     const v = e.target.value
     if (v === '__custom__') { setCustomUnit(true); setForm((f) => ({ ...f, unit: '' })) }
@@ -67,6 +87,7 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
     e.preventDefault()
     if (!isValidEmail(form.email)) return toast.error('Invalid email', 'Enter a valid email address for the tenant.')
     if (!form.phone) return toast.error('Phone required', 'Add the tenant’s phone number.')
+    if (occupant) return toast.error('Unit already occupied', `Unit ${form.unit} is taken by ${fullName(occupant)}. Choose a different unit.`)
     setBusy(true)
     try {
       const payload = {
@@ -130,8 +151,14 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
             </Field>
           )}
         </Row>
+        {occupant && (
+          <div className="hint" style={{ color: 'var(--danger)', marginTop: -8, marginBottom: 12, fontWeight: 500 }}>
+            ⚠ Unit {form.unit} is already occupied by {fullName(occupant)} — choose a different unit.
+          </div>
+        )}
         <Row>
-          <Input label="Monthly rent (USD)" type="number" min="0" step="0.01" value={form.rent} onChange={set('rent')} required />
+          <Input label="Monthly rent (USD)" type="number" min="0" step="0.01" value={form.rent} onChange={set('rent')} required
+            hint={selectedProp && propRent(selectedProp) !== '' ? 'From this property’s set price — edit if this unit differs.' : 'Tip: set the property’s asking rent to auto-fill this.'} />
           <Input label="Due day (1–31)" type="number" min="1" max="31" value={form.due_day} onChange={set('due_day')} required />
         </Row>
         <Row>
