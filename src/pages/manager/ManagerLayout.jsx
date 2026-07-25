@@ -202,7 +202,7 @@ export default function ManagerLayout() {
         <div className="topbar">
           <div className="row gap">
             <button className="btn ghost sm mobile-only" onClick={() => setOpen((o) => !o)}><IconMenu size={18} /></button>
-            {loc.key !== 'default' && (
+            {loc.key !== 'default' && loc.pathname !== '/manager' && (
               <button className="btn ghost sm" onClick={() => nav(-1)} title="Go back">
                 <IconArrowRight size={15} style={{ transform: 'rotate(180deg)' }} /> <span className="back-label">Back</span>
               </button>
