@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { fileToProof } from '../../lib/upload.js'
 import { toInternational } from '../../lib/phone.js'
-import { PROPERTY_TYPES, FURNISHED, UTILITIES_INCLUDED, AMENITY_GROUPS } from '../../lib/propertyOptions.js'
+import { PROPERTY_TYPES, FURNISHED, UTILITIES_INCLUDED, AMENITY_GROUPS, dwellingNoun } from '../../lib/propertyOptions.js'
 import Modal from '../../components/Modal.jsx'
 import { Input, Textarea, Select, Row } from '../../components/Field.jsx'
 import { Spinner, EmptyState } from '../../components/ui.jsx'
@@ -185,7 +185,7 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
         {/* Basics */}
         <Input label="Property name" value={form.name} onChange={set('name')} required autoFocus placeholder="e.g. Avondale Heights" />
         <Row>
-          <Input label="Number of units" type="number" min="0" value={form.units} onChange={set('units')} required />
+          <Input label={`Number of ${dwellingNoun(form.type) === 'House' ? 'houses' : 'units'}`} type="number" min="0" value={form.units} onChange={set('units')} required />
           <Select label="Type" value={form.type} onChange={set('type')}>{PROPERTY_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
         </Row>
 

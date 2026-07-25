@@ -1,6 +1,11 @@
 // Property feature catalogue used by the Add/Edit Property form and detail page.
 
-export const PROPERTY_TYPES = ['Apartment block', 'Townhouse', 'Cottage', 'House', 'Commercial', 'Student housing', 'BnB / Lodge', 'Mixed use']
+export const PROPERTY_TYPES = ['Apartment block', 'Townhouse', 'Cluster house', 'Cottage', 'House', 'Commercial', 'Student housing', 'BnB / Lodge', 'Mixed use']
+
+// In these types each dwelling is a standalone house, numbered "House 1…"; in the
+// rest a tenant occupies a unit inside a block, numbered "Unit 1…".
+export const HOUSE_TYPES = ['Cluster house', 'House', 'Townhouse', 'Cottage']
+export const dwellingNoun = (type) => (HOUSE_TYPES.includes(type) ? 'House' : 'Unit')
 
 export const FURNISHED = ['Unfurnished', 'Part-furnished', 'Furnished']
 

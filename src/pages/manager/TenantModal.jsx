@@ -6,13 +6,18 @@ import { isValidEmail, fullName } from '../../lib/format.js'
 import Modal from '../../components/Modal.jsx'
 import { Field, Input, EmailInput, Select, Row } from '../../components/Field.jsx'
 import PhoneInput from '../../components/PhoneInput.jsx'
+import { dwellingNoun } from '../../lib/propertyOptions.js'
 import { IconReceipt } from '../../components/icons.jsx'
 
 const STATUSES = ['pending', 'paid', 'due', 'overdue', 'inactive']
 const ACCOUNT_STATUSES = ['pending_verification', 'active', 'suspended']
 
-// The unit labels a property offers, generated from its unit count (Unit 1…N).
-const unitSlots = (n) => Array.from({ length: Number(n) || 0 }, (_, i) => `Unit ${i + 1}`)
+// The dwelling labels a property offers, generated from its count. Houses and
+// clusters are numbered "House 1…"; units inside a block "Unit 1…".
+const unitSlots = (prop) => {
+  const noun = dwellingNoun(prop?.type)
+  return Array.from({ length: Number(prop?.units) || 0 }, (_, i) => `${noun} ${i + 1}`)
+}
 
 // Add (new) or Edit (all fields incl. rent, unit, due_day, status, credit) a tenant.
 export default function TenantModal({ tenant, properties, tenants = [], userId, onClose, onCreated, onUpdated }) {
@@ -42,11 +47,14 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
   // Unit picker: offer the property's units as a dropdown; keep a free-text
   // "custom" escape hatch for buildings with named units (e.g. A2). Start in
   // custom mode if the existing unit isn't one of the generated slots.
-  const initSlots = unitSlots(properties.find((p) => p.id === (tenant?.property_id || properties[0]?.id))?.units)
+  const initSlots = unitSlots(properties.find((p) => p.id === (tenant?.property_id || properties[0]?.id)))
   const [customUnit, setCustomUnit] = useState(Boolean(tenant?.unit && !initSlots.includes(tenant.unit)))
 
   const selectedProp = properties.find((p) => p.id === form.property_id)
-  const slots = unitSlots(selectedProp?.units)
+  const slots = unitSlots(selectedProp)
+  const noun = dwellingNoun(selectedProp?.type)          // 'House' | 'Unit'
+  const nounLower = noun.toLowerCase()
+  const unitLabel = noun === 'House' ? 'House number' : 'Unit'
   // Units already occupied by OTHER tenants in the selected property.
   const takenUnits = new Set(
     tenants.filter((t) => t.property_id === form.property_id && t.id !== tenant?.id && t.unit).map((t) => String(t.unit)),
@@ -87,7 +95,7 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
     e.preventDefault()
     if (!isValidEmail(form.email)) return toast.error('Invalid email', 'Enter a valid email address for the tenant.')
     if (!form.phone) return toast.error('Phone required', 'Add the tenant’s phone number.')
-    if (occupant) return toast.error('Unit already occupied', `Unit ${form.unit} is taken by ${fullName(occupant)}. Choose a different unit.`)
+    if (occupant) return toast.error(`${noun} already occupied`, `${form.unit} is taken by ${fullName(occupant)}. Choose a different ${nounLower}.`)
     setBusy(true)
     try {
       const payload = {
@@ -132,9 +140,9 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
             {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
           {useUnitDropdown ? (
-            <Select label="Unit" value={slots.includes(form.unit) ? form.unit : ''} onChange={onUnitSelect}
-              hint={selectedProp ? `${availableCount} of ${slots.length} unit${slots.length > 1 ? 's' : ''} free` : undefined}>
-              <option value="">— Select a unit —</option>
+            <Select label={unitLabel} value={slots.includes(form.unit) ? form.unit : ''} onChange={onUnitSelect}
+              hint={selectedProp ? `${availableCount} of ${slots.length} ${nounLower}${slots.length > 1 ? 's' : ''} free` : undefined}>
+              <option value="">— Select a {nounLower} —</option>
               {slots.map((s) => {
                 const taken = takenUnits.has(s) && s !== tenant?.unit
                 return <option key={s} value={s} disabled={taken}>{s}{taken ? ' — occupied' : ''}</option>
@@ -142,8 +150,8 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
               <option value="__custom__">Custom…</option>
             </Select>
           ) : (
-            <Field label="Unit" hint={slots.length > 0 ? 'Typing a custom label' : (selectedProp ? 'Set this property’s unit count to pick from a list' : undefined)}>
-              <input className="input" value={form.unit} onChange={set('unit')} placeholder="e.g. A2" />
+            <Field label={unitLabel} hint={slots.length > 0 ? 'Typing a custom label' : (selectedProp ? `Set this property’s ${nounLower} count to pick from a list` : undefined)}>
+              <input className="input" value={form.unit} onChange={set('unit')} placeholder={noun === 'House' ? 'e.g. House 5' : 'e.g. A2'} />
               {slots.length > 0 && (
                 <button type="button" className="link-btn" style={{ fontSize: '0.8rem', marginTop: 6 }}
                   onClick={() => { setCustomUnit(false); setForm((f) => ({ ...f, unit: '' })) }}>Choose from the list instead</button>
@@ -153,7 +161,7 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
         </Row>
         {occupant && (
           <div className="hint" style={{ color: 'var(--danger)', marginTop: -8, marginBottom: 12, fontWeight: 500 }}>
-            ⚠ Unit {form.unit} is already occupied by {fullName(occupant)} — choose a different unit.
+            ⚠ {form.unit} is already occupied by {fullName(occupant)} — choose a different {nounLower}.
           </div>
         )}
         <Row>
