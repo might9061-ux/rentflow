@@ -123,6 +123,7 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: property.name || '', location: property.location || '',
     units: property.units || 1, type: property.type || PROPERTY_TYPES[0],
+    unit_names: (property.unit_labels || []).join('\n'),
     photos: property.photos || [],
     address: property.address || '', suburb: property.suburb || '', city: property.city || '', province: property.province || '', map_link: property.map_link || '',
     bedrooms: property.bedrooms ?? '', bathrooms: property.bathrooms ?? '', lounges: property.lounges ?? '',
@@ -154,9 +155,17 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
     e.preventDefault()
     setBusy(true)
     try {
+      // Named units are optional. Only send unit_labels when it's actually in
+      // play (has names now, or the property already had some — so we can clear
+      // them); otherwise omit it so numbered properties don't depend on the
+      // column existing. `unit_names` is form-only and never sent to the server.
+      const { unit_names, ...rest } = form
+      const unit_labels = (unit_names || '').split('\n').map((s) => s.trim()).filter(Boolean)
+      const hadLabels = Array.isArray(property.unit_labels) && property.unit_labels.length > 0
       const payload = {
-        ...form,
-        units: Number(form.units) || 0,
+        ...rest,
+        units: unit_labels.length > 0 ? unit_labels.length : (Number(form.units) || 0),
+        ...((unit_labels.length > 0 || hadLabels) ? { unit_labels } : {}),
         bedrooms: num(form.bedrooms), bathrooms: num(form.bathrooms), lounges: num(form.lounges),
         floor_size: num(form.floor_size), stand_size: num(form.stand_size),
         year_built: num(form.year_built), storeys: num(form.storeys),
@@ -188,6 +197,10 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
           <Input label={`Number of ${dwellingNoun(form.type) === 'House' ? 'houses' : 'units'}`} type="number" min="0" value={form.units} onChange={set('units')} required />
           <Select label="Type" value={form.type} onChange={set('type')}>{PROPERTY_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
         </Row>
+        <Textarea label={`${dwellingNoun(form.type) === 'House' ? 'House' : 'Unit'} names (optional)`}
+          value={form.unit_names} onChange={set('unit_names')}
+          placeholder={dwellingNoun(form.type) === 'House' ? 'Main House\nGarden Cottage\nCottage B' : 'Shop 1\nOffice A\nFlat 2B'}
+          hint={`One per line. Leave blank to just number them 1…${form.units || 'N'}. When filled, these become the ${dwellingNoun(form.type) === 'House' ? 'houses' : 'units'} tenants are assigned to, and set the count automatically.`} />
 
         {/* Photos */}
         <div className="field">

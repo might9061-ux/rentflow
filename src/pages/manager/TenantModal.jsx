@@ -12,9 +12,11 @@ import { IconReceipt } from '../../components/icons.jsx'
 const STATUSES = ['pending', 'paid', 'due', 'overdue', 'inactive']
 const ACCOUNT_STATUSES = ['pending_verification', 'active', 'suspended']
 
-// The dwelling labels a property offers, generated from its count. Houses and
-// clusters are numbered "House 1…"; units inside a block "Unit 1…".
+// The dwelling labels a property offers. If the manager named its units those
+// are used verbatim; otherwise they're generated from the count — houses and
+// clusters numbered "House 1…", units inside a block "Unit 1…".
 const unitSlots = (prop) => {
+  if (Array.isArray(prop?.unit_labels) && prop.unit_labels.length) return prop.unit_labels
   const noun = dwellingNoun(prop?.type)
   return Array.from({ length: Number(prop?.units) || 0 }, (_, i) => `${noun} ${i + 1}`)
 }
