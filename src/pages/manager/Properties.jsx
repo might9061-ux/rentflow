@@ -257,11 +257,16 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
         {/* Terms */}
         <Section title="Rental terms" />
         <Row>
+          <Input label="Rent / month (USD)" type="number" min="0" step="0.01" value={form.ad_rent}
+            onChange={(e) => setForm((f) => ({ ...f, ad_rent: e.target.value.replace(/[^\d.]/g, '') }))}
+            hint="Default rent for tenants added here — and the price shown if you advertise this property." />
           <Input label="Deposit (USD)" type="number" min="0" step="0.01" value={form.deposit} onChange={set('deposit')} />
-          <Input label="Available from" type="date" value={form.available_from || ''} onChange={set('available_from')} />
         </Row>
         <Row>
+          <Input label="Available from" type="date" value={form.available_from || ''} onChange={set('available_from')} />
           <Input label="Max occupants" type="number" min="0" value={form.max_occupants} onChange={set('max_occupants')} />
+        </Row>
+        <Row>
           <Input label="Monthly levy / service fee (USD)" type="number" min="0" step="0.01" value={form.levy_fee} onChange={set('levy_fee')} />
         </Row>
         <div className="field">
@@ -305,18 +310,12 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
             <div className="muted" style={{ fontSize: '0.78rem', marginBottom: 12 }}>
               Shown on your shareable rentloja.com/rent page. Tenants’ details are never included.
             </div>
-            <div className="field-row">
-              <div className="field" style={{ marginBottom: 10 }}>
-                <label>Asking rent / month</label>
-                <input className="input" inputMode="decimal" placeholder="e.g. 350" value={form.ad_rent}
-                  onChange={(e) => setForm((f) => ({ ...f, ad_rent: e.target.value.replace(/[^\d.]/g, '') }))} />
-              </div>
-              <div className="field" style={{ marginBottom: 10, maxWidth: 120 }}>
-                <label>Currency</label>
-                <select className="select" value={form.ad_currency} onChange={set('ad_currency')}>
-                  <option value="USD">USD</option><option value="ZWG">ZWG</option>
-                </select>
-              </div>
+            <div className="field" style={{ marginBottom: 10, maxWidth: 160 }}>
+              <label>Listing currency</label>
+              <select className="select" value={form.ad_currency} onChange={set('ad_currency')}>
+                <option value="USD">USD</option><option value="ZWG">ZWG</option>
+              </select>
+              <span className="hint">The listing shows the <b>Rent / month</b> you set under Rental terms above.</span>
             </div>
             <div className="field" style={{ marginBottom: 10 }}>
               <label>Enquiries WhatsApp number <span className="muted" style={{ fontWeight: 400 }}>· shown publicly</span></label>
