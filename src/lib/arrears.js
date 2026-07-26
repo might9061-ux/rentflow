@@ -30,7 +30,11 @@ function paidSet(tenant, payments) {
 
 function startMonth(tenant) {
   const now = new Date()
-  const s = tenant.lease_start ? new Date(tenant.lease_start) : new Date(now.getFullYear(), now.getMonth() - 5, 1)
+  // Billing starts at the lease start when set; otherwise the month the tenant
+  // was actually added. Never assume a fixed number of months back — that made a
+  // brand-new tenant look months in arrears and inflated the "not paid" slice.
+  const base = tenant.lease_start || tenant.created_at
+  const s = base ? new Date(base) : now
   return new Date(s.getFullYear(), s.getMonth(), 1)
 }
 
