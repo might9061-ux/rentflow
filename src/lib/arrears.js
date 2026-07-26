@@ -110,13 +110,16 @@ export function computeAdvance(tenant) {
   }
 }
 
-// Rent COVERAGE for a time window: of the rent that fell due, how much is
-// covered (paid months × rent) vs still unpaid (unpaid months × rent).
+// Rent collection for a time window:
+//   collected — ACTUAL money received (approved payments billed to a month in
+//               the window). This is real cash, so summed across tenants for the
+//               "All" frame it equals the dashboard's "Total collected" stat.
+//   notPaid   — rent for months in the window with no covering payment (what's
+//               still owed).
 //
-// This is consistent across every time frame — widening the window only ADDS
-// older months, so a paid month never flips to unpaid (or vice-versa). That
-// fixes the old bug where "12M" showed unpaid but "All" showed fully paid,
-// because the two used different formulas.
+// Consistent across frames: widening the window only ADDS older months and their
+// payments, so a paid month never flips to unpaid (fixing the old bug where
+// "12M" and "All" disagreed).
 //
 //   frame = a number of months, or 'all'
 //   returns { collected, notPaid }
@@ -134,16 +137,25 @@ export function collectionBreakdown(tenant, payments, frame) {
     const w = new Date(now.getFullYear(), now.getMonth() - (frame - 1), 1)
     if (w > lease) start = w
   }
+  const startKey = mk(start)
 
-  let collected = 0
+  // Collected = real approved payments whose billed period falls in the window.
+  const collected = payments
+    .filter((p) => p.tenant_id === tenant.id && p.status === 'approved')
+    .filter((p) => {
+      const k = (p.period_from || p.paid_date || p.created_at || '').slice(0, 7)
+      return k >= startKey && k <= curKey
+    })
+    .reduce((s, p) => s + Number(p.amount || 0), 0)
+
+  // Not paid = rent for in-window months with no covering payment.
   let notPaid = 0
   let guard = 0
   let d = new Date(start.getFullYear(), start.getMonth(), 1)
   while (mk(d) <= curKey && guard < 600) {
     const isCur = mk(d) === curKey
     const covered = paid.has(mk(d)) || (isCur && (tenant.status === 'paid' || credit >= rent))
-    if (covered) collected += rent
-    else notPaid += rent
+    if (!covered) notPaid += rent
     d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
     guard++
   }
