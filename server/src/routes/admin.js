@@ -101,13 +101,24 @@ router.post('/staff', h(async (req, res) => {
   if (created.error) throw new Error(created.error.message)
   const staffId = created.data.user.id
 
-  const profile = await admin.from('managers').insert({
+  const base = {
     id: staffId, first_name: b.first_name, last_name: b.last_name,
     email: String(b.email).toLowerCase(), phone: b.phone ?? null,
     role: 'staff', owner_id: ownerId,
     assigned_property_ids: Array.isArray(b.assigned_property_ids) ? b.assigned_property_ids : [],
     account_status: 'active',
-  })
+  }
+  // Must set their own password on first sign-in; starts the temp key's clock.
+  const firstLoginCols = {
+    first_login: true,
+    temp_password_issued_at: new Date().toISOString(), temp_password_used_at: null,
+  }
+  let profile = await admin.from('managers').insert({ ...base, ...firstLoginCols })
+  // Tolerate the first-login columns not existing yet (migration 0031 not run):
+  // still create the agent, just without the forced set-password lifecycle.
+  if (profile.error && /first_login|temp_password/i.test(profile.error.message)) {
+    profile = await admin.from('managers').insert(base)
+  }
   if (profile.error) {
     await admin.auth.admin.deleteUser(staffId)
     throw new Error(profile.error.message)
@@ -125,6 +136,12 @@ router.post('/staff/:id/reset-password', h(async (req, res) => {
   const pw = tempPassword()
   const upd = await admin.auth.admin.updateUserById(req.params.id, { password: pw })
   if (upd.error) throw new Error(upd.error.message)
+  // Back on a manager-issued password: force them to set their own again, and
+  // restart the temp key's single-use clock so the fresh one works and is unused.
+  await admin.from('managers').update({
+    first_login: true,
+    temp_password_issued_at: new Date().toISOString(), temp_password_used_at: null,
+  }).eq('id', req.params.id)
   res.json({ tempPassword: pw })
 }))
 

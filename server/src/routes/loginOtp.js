@@ -41,9 +41,9 @@ const TEMP_PASSWORD_GRACE_MS = 60 * 60 * 1000
 // Decide whether a manager-issued password may still be used.
 // Never blocks on a lookup failure: if the columns aren't there yet (code
 // deployed ahead of migration 0027) sign-in must keep working.
-async function checkTempPassword(tenantId) {
-  const { data: t, error } = await admin.from('tenants')
-    .select('temp_password_issued_at, temp_password_used_at').eq('id', tenantId).maybeSingle()
+async function checkTempPassword(table, id) {
+  const { data: t, error } = await admin.from(table)
+    .select('temp_password_issued_at, temp_password_used_at').eq('id', id).maybeSingle()
   if (error || !t) return { ok: true }
 
   const now = Date.now()
@@ -56,7 +56,7 @@ async function checkTempPassword(tenantId) {
     return { ok: false, error: `That temporary password has already been used. ${askManager}` }
   }
   if (!t.temp_password_used_at) {
-    await admin.from('tenants').update({ temp_password_used_at: new Date().toISOString() }).eq('id', tenantId)
+    await admin.from(table).update({ temp_password_used_at: new Date().toISOString() }).eq('id', id)
   }
   return { ok: true }
 }
@@ -122,25 +122,21 @@ router.post('/start', async (req, res) => {
       return res.status(403).json({ error: 'Your access has been suspended. Contact the account owner.' })
     }
 
-    if (role === 'tenant') {
-      // Every manager-issued password is minted by tempPassword() in
-      // routes/admin.js as TEMP-XXXX, and a manager has no way to choose a
-      // custom one — so the shape tells us which kind this is.
-      if (TEMP_PASSWORD_RE.test(password)) {
-        const gate = await checkTempPassword(data.user.id)
-        if (!gate.ok) return res.status(400).json({ error: gate.error })
-      } else {
-        // Not a temp password, so the tenant has already chosen their own —
-        // stop sending them to "Set your password". first_login used to be
-        // cleared only by that screen, so anyone who set their password another
-        // way (the reset link) kept being asked to set one they already had.
-        //
-        // Only ever clears the flag: a tenant still on TEMP-XXXX keeps it, so
-        // the password their manager knows can never become permanent.
-        const { error: clrErr } = await admin.from('tenants')
-          .update({ first_login: false }).eq('id', data.user.id).eq('first_login', true)
-        if (clrErr) console.error('[login-otp] could not clear first_login:', clrErr.message)
-      }
+    // Every manager-issued password is minted by tempPassword() in routes/admin.js
+    // as TEMP-XXXX, and neither a tenant nor an agent can choose a custom one —
+    // so the shape tells us which kind this is. This gate applies to agents
+    // (managers table) exactly as it does to tenants: single-use + expiry.
+    if (TEMP_PASSWORD_RE.test(password)) {
+      const gate = await checkTempPassword(table, data.user.id)
+      if (!gate.ok) return res.status(400).json({ error: gate.error })
+    } else {
+      // A non-temp password means they've already chosen their own — clear the
+      // first_login flag so they aren't sent to "Set your password" again (e.g.
+      // after a reset link). Only ever clears it: anyone still on TEMP-XXXX keeps
+      // it, so the password their manager knows can never become permanent.
+      const { error: clrErr } = await admin.from(table)
+        .update({ first_login: false }).eq('id', data.user.id).eq('first_login', true)
+      if (clrErr) console.error('[login-otp] could not clear first_login:', clrErr.message)
     }
 
     // Opportunistic cleanup — no cron needed for a table this small.
@@ -197,10 +193,10 @@ router.post('/verify', async (req, res) => {
 
     await admin.from('login_challenges').update({ consumed: true }).eq('id', challengeId)
 
-    let first_login
+    const acctTable = row.account_type === 'tenant' ? 'tenants' : 'managers'
+    const { data: acct } = await admin.from(acctTable).select('first_login').eq('id', row.account_id).maybeSingle()
+    let first_login = acct?.first_login
     if (row.account_type === 'tenant') {
-      const { data: t } = await admin.from('tenants').select('first_login').eq('id', row.account_id).maybeSingle()
-      first_login = t?.first_login
       // The code they just entered was emailed to the address their manager
       // registered, so getting here IS proof of that address. Record it, rather
       // than asking them to prove the same thing a second time on the next

@@ -417,7 +417,7 @@ export const mockApi = {
     const s = {
       id: uid(), role: 'staff', owner_id: ownerId,
       first_name: data.first_name, last_name: data.last_name, email, phone: data.phone || '',
-      password: tempPassword, must_change: true,
+      password: tempPassword, must_change: true, first_login: true,
       country: owner?.country || 'ZW', currency: owner?.currency || 'USD', currencies: owner?.currencies || ['USD'], // inherit the workspace market
       assigned_property_ids: data.assigned_property_ids || [],
       can_payroll: !!data.can_payroll,
@@ -443,8 +443,15 @@ export const mockApi = {
     const s = d.managers.find((x) => x.id === staffId)
     if (!s || !ownsStaff(d, s)) throw new Error('Team member not found.')
     const tempPassword = genTempPassword()
-    s.password = tempPassword; s.must_change = true; save(d)
+    s.password = tempPassword; s.must_change = true; s.first_login = true; save(d)
     return { tempPassword }
+  },
+  async completeAgentFirstLogin(userId, newPassword) {
+    await delay(); const d = db()
+    const m = d.managers.find((x) => x.id === userId)
+    if (!m) throw new Error('Account not found.')
+    m.password = newPassword; m.temp_password = null; m.first_login = false; m.must_change = false
+    save(d); return stripSecret(m)
   },
   async removeStaff(staffId) {
     await delay(); const d = db()

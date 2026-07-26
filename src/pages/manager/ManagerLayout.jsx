@@ -8,6 +8,7 @@ import ChangePasswordModal from '../../components/ChangePasswordModal.jsx'
 import AssistantWidget from '../../components/AssistantWidget.jsx'
 import QuickUnlockSetup from '../../components/QuickUnlockSetup.jsx'
 import ProfileModal from '../../components/ProfileModal.jsx'
+import SetAgentPassword from '../../components/SetAgentPassword.jsx'
 import GlobalSearch from '../../components/GlobalSearch.jsx'
 import { hasQuickUnlock } from '../../lib/quickUnlock.js'
 import {
@@ -106,6 +107,12 @@ export default function ManagerLayout() {
   if (profile?.platform_admin) return <Navigate to="/admin" replace />
 
   const isOwner = profile?.role !== 'staff'
+
+  // An invited agent must set their own password before anything else — this
+  // replaces the temporary one the owner shared and clears first_login.
+  if (!isOwner && profile?.first_login) {
+    return <SetAgentPassword userId={userId} onDone={() => window.location.reload()} />
+  }
 
   // New OWNERS must pick an installment plan before using the rest of the app
   // (the plan page and the demo/tour are allowed while onboarding). Staff skip this.

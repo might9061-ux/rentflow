@@ -61,6 +61,14 @@ export function createApiDb(sb) {
 
     // ── managers / team ──────────────────────────────────────────────────────
     updateManagerSettings: (_managerId, patch) => req('PATCH', '/api/managers/me', patch),
+    // Agent first-login: set their own password (client-side Supabase, like every
+    // other password op here), then clear first_login through the API so it runs
+    // under the server's write path rather than a direct table update.
+    async completeAgentFirstLogin(_userId, newPassword) {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw new Error(error.message)
+      return req('PATCH', '/api/managers/me', { first_login: false })
+    },
     listTeam: () => req('GET', '/api/managers/team'),
     updateStaff: (staffId, patch) => req('PATCH', `/api/managers/team/${staffId}`, patch),
     removeStaff: (staffId) => req('DELETE', `/api/managers/team/${staffId}`),

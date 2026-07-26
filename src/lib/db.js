@@ -199,6 +199,12 @@ const sb = {
   // whoever is signed in, so it cannot be pointed at another account.
   async finishPasswordReset() { ok(await supabase.rpc('finish_password_reset')) },
 
+  // An invited agent sets their own password on first sign-in: replace the
+  // manager-issued temp (updateUser) and clear first_login so the app opens.
+  async completeAgentFirstLogin(userId, newPassword) {
+    ok(await supabase.auth.updateUser({ password: newPassword }))
+    return ok(await supabase.from('managers').update({ first_login: false }).eq('id', userId).select().single())
+  },
   async getManager(id) { return ok(await supabase.from('managers').select('*').eq('id', id).single()) },
   async updateManagerSettings(managerId, patch) {
     return ok(await supabase.from('managers').update(patch).eq('id', managerId).select().single())
