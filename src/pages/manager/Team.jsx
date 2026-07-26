@@ -121,7 +121,12 @@ export default function Team() {
                   <td>
                     <div className="row gap" style={{ justifyContent: 'flex-end' }}>
                       <button className="btn sm ghost" title="Edit access" onClick={() => setEditing(s)}><IconEdit size={14} /></button>
-                      <button className="btn sm ghost" title="Reset password" onClick={() => resend(s)}><IconKey size={14} /></button>
+                      {/* Only while the agent is still on the password you issued.
+                          Once they've set their own, there's no temp key to reset —
+                          a verified agent who forgets theirs uses "Forgot password". */}
+                      {s.first_login && (
+                        <button className="btn sm ghost" title="Reset password" onClick={() => resend(s)}><IconKey size={14} /></button>
+                      )}
                       <button className="btn sm ghost danger" title="Remove" onClick={() => remove(s)}><IconTrash size={14} /></button>
                     </div>
                   </td>
