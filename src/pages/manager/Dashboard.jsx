@@ -9,11 +9,30 @@ import {
   IconWallet, IconClock, IconBuilding, IconCheckCircle, IconArrowRight,
 } from '../../components/icons.jsx'
 
+const FRAMES = [
+  { label: 'This month', v: 'month' },
+  { label: '3M', v: 3 }, { label: '6M', v: 6 }, { label: '12M', v: 12 }, { label: 'All', v: 'all' },
+]
+
+// Actual money collected in a window — approved payments by when they were paid.
+// "All" equals the Total collected stat; shorter frames are a subset of it.
+function collectedInFrame(approved, frame) {
+  if (frame === 'all') return approved.reduce((s, p) => s + Number(p.amount || 0), 0)
+  const now = new Date()
+  const start = frame === 'month'
+    ? new Date(now.getFullYear(), now.getMonth(), 1)
+    : new Date(now.getFullYear(), now.getMonth() - (frame - 1), 1)
+  return approved
+    .filter((p) => new Date(p.paid_date || p.approved_at || p.created_at) >= start)
+    .reduce((s, p) => s + Number(p.amount || 0), 0)
+}
+
 export default function ManagerDashboard() {
   const { userId, profile } = useAuth()
   const nav = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
+  const [frame, setFrame] = useState('all')
 
   const load = useCallback(async () => {
     const [props, tenants, payments, openRepairs, dueReminders] = await Promise.all([
@@ -45,6 +64,8 @@ export default function ManagerDashboard() {
   if (loading) return <div className="page center" style={{ minHeight: 320 }}><Spinner /></div>
 
   const tenantName = (id) => fullName(data.tenants.find((t) => t.id === id))
+  const collected = collectedInFrame(data.approved, frame)
+  const frameLabel = frame === 'all' ? 'All time' : frame === 'month' ? 'This month' : `Last ${frame} months`
 
   return (
     <div className="page">
@@ -63,18 +84,23 @@ export default function ManagerDashboard() {
         <StatCard label="Pending approvals" value={data.pending.length} sub="Awaiting your review" icon={<IconCheckCircle size={18} />} onClick={() => nav('/manager/approvals')} />
       </div>
 
-      {/* Rent collection donut — mirrors the Total collected / Outstanding cards */}
+      {/* Rent collection donut — collected (per time frame) vs current outstanding */}
       <div className="card pad" style={{ marginBottom: 20 }}>
         <div className="spread wrap" style={{ marginBottom: 16, gap: 12 }}>
           <div>
             <h3>Rent collection</h3>
-            <p className="muted" style={{ fontSize: '0.84rem' }}>Collected vs outstanding · {data.pending.length} pending</p>
+            <p className="muted" style={{ fontSize: '0.84rem' }}>{frameLabel} · {data.pending.length} pending</p>
+          </div>
+          <div className="seg">
+            {FRAMES.map((f) => (
+              <button key={f.v} className={frame === f.v ? 'on' : ''} onClick={() => setFrame(f.v)}>{f.label}</button>
+            ))}
           </div>
         </div>
         <DonutChart
-          centerValue={money(data.collected)} centerLabel="Collected"
+          centerValue={money(collected)} centerLabel="Collected"
           segments={[
-            { label: 'Collected', value: data.collected, color: 'var(--green)' },
+            { label: 'Collected', value: collected, color: 'var(--green)' },
             { label: 'Outstanding', value: data.outstanding, color: '#d98b5f' },
           ]} />
       </div>
