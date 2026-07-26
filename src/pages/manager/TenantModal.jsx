@@ -91,6 +91,9 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
         due_day: Number(form.due_day) || 1,
         credit_balance: Number(form.credit_balance) || 0,
         property_id: form.property_id || null,
+        // Date columns reject "" — send null when a lease date is left blank.
+        lease_start: form.lease_start || null,
+        lease_end: form.lease_end || null,
       }
       if (isNew) {
         const { tenant: created, tempPassword } = await db.createTenant(userId, payload)
