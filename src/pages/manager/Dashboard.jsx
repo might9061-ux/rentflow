@@ -5,32 +5,15 @@ import { db } from '../../lib/db.js'
 import { money, fullName, fmtDate } from '../../lib/format.js'
 import { StatCard, StatusPill, Spinner, EmptyState, PeriodTag } from '../../components/ui.jsx'
 import { DonutChart } from '../../components/Charts.jsx'
-import { collectionBreakdown } from '../../lib/arrears.js'
 import {
   IconWallet, IconClock, IconBuilding, IconCheckCircle, IconArrowRight,
 } from '../../components/icons.jsx'
-
-const FRAMES = [{ label: '3M', v: 3 }, { label: '6M', v: 6 }, { label: '12M', v: 12 }, { label: 'All', v: 'all' }]
-
-// Collected rent vs not-yet-paid for a chosen window — summed across active
-// tenants using one consistent per-month coverage model (see arrears.js).
-function collectionStats(payments, tenants, frame) {
-  return tenants
-    .filter((t) => t.account_status === 'active')
-    .reduce((acc, t) => {
-      const b = collectionBreakdown(t, payments, frame)
-      acc.collected += b.collected
-      acc.notPaid += b.notPaid
-      return acc
-    }, { collected: 0, notPaid: 0 })
-}
 
 export default function ManagerDashboard() {
   const { userId, profile } = useAuth()
   const nav = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
-  const [frame, setFrame] = useState(6)
 
   const load = useCallback(async () => {
     const [props, tenants, payments, openRepairs, dueReminders] = await Promise.all([
@@ -62,8 +45,6 @@ export default function ManagerDashboard() {
   if (loading) return <div className="page center" style={{ minHeight: 320 }}><Spinner /></div>
 
   const tenantName = (id) => fullName(data.tenants.find((t) => t.id === id))
-  const cs = collectionStats(data.payments, data.tenants, frame)
-  const frameLabel = frame === 'all' ? 'All time' : `Last ${frame} months`
 
   return (
     <div className="page">
@@ -82,24 +63,19 @@ export default function ManagerDashboard() {
         <StatCard label="Pending approvals" value={data.pending.length} sub="Awaiting your review" icon={<IconCheckCircle size={18} />} onClick={() => nav('/manager/approvals')} />
       </div>
 
-      {/* Rent collection donut */}
+      {/* Rent collection donut — mirrors the Total collected / Outstanding cards */}
       <div className="card pad" style={{ marginBottom: 20 }}>
         <div className="spread wrap" style={{ marginBottom: 16, gap: 12 }}>
           <div>
             <h3>Rent collection</h3>
-            <p className="muted" style={{ fontSize: '0.84rem' }}>{frameLabel} · {data.pending.length} pending</p>
-          </div>
-          <div className="seg">
-            {FRAMES.map((f) => (
-              <button key={f.v} className={frame === f.v ? 'on' : ''} onClick={() => setFrame(f.v)}>{f.label}</button>
-            ))}
+            <p className="muted" style={{ fontSize: '0.84rem' }}>Collected vs outstanding · {data.pending.length} pending</p>
           </div>
         </div>
         <DonutChart
-          centerValue={money(cs.collected)} centerLabel="Collected"
+          centerValue={money(data.collected)} centerLabel="Collected"
           segments={[
-            { label: 'Collected rent', value: cs.collected, color: 'var(--green)' },
-            { label: 'Not yet paid', value: cs.notPaid, color: '#d98b5f' },
+            { label: 'Collected', value: data.collected, color: 'var(--green)' },
+            { label: 'Outstanding', value: data.outstanding, color: '#d98b5f' },
           ]} />
       </div>
 
