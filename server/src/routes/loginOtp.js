@@ -109,12 +109,17 @@ router.post('/start', async (req, res) => {
     if (error || !data?.session) return res.status(400).json({ error: 'Incorrect email/phone or password. Please try again.' })
 
     const table = role === 'tenant' ? 'tenants' : 'managers'
-    const { data: match } = await admin.from(table).select('id').eq('id', data.user.id).maybeSingle()
+    const { data: match } = await admin.from(table).select('id, account_status').eq('id', data.user.id).maybeSingle()
     if (!match) {
       const msg = role === 'tenant'
         ? 'This login isn’t a tenant account. If you’re a property manager, use the manager sign-in page.'
         : 'Your password is correct, but this account has no manager workspace set up. If you’re a tenant, use the tenant sign-in instead. Otherwise email support@rentloja.com and we’ll finish setting it up.'
       return res.status(400).json({ error: msg })
+    }
+    // A suspended account can still hold valid credentials — stop it obtaining a
+    // session at all (an agent the owner suspended must not be able to sign in).
+    if (match.account_status === 'suspended') {
+      return res.status(403).json({ error: 'Your access has been suspended. Contact the account owner.' })
     }
 
     if (role === 'tenant') {

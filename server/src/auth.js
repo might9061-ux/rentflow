@@ -30,6 +30,13 @@ export async function requireAuth(req, res, next) {
       if (tokenCache.size > 5000) { for (const [k, v] of tokenCache) if (v.exp <= now) tokenCache.delete(k) }
     }
 
+    // A valid token outlives a suspension (it stays usable until it expires), so
+    // check the account's status here too — suspending an agent takes effect
+    // within the cache window, not only at their next sign-in.
+    if (await isSuspended(entry.user.id)) {
+      return res.status(403).json({ error: 'Your access has been suspended. Contact the account owner.' })
+    }
+
     req.user = entry.user
     req.token = token
     req.db = forUser(token)
@@ -67,6 +74,29 @@ export async function hasVerifiedMfa(userId) {
   } catch { enrolled = false } // a lookup failure must not lock the owner out
   mfaCache.set(userId, { enrolled, exp: now + TOKEN_TTL_MS })
   return enrolled
+}
+
+// Is this account suspended? A suspended agent (or tenant) must lose access even
+// while holding a still-valid token. Cached briefly so it's not a per-request
+// lookup; a short TTL means suspension takes effect within ~30s. Never blocks on
+// a lookup failure, so a transient DB hiccup can't lock legitimate users out.
+const SUSPEND_TTL_MS = 30_000
+const suspendCache = new Map() // userId -> { suspended, exp }
+async function isSuspended(userId) {
+  const now = Date.now()
+  const hit = suspendCache.get(userId)
+  if (hit && hit.exp > now) return hit.suspended
+  let suspended = false
+  try {
+    const { data: m } = await admin.from('managers').select('account_status').eq('id', userId).maybeSingle()
+    if (m) suspended = m.account_status === 'suspended'
+    else {
+      const { data: t } = await admin.from('tenants').select('account_status').eq('id', userId).maybeSingle()
+      if (t) suspended = t.account_status === 'suspended'
+    }
+  } catch { suspended = false }
+  suspendCache.set(userId, { suspended, exp: now + SUSPEND_TTL_MS })
+  return suspended
 }
 
 // Wrap an async handler so thrown errors become clean JSON responses.

@@ -28,7 +28,15 @@ async function req(method, path, body) {
   })
   const text = await resp.text()
   const json = text ? JSON.parse(text) : null
-  if (!resp.ok) throw new Error(json?.error || `${resp.status} ${resp.statusText}`)
+  if (!resp.ok) {
+    const msg = json?.error || `${resp.status} ${resp.statusText}`
+    // Account suspended mid-session: end the session so the app returns to the
+    // sign-in screen instead of sitting on a page full of failed requests.
+    if (resp.status === 403 && /suspended/i.test(msg)) {
+      try { await supabase.auth.signOut() } catch { /* already gone */ }
+    }
+    throw new Error(msg)
+  }
   return json
 }
 
