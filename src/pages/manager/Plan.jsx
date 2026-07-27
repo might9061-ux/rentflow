@@ -48,6 +48,13 @@ export default function Plan() {
   const tooSmall = capacity < tenantCount
   const cur = Number(manager?.plan_price || 0)
 
+  // Trial / cancellation state.
+  const trialEndsAt = manager?.trial_ends_at ? new Date(manager.trial_ends_at) : null
+  const onTrial = active && trialEndsAt && trialEndsAt > new Date() && subPays.length === 0
+  const hadTrial = !!manager?.trial_ends_at // one trial per manager
+  const canceled = !!manager?.plan_canceled_at
+  const trialDaysLeft = onTrial ? Math.max(0, Math.ceil((trialEndsAt - new Date()) / 86400000)) : 0
+
   // Has the manager already paid for THIS calendar month?
   const now = new Date()
   const paidThisMonth = subPays.some((p) => {
@@ -55,7 +62,7 @@ export default function Plan() {
   })
   // When the next installment falls due — a month on from the last payment, or
   // from the plan start if none has been recorded yet.
-  const dueDate = nextDue(subPays[0]?.created_at || manager?.plan_started_at)
+  const dueDate = onTrial ? trialEndsAt : nextDue(subPays[0]?.created_at || manager?.plan_started_at)
   // Compare whole days, without mutating dueDate (setHours returns a timestamp
   // but changes the Date in place — fmtDate below still needs the original).
   const atMidnight = (d) => new Date(d).setHours(0, 0, 0, 0)
@@ -75,6 +82,13 @@ export default function Plan() {
   const changePlan = async () => {
     if (tooSmall) return toast.error('Capacity too small', `You already have ${tenantCount} tenants.`)
     if (samePlan) return toast.info('You’re already on this plan')
+    if (!active) {
+      // Fresh start: offer the 7-day free trial once; after that, activate & pay.
+      setCheckout(hadTrial
+        ? { mode: 'activate', capacity, price, charge: price, credit: 0, tierName: tier.name }
+        : { mode: 'trial', capacity, price, tierName: tier.name })
+      return
+    }
     if (isDowngrade) {
       // Cheaper plan — effective now, nothing to pay (you've already paid more this month).
       setBusy(true)
@@ -105,7 +119,19 @@ export default function Plan() {
   // migration 0019 a manager cannot write their own plan columns, so the API
   // does it with the service role and derives the price from capacity there.
   // The App owner can still override any of this from the admin console.
-  const handlePaid = async ({ card, reference }) => {
+  const handlePaid = async ({ card, reference, trial }) => {
+    // Free trial: save the card, start the plan on trial, charge nothing now.
+    if (trial || checkout.mode === 'trial') {
+      await db.startOwnPlan(checkout.capacity, { trial: true })
+      await db.updateManagerSettings(userId, { billing_card: card })
+      await refresh()
+      const end = new Date(Date.now() + 7 * 86400000)
+      toast.success('Free trial started', `7 days free — your first payment of ${money(checkout.price)} is on ${fmtDate(end)}. Cancel any time before then and you won’t be charged.`)
+      const wasOnboarding = onboarding
+      setCheckout(null)
+      if (wasOnboarding) nav('/manager'); else load()
+      return
+    }
     if (checkout.mode === 'activate' || checkout.mode === 'upgrade') {
       await db.startOwnPlan(checkout.capacity)
     }
@@ -126,6 +152,24 @@ export default function Plan() {
     const wasOnboardingActivate = onboarding && checkout.mode === 'activate'
     setCheckout(null)
     if (wasOnboardingActivate) nav('/manager'); else load()
+  }
+
+  const cancelMembership = async () => {
+    if (!window.confirm('Cancel your membership? You keep access until the end of your current period, then it won’t renew. No refund is given for the current period.')) return
+    setBusy(true)
+    try {
+      await db.cancelOwnPlan(); await refresh()
+      toast.success('Membership cancelled', 'Access continues until your period ends — it won’t renew.')
+      await load()
+    } catch (e) { toast.error('Could not cancel', e.message) } finally { setBusy(false) }
+  }
+  const resumeMembership = async () => {
+    setBusy(true)
+    try {
+      await db.resumeOwnPlan(); await refresh()
+      toast.success('Membership resumed', 'Your plan will keep renewing.')
+      await load()
+    } catch (e) { toast.error('Could not resume', e.message) } finally { setBusy(false) }
   }
 
   const continueFree = async () => {
@@ -182,6 +226,16 @@ export default function Plan() {
         )}
       </div>
 
+      {onTrial && (
+        <div className="banner gold" style={{ marginBottom: 18 }}>
+          <div className="b-ico"><IconTag size={18} /></div>
+          <div>
+            <b>Free trial — {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left.</b> Your card is saved; your first
+            payment of {money(manager.plan_price)} falls on {fmtDate(trialEndsAt)}. Cancel before then and you won’t be charged.
+          </div>
+        </div>
+      )}
+
       {/* Capacity selector */}
       <div className="card pad" style={{ marginBottom: 18 }}>
         <div className="spread wrap" style={{ alignItems: 'flex-end', gap: 16 }}>
@@ -220,7 +274,7 @@ export default function Plan() {
         )}
 
         <button className="btn primary block lg" style={{ marginTop: 16 }} disabled={tooSmall || busy || samePlan} onClick={changePlan}>
-          {!active ? `Activate & pay ${money(price)}/month`
+          {!active ? (hadTrial ? `Activate & pay ${money(price)}/month` : 'Start 7-day free trial')
             : samePlan ? 'Your current plan'
             : isUpgrade ? `Upgrade now — pay ${money(upgradeDue)}`
             : isDowngrade ? `Switch to ${tier.name} (no charge now)`
@@ -256,6 +310,17 @@ export default function Plan() {
             </div>
             <div className="nd-amount mono">{money(manager.plan_price)}</div>
           </div>
+
+          {canceled ? (
+            <div className="spread wrap" style={{ marginTop: 14, gap: 10, padding: '12px 14px', borderRadius: 'var(--radius)', background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+              <span className="muted" style={{ fontSize: '0.84rem' }}>Membership cancelled — access until <b style={{ color: 'var(--text)' }}>{fmtDate(dueDate)}</b>, then it won’t renew.</span>
+              <button className="btn ghost sm" onClick={resumeMembership} disabled={busy}>Resume membership</button>
+            </div>
+          ) : (
+            <div style={{ marginTop: 12, textAlign: 'right' }}>
+              <button className="link-btn" style={{ fontSize: '0.82rem', color: 'var(--text-faint)' }} onClick={cancelMembership} disabled={busy}>Cancel membership</button>
+            </div>
+          )}
         </div>
       )}
 

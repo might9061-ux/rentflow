@@ -625,7 +625,7 @@ export const mockApi = {
     return clone(m)
   },
   // Self-serve plan start (demo equivalent of POST /api/managers/me/plan).
-  async startOwnPlan(capacity) {
+  async startOwnPlan(capacity, opts) {
     await delay(60); const d = db()
     const s = getSession(); if (!s) throw new Error('Not signed in.')
     const m = d.managers.find((x) => x.id === s.userId)
@@ -635,11 +635,38 @@ export const mockApi = {
     const tenants = d.tenants.filter((t) => t.manager_id === m.id).length
     if (cap < tenants) throw new Error(`You already have ${tenants} tenants — choose at least that many.`)
     const TIERS = [[5, 10], [20, 20], [50, 40], [100, 50], [Infinity, 70]]
+    const wasActive = m.plan_active
     m.plan_capacity = cap
     m.plan_price = (TIERS.find(([upTo]) => cap <= upTo) || TIERS[TIERS.length - 1])[1]
     m.plan_active = true
     m.onboarded = true
+    m.plan_canceled_at = null // (re)activating clears any pending cancellation
     if (!m.plan_started_at) m.plan_started_at = new Date().toISOString()
+    // A 7-day free trial is only granted on a fresh, first-time start.
+    if (opts?.trial === true && !wasActive && !m.trial_ends_at) {
+      m.trial_ends_at = new Date(Date.now() + 7 * 86400000).toISOString()
+    }
+    save(d)
+    return clone(m)
+  },
+  // Cancel at period end — access continues until the paid period ends.
+  async cancelOwnPlan() {
+    await delay(60); const d = db()
+    const s = getSession(); if (!s) throw new Error('Not signed in.')
+    const m = d.managers.find((x) => x.id === s.userId)
+    if (!m) throw new Error('Workspace not found.')
+    if (!m.plan_active) throw new Error('You have no active plan to cancel.')
+    m.plan_canceled_at = new Date().toISOString()
+    save(d)
+    return clone(m)
+  },
+  // Undo a pending cancellation.
+  async resumeOwnPlan() {
+    await delay(60); const d = db()
+    const s = getSession(); if (!s) throw new Error('Not signed in.')
+    const m = d.managers.find((x) => x.id === s.userId)
+    if (!m) throw new Error('Workspace not found.')
+    m.plan_canceled_at = null
     save(d)
     return clone(m)
   },

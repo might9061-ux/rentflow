@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useToast } from '../../context/ToastContext.jsx'
 import { chargeCard, formatCardNumber, detectBrand } from '../../lib/payments.js'
-import { money } from '../../lib/format.js'
+import { money, fmtDate } from '../../lib/format.js'
 import Modal from '../../components/Modal.jsx'
 import { Input } from '../../components/Field.jsx'
 import { Spinner } from '../../components/ui.jsx'
@@ -10,7 +10,9 @@ import { IconWallet, IconCheck } from '../../components/icons.jsx'
 // Collect the installment payment. Saves the card on file via onPaid({ card, reference }).
 export default function PlanCheckout({ mode, capacity, price, charge, credit = 0, tierName, manager, onClose, onPaid }) {
   const toast = useToast()
-  const payNow = charge != null ? charge : price   // amount charged today (upgrade = difference)
+  const isTrial = mode === 'trial'
+  const payNow = isTrial ? 0 : (charge != null ? charge : price) // amount charged today (upgrade = difference; trial = 0)
+  const firstCharge = new Date(Date.now() + 7 * 86400000)
   const saved = manager?.billing_card
   const [useNew, setUseNew] = useState(!saved)
   const [num, setNum] = useState('')
@@ -25,24 +27,31 @@ export default function PlanCheckout({ mode, capacity, price, charge, credit = 0
     try {
       let card, reference
       if (saved && !useNew) {
-        await new Promise((r) => setTimeout(r, 1200)) // charge the card on file
+        await new Promise((r) => setTimeout(r, isTrial ? 400 : 1200)) // charge/verify the card on file
         card = saved
-        reference = 'SUB-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+        reference = isTrial ? null : 'SUB-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+      } else if (isTrial) {
+        // Card required to start the trial, but nothing is charged today.
+        const digits = num.replace(/\D/g, '')
+        if (digits.length < 15) throw new Error('Enter a valid card number to start your trial.')
+        if (!exp || !cvc || !name.trim()) throw new Error('Fill in your card details to start the trial.')
+        card = { brand: detectBrand(num), last4: digits.slice(-4), exp, name }
+        reference = null
       } else {
         const res = await chargeCard({ number: num, exp, cvc, name, amount: payNow })
         card = { brand: res.brand, last4: res.last4, exp, name }
         reference = res.reference
       }
-      await onPaid({ card, reference })
-    } catch (err) { toast.error('Payment failed', err.message); setBusy(false) }
+      await onPaid({ card, reference, trial: isTrial })
+    } catch (err) { toast.error(isTrial ? 'Could not start trial' : 'Payment failed', err.message); setBusy(false) }
   }
 
   return (
-    <Modal title={mode === 'installment' ? 'Pay installment' : mode === 'upgrade' ? 'Upgrade your plan' : 'Activate your plan'} onClose={onClose}
+    <Modal title={isTrial ? 'Start your free trial' : mode === 'installment' ? 'Pay installment' : mode === 'upgrade' ? 'Upgrade your plan' : 'Activate your plan'} onClose={onClose}
       footer={<>
         <button className="btn ghost" onClick={onClose} disabled={busy}>Cancel</button>
         <button className="btn primary" onClick={pay} disabled={busy}>
-          {busy ? <><Spinner /> Processing…</> : <>Pay {money(payNow)}</>}
+          {busy ? <><Spinner /> Processing…</> : isTrial ? <>Start 7‑day free trial</> : <>Pay {money(payNow)}</>}
         </button>
       </>}>
       {/* Plan summary */}
@@ -62,6 +71,12 @@ export default function PlanCheckout({ mode, capacity, price, charge, credit = 0
             <div className="spread"><span className="muted">New plan</span><span className="mono">{money(price)}/mo</span></div>
             <div className="spread"><span className="muted">Credit for current plan (paid this month)</span><span className="mono">−{money(credit)}</span></div>
             <div className="spread"><b>Pay now</b><b className="mono">{money(payNow)}</b></div>
+          </div>
+        )}
+        {isTrial && (
+          <div className="col" style={{ gap: 5, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--gold-line)', fontSize: '0.86rem' }}>
+            <div className="spread"><span className="muted">Due today</span><b className="mono">{money(0)}</b></div>
+            <div className="spread"><span className="muted">First payment</span><span className="mono">{money(price)} on {fmtDate(firstCharge)}</span></div>
           </div>
         )}
       </div>
@@ -90,7 +105,9 @@ export default function PlanCheckout({ mode, capacity, price, charge, credit = 0
         </form>
       )}
 
-      <p className="hint" style={{ marginTop: 14 }}>🔒 Your card is securely saved for future installments. Demo gateway — no real charge is made (use 4242 4242 4242 4242).</p>
+      <p className="hint" style={{ marginTop: 14 }}>{isTrial
+        ? '🔒 Your card is saved but not charged today. Your first payment is 7 days from now — cancel before then and you won’t be charged. Demo gateway (use 4242 4242 4242 4242).'
+        : '🔒 Your card is securely saved for future installments. Demo gateway — no real charge is made (use 4242 4242 4242 4242).'}</p>
     </Modal>
   )
 }

@@ -192,7 +192,9 @@ export function createApiDb(sb) {
     // Record money actually received — what drives "Subs paid" and revenue.
     adminRecordPayment: (workspaceId, payment) => req('POST', `/api/platform/workspaces/${workspaceId}/payment`, payment),
     // Self-serve plan start. TEMPORARY until Paynow gates it behind a real charge.
-    startOwnPlan: (capacity) => req('POST', '/api/managers/me/plan', { capacity }),
+    startOwnPlan: (capacity, opts) => req('POST', '/api/managers/me/plan', { capacity, trial: opts?.trial === true }),
+    cancelOwnPlan: () => req('POST', '/api/managers/me/plan/cancel', {}),
+    resumeOwnPlan: () => req('POST', '/api/managers/me/plan/resume', {}),
 
     // ── tenant questions (AI) ─────────────────────────────────────────────────────
     logTenantQuestion: (_managerId, _tenantId, { question, answer }) => req('POST', '/api/tenant-questions', { question, answer }),
