@@ -51,7 +51,7 @@ export default function Privacy() {
         <p>Information is transmitted over encrypted connections (HTTPS) and access is restricted by role‑based rules. No system is perfectly secure, but we take reasonable measures to protect your data.</p>
 
         <h3>Data retention</h3>
-        <p>We keep your information while your account is active or as needed to provide the service and meet legal/record‑keeping obligations. You can request deletion of your account and personal data (see Contact).</p>
+        <p>We keep your information while your account is active. If your membership is cancelled or left unpaid, we retain your account data for <b>up to 12 months</b> so you can resubscribe, after which it may be permanently deleted. You can also delete your account yourself at any time from your profile — we verify it’s you (by password) first — which permanently removes your account and associated data. We may retain limited records where required to meet legal or record‑keeping obligations.</p>
 
         <h3>Your rights</h3>
         <p>You may request to access, correct, or delete your personal information. Property managers control the tenancy records they create; contact your property manager for those, or contact us for account‑level requests.</p>

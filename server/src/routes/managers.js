@@ -2,7 +2,7 @@
 // caller's RLS via req.db, so a manager can only ever see their own workspace.
 import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
-import { admin } from '../supabase.js'
+import { admin, verifyPassword } from '../supabase.js'
 
 const router = Router()
 
@@ -102,6 +102,23 @@ router.post('/me/plan/resume', h(async (req, res) => {
   const owner = await ownerId(req)
   res.json(ok(await admin.from('managers').update({ plan_canceled_at: null })
     .eq('id', owner).select(PLAN_SELECT).single()))
+}))
+
+// POST /api/managers/me/delete — permanently delete the caller's own account.
+// Password-verified (step-up). Deleting the auth user cascades: managers.id
+// references auth.users(id) on delete cascade, and tenants/properties/payments
+// all reference managers on delete cascade — so the whole workspace goes with it.
+router.post('/me/delete', h(async (req, res) => {
+  const password = String(req.body?.password || '')
+  if (!password) throw new Error('Enter your password to delete your account.')
+  const me = ok(await admin.from('managers').select('email').eq('id', req.user.id).single())
+  if (!me?.email) throw new Error('Account not found.')
+  if (!(await verifyPassword(me.email, password))) {
+    return res.status(401).json({ error: 'Password is incorrect.' })
+  }
+  const { error } = await admin.auth.admin.deleteUser(req.user.id)
+  if (error) throw new Error(error.message)
+  res.json({ deleted: true })
 }))
 
 // GET /api/managers/team — staff managers under this owner.

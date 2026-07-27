@@ -416,6 +416,9 @@ const sb = {
   async resumeOwnPlan() {
     throw new Error('Plan changes need the RentLoja API. Please contact support.')
   },
+  async deleteOwnAccount() {
+    throw new Error('Account deletion needs the RentLoja API. Please contact support.')
+  },
   // Record money actually received from a landlord — drives "Subs paid".
   async adminRecordPayment(workspaceId, { amount, method, reference, period } = {}) {
     const amt = Number(amount)

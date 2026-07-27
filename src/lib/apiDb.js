@@ -195,6 +195,7 @@ export function createApiDb(sb) {
     startOwnPlan: (capacity, opts) => req('POST', '/api/managers/me/plan', { capacity, trial: opts?.trial === true }),
     cancelOwnPlan: () => req('POST', '/api/managers/me/plan/cancel', {}),
     resumeOwnPlan: () => req('POST', '/api/managers/me/plan/resume', {}),
+    deleteOwnAccount: ({ password, role } = {}) => req('POST', role === 'tenant' ? '/api/tenants/me/delete' : '/api/managers/me/delete', { password }),
 
     // ── tenant questions (AI) ─────────────────────────────────────────────────────
     logTenantQuestion: (_managerId, _tenantId, { question, answer }) => req('POST', '/api/tenant-questions', { question, answer }),

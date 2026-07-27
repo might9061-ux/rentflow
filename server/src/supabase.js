@@ -30,3 +30,12 @@ export function forUser(accessToken) {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   })
 }
+
+// Step-up check: confirm a user really knows their password before a sensitive,
+// irreversible action (e.g. deleting their account). Returns true if correct.
+export async function verifyPassword(email, password) {
+  if (!email || !password) return false
+  const c = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  const { error } = await c.auth.signInWithPassword({ email, password })
+  return !error
+}

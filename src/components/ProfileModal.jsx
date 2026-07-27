@@ -16,6 +16,7 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
   const { userId, profile, refresh, signOut } = useAuth()
   const { theme, toggle, textSize, setTextSize } = useTheme()
   const [showMfa, setShowMfa] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
   const toast = useToast()
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
@@ -88,6 +89,12 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
         <button className="btn ghost sm" onClick={signOut}><IconLogout size={14} /> Sign out</button>
       </div>
 
+      <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line-soft)' }}>
+        <button className="btn ghost sm danger" onClick={() => setShowDelete(true)}><IconTrash size={14} /> Delete account</button>
+      </div>
+
+      {showDelete && <DeleteAccountModal role={role} onClose={() => setShowDelete(false)} />}
+
       <style>{`
         /* The size picker needs room to wrap on narrow phones. */
         .pf-size { flex-wrap: wrap; gap: 10px; }
@@ -98,6 +105,49 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
         .pf-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid var(--line-soft); }
         .pf-row:last-child { border-bottom: none; }
       `}</style>
+    </Modal>
+  )
+}
+
+// Irreversible account deletion, gated by the user's password + a typed "DELETE".
+function DeleteAccountModal({ role, onClose }) {
+  const { signOut } = useAuth()
+  const toast = useToast()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const ready = password && confirm.trim().toUpperCase() === 'DELETE'
+
+  const del = async () => {
+    if (!ready) return
+    setBusy(true)
+    try {
+      await db.deleteOwnAccount({ password, role })
+      toast.success('Account deleted', 'Your account and data have been removed.')
+      await signOut()
+    } catch (e) { toast.error('Could not delete', e.message); setBusy(false) }
+  }
+
+  return (
+    <Modal title="Delete account" onClose={onClose} footer={<>
+      <button className="btn ghost" onClick={onClose} disabled={busy}>Cancel</button>
+      <button className="btn primary" style={{ background: 'var(--danger)', borderColor: 'transparent' }}
+        onClick={del} disabled={!ready || busy}>{busy ? 'Deleting…' : 'Delete my account'}</button>
+    </>}>
+      <p className="muted" style={{ marginTop: 0 }}>
+        This permanently deletes your account{role === 'tenant'
+          ? ' and your tenancy records'
+          : ', including the tenants, properties and all records in your workspace'}. This cannot be undone.
+      </p>
+      <div className="field">
+        <label>Confirm your password</label>
+        <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+      </div>
+      <div className="field">
+        <label>Type <b>DELETE</b> to confirm</label>
+        <input className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="DELETE" />
+      </div>
+      <p className="hint" style={{ color: 'var(--danger)' }}>Deleting is immediate and permanent.</p>
     </Modal>
   )
 }

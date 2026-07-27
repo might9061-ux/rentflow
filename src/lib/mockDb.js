@@ -670,6 +670,35 @@ export const mockApi = {
     save(d)
     return clone(m)
   },
+  // Permanently delete the signed-in user's own account (password-verified).
+  async deleteOwnAccount({ password } = {}) {
+    await delay(); const d = db()
+    const s = getSession(); if (!s) throw new Error('Not signed in.')
+    if (s.role === 'tenant') {
+      const t = d.tenants.find((x) => x.id === s.userId)
+      if (!t) throw new Error('Account not found.')
+      if ((t.password || '') !== (password || '')) throw new Error('Password is incorrect.')
+      d.tenants = d.tenants.filter((x) => x.id !== t.id)
+      d.payments = (d.payments || []).filter((p) => p.tenant_id !== t.id)
+      save(d); setSession(null); return { deleted: true }
+    }
+    const m = d.managers.find((x) => x.id === s.userId)
+    if (!m) throw new Error('Account not found.')
+    if ((m.password || '') !== (password || '')) throw new Error('Password is incorrect.')
+    if (m.role === 'staff') {
+      d.managers = d.managers.filter((x) => x.id !== m.id) // an agent removes only themselves
+    } else {
+      const oid = m.id // owner — remove the whole workspace
+      d.managers = d.managers.filter((x) => x.id !== oid && x.owner_id !== oid)
+      d.tenants = (d.tenants || []).filter((t) => t.manager_id !== oid)
+      d.properties = (d.properties || []).filter((p) => p.manager_id !== oid)
+      d.payments = (d.payments || []).filter((p) => p.manager_id !== oid)
+      d.expenses = (d.expenses || []).filter((e) => e.manager_id !== oid)
+      d.sub_payments = (d.sub_payments || []).filter((p) => p.manager_id !== oid)
+      d.notifications = (d.notifications || []).filter((n) => n.manager_id !== oid)
+    }
+    save(d); setSession(null); return { deleted: true }
+  },
   // Record money actually received from a landlord (demo equivalent).
   async adminRecordPayment(workspaceId, { amount, method, reference, period } = {}) {
     await delay(60); const d = db()

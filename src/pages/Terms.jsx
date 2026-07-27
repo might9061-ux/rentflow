@@ -58,13 +58,22 @@ export default function Terms() {
           does not refund amounts already paid.
         </p>
 
-        <h3>6. Cancelling your membership</h3>
+        <h3>6. Cancelling, data retention &amp; deleting your account</h3>
         <p>
-          You can cancel your subscription at any time from <b>Plan &amp; billing</b> in your account. Cancellation
-          stops future monthly charges. Your paid features remain available until the end of the period you have
-          already paid for, after which the account reverts to the free (no active plan) state. As stated above,
-          no refund is given for the current or any past period. Your data is retained per our Privacy Policy so
-          you can resubscribe later.
+          You can cancel your subscription at any time from <b>Plan &amp; billing</b>. Cancellation stops future
+          monthly charges; your paid features remain available until the end of the period you have already paid
+          for, after which the account reverts to the free (no active plan) state. As stated above, no refund is
+          given for the current or any past period.
+        </p>
+        <p>
+          If your membership is cancelled or left unpaid, we keep your account data for <b>up to 12 months</b> so
+          you can resubscribe and pick up where you left off. After that period it may be permanently deleted.
+        </p>
+        <p>
+          You can also <b>delete your account</b> yourself at any time from your profile. For your security we
+          verify it’s you — by asking for your password — before deleting. Deleting permanently removes your
+          account and its associated data (for a property manager, that includes the tenants, properties and
+          records in your workspace) and cannot be undone.
         </p>
 
         <h3>7. Acceptable use</h3>
