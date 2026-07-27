@@ -97,19 +97,30 @@ function RequireAdmin({ children }) {
 // A small persistent marker while a visitor is exploring the opt-in demo, with a
 // one-tap way out (clears the demo flag + mock session and returns to the real app).
 function DemoRibbon() {
-  let on = false
-  try { on = localStorage.getItem('rentflow_demo') === '1' } catch {}
+  let on = false, role = null
+  try {
+    on = localStorage.getItem('rentflow_demo') === '1'
+    const s = JSON.parse(localStorage.getItem('rentflow_session_v1') || 'null')
+    role = s?.role || null
+  } catch {}
   if (!on) return null
+  const other = role === 'tenant' ? 'manager' : 'tenant'
+  // Switch sides: sign into the other demo account on the next load.
+  const switchTo = (r) => {
+    try { localStorage.setItem('rentflow_demo_start', r); localStorage.removeItem('rentflow_session_v1') } catch {}
+    window.location.assign('/')
+  }
   const exit = () => {
-    try { localStorage.removeItem('rentflow_demo'); localStorage.removeItem('rentflow_session_v1') } catch {}
+    try { localStorage.removeItem('rentflow_demo'); localStorage.removeItem('rentflow_session_v1'); localStorage.removeItem('rentflow_demo_start') } catch {}
     window.location.assign('/')
   }
   return (
-    <div style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 400, display: 'flex', alignItems: 'center', gap: 10,
+    <div style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 400, display: 'flex', alignItems: 'center', gap: 8,
       padding: '7px 8px 7px 14px', borderRadius: 999, background: 'var(--gold-bg)', border: '1px solid var(--gold-line)',
-      color: 'var(--text)', fontSize: '0.82rem', boxShadow: 'var(--shadow)' }}>
+      color: 'var(--text)', fontSize: '0.8rem', boxShadow: 'var(--shadow)', flexWrap: 'wrap', maxWidth: 'calc(100vw - 24px)' }}>
       <span style={{ fontWeight: 700, color: 'var(--gold)' }}>Demo</span>
-      <span className="muted" style={{ fontSize: '0.76rem' }}>sample data</span>
+      {role && <span className="muted" style={{ fontSize: '0.74rem' }}>{role} view</span>}
+      <button className="btn ghost sm" onClick={() => switchTo(other)}>View {other} side</button>
       <button className="btn ghost sm" onClick={exit}>Exit</button>
     </div>
   )

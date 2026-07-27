@@ -36,17 +36,17 @@ export default function RolePicker() {
 
   // "Try the demo": switch this browser into the seeded demo engine, then reload
   // so `db` binds to the mock. The effect below finishes the sign-in after reload.
-  const enterDemo = () => {
+  const enterDemo = (role = 'manager') => {
     setDemoLoading(true)
     try {
       localStorage.setItem('rentflow_demo', '1')
-      localStorage.setItem('rentflow_demo_start', 'manager')
+      localStorage.setItem('rentflow_demo_start', role === 'tenant' ? 'tenant' : 'manager')
     } catch {}
     window.location.assign('/')
   }
 
   // After the reload, if a demo start is pending and we're now in demo mode,
-  // sign into the demo manager account (no credentials) and open the dashboard.
+  // sign into the chosen demo account (no credentials) and open that side.
   useEffect(() => {
     let start = null
     try { start = localStorage.getItem('rentflow_demo_start') } catch {}
@@ -55,9 +55,15 @@ export default function RolePicker() {
     try { localStorage.removeItem('rentflow_demo_start') } catch {}
     ;(async () => {
       try {
-        await db.signInManager({ email: 'demo@rentflow.app', password: 'demo1234' })
-        await refresh()
-        nav('/manager', { replace: true })
+        if (start === 'tenant') {
+          await db.signInTenant({ email: 'rudo@example.com', password: 'tenant123' })
+          await refresh()
+          nav('/tenant', { replace: true })
+        } else {
+          await db.signInManager({ email: 'demo@rentflow.app', password: 'demo1234' })
+          await refresh()
+          nav('/manager', { replace: true })
+        }
       } catch { setDemoLoading(false) }
     })()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -80,7 +86,7 @@ export default function RolePicker() {
         <div className="lp-nav-in">
           <a className="lp-brand" href="#top"><span className="brand-mark sm">RL</span> RentLoja</a>
           <nav className="lp-nav-r">
-            <button className="lp-link" onClick={enterDemo}>Try the demo</button>
+            <button className="lp-link" onClick={() => enterDemo('manager')}>Try the demo</button>
             <button className="lp-link" onClick={() => nav('/rent')}>Browse rentals</button>
             <button className="btn primary sm" onClick={goEnter}><IconKey size={14} /> Sign in</button>
           </nav>
@@ -99,10 +105,14 @@ export default function RolePicker() {
         </p>
         <div className="lp-cta">
           <button className="btn primary lg" onClick={() => nav('/manager/auth')}>Start your 7-day free trial <IconArrowRight size={16} /></button>
-          <button className="btn ghost lg" onClick={enterDemo}><IconSparkle size={16} /> Try the demo — no sign-up</button>
           <button className="btn ghost lg" onClick={() => nav('/rent')}>Browse rooms &amp; houses</button>
         </div>
         <div className="lp-trust"><IconCheck size={14} /> 7 days free · no charge today · cancel anytime</div>
+        <div className="lp-demo">
+          <span className="lp-demo-label"><IconSparkle size={14} /> Try the live demo — no sign-up:</span>
+          <button className="btn ghost sm" onClick={() => enterDemo('manager')}>As a manager</button>
+          <button className="btn ghost sm" onClick={() => enterDemo('tenant')}>As a tenant</button>
+        </div>
       </section>
 
       {/* Sign in / role entry */}
@@ -233,6 +243,10 @@ export default function RolePicker() {
         .lp-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
         .lp-trust { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--text-faint); font-size: 0.86rem; }
         .lp-trust svg { color: var(--green); }
+        .lp-demo { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+          margin-top: 20px; padding: 10px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-soft); }
+        .lp-demo-label { display: inline-flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 0.86rem; }
+        .lp-demo-label svg { color: var(--gold); }
 
         /* Enter / sign-in */
         .lp-enter { max-width: 560px; margin: 0 auto; padding: 30px 22px 20px; text-align: center; }
