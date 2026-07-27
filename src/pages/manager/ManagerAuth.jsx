@@ -16,6 +16,7 @@ export default function ManagerAuth() {
   const [mode, setMode] = useState('signin') // 'signin' | 'signup'
   const [forgot, setForgot] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [agreed, setAgreed] = useState(false) // Terms + Privacy consent (sign-up only)
   const [verifyEmail, setVerifyEmail] = useState(null) // set → show "check your email" screen
   const [challenge, setChallenge] = useState(null) // set → show the emailed login-code step
   const [form, setForm] = useState({
@@ -27,6 +28,7 @@ export default function ManagerAuth() {
     e.preventDefault()
     if (mode === 'signup') {
       if (!isValidEmail(form.email)) return toast.error('Invalid email', 'Enter a valid email address, e.g. name@example.com.')
+      if (!agreed) return toast.error('Please agree to continue', 'You must accept the Terms and Privacy Policy to create an account.')
     } else if (!isEmailOrPhone(form.email)) {
       return toast.error('Invalid login', 'Enter your phone number or email address.')
     }
@@ -124,7 +126,15 @@ export default function ManagerAuth() {
           </div>
         )}
 
-        <button className="btn primary block lg" disabled={busy} style={{ marginTop: 6 }}>
+        {mode === 'signup' && (
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', margin: '6px 0 4px', fontSize: '0.84rem', color: 'var(--text-dim)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
+              style={{ marginTop: 3, accentColor: 'var(--gold)', flexShrink: 0, width: 16, height: 16 }} />
+            <span>I agree to the <a href="/terms" target="_blank" rel="noopener" style={{ color: 'var(--gold)' }}>Terms &amp; Conditions</a> and <a href="/privacy" target="_blank" rel="noopener" style={{ color: 'var(--gold)' }}>Privacy Policy</a>.</span>
+          </label>
+        )}
+
+        <button className="btn primary block lg" disabled={busy || (mode === 'signup' && !agreed)} style={{ marginTop: 10 }}>
           {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
         </button>
 

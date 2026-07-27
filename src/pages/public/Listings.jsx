@@ -126,7 +126,10 @@ export default function PublicListings() {
 
       <footer className="pub-foot">
         <span>Powered by RentLoja</span>
-        <Link to="/privacy" className="muted">Privacy</Link>
+        <span className="pub-foot-links">
+          <Link to="/terms" className="muted">Terms</Link>
+          <Link to="/privacy" className="muted">Privacy</Link>
+        </span>
       </footer>
 
       <style>{PUB_CSS}</style>
@@ -166,4 +169,5 @@ export const PUB_CSS = `
   .pub-foot { max-width: 1080px; margin: 0 auto; padding: 24px 22px 40px; display: flex; justify-content: space-between;
     border-top: 1px solid var(--line-soft); font-size: 0.82rem; color: var(--text-faint); }
   .pub-foot a { color: var(--text-faint); text-decoration: none; }
+  .pub-foot-links { display: flex; gap: 16px; }
 `
