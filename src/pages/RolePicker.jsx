@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { DEMO_MODE, db } from '../lib/db.js'
+import { DEMO_MODE, db, resetDemo } from '../lib/db.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
   IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart, IconCheck, IconSparkle,
@@ -39,6 +39,7 @@ export default function RolePicker() {
   const enterDemo = (role = 'manager') => {
     setDemoLoading(true)
     try {
+      resetDemo() // fresh, seeded sample data on every start
       localStorage.setItem('rentflow_demo', '1')
       localStorage.setItem('rentflow_demo_start', role === 'tenant' ? 'tenant' : 'manager')
     } catch {}

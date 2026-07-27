@@ -5,6 +5,7 @@ import { LoadingScreen } from './components/ui.jsx'
 import AppLock from './components/AppLock.jsx'
 import MfaChallenge from './components/MfaChallenge.jsx'
 import { needsChallenge } from './lib/mfa.js'
+import { resetDemo } from './lib/db.js'
 
 // Landing stays eager for the fastest first paint; everything else is split into
 // its own chunk that only downloads when that route is visited.
@@ -105,14 +106,15 @@ function DemoRibbon() {
   } catch {}
   if (!on) return null
   const other = role === 'tenant' ? 'manager' : 'tenant'
-  // Switch sides: sign into the other demo account on the next load.
+  // Switch sides: sign into the other demo account on the next load (keeps data).
   const switchTo = (r) => {
     try { localStorage.setItem('rentflow_demo_start', r); localStorage.removeItem('rentflow_session_v1') } catch {}
     window.location.assign('/')
   }
-  const exit = () => {
-    try { localStorage.removeItem('rentflow_demo'); localStorage.removeItem('rentflow_session_v1'); localStorage.removeItem('rentflow_demo_start') } catch {}
-    window.location.assign('/')
+  // Leaving the demo wipes any changes back to the seeded defaults.
+  const leave = (to) => {
+    try { resetDemo(); localStorage.removeItem('rentflow_demo'); localStorage.removeItem('rentflow_demo_start') } catch {}
+    window.location.assign(to)
   }
   return (
     <div style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 400, display: 'flex', alignItems: 'center', gap: 8,
@@ -120,8 +122,9 @@ function DemoRibbon() {
       color: 'var(--text)', fontSize: '0.8rem', boxShadow: 'var(--shadow)', flexWrap: 'wrap', maxWidth: 'calc(100vw - 24px)' }}>
       <span style={{ fontWeight: 700, color: 'var(--gold)' }}>Demo</span>
       {role && <span className="muted" style={{ fontSize: '0.74rem' }}>{role} view</span>}
+      <button className="btn primary sm" onClick={() => leave('/manager/auth')}>Start free trial</button>
       <button className="btn ghost sm" onClick={() => switchTo(other)}>View {other} side</button>
-      <button className="btn ghost sm" onClick={exit}>Exit</button>
+      <button className="btn ghost sm" onClick={() => leave('/')}>Exit</button>
     </div>
   )
 }
