@@ -1,15 +1,22 @@
 import { useNavigate } from 'react-router-dom'
 import { DEMO_MODE } from '../lib/db.js'
-import { IconUsers, IconKey, IconArrowRight, IconShield } from '../components/icons.jsx'
+import { IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart } from '../components/icons.jsx'
 import QuickUnlockCard from '../components/QuickUnlockCard.jsx'
 import InstallApp from '../components/InstallApp.jsx'
+
+const PREVIEW = [
+  { icon: IconBuilding, title: 'Find a home', sub: 'Browse listings and enquire on WhatsApp in one tap.' },
+  { icon: IconWallet, title: 'Pay in seconds', sub: 'Card or EcoCash — with an instant receipt every time.' },
+  { icon: IconBell, title: 'Never miss rent', sub: 'Reminders, notices and your full payment history.' },
+  { icon: IconChart, title: 'Landlords in control', sub: 'Tenants, approvals and finances, all in one place.' },
+]
 
 export default function RolePicker() {
   const nav = useNavigate()
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 520, textAlign: 'center' }}>
+      <div style={{ width: '100%', maxWidth: 560, textAlign: 'center' }}>
 
         <div className="center" style={{ gap: 12, marginBottom: 6 }}>
           <div className="brand-mark">RL</div>
@@ -42,6 +49,30 @@ export default function RolePicker() {
             <span>Property Manager sign in</span>
             <IconArrowRight size={13} style={{ opacity: 0.6 }} />
           </button>
+        </div>
+
+        {/* Public: browse advertised rentals with no account. */}
+        <button className="role-card public" onClick={() => nav('/rent')} style={{ marginTop: 22 }}>
+          <div className="role-ico gold"><IconBuilding size={24} /></div>
+          <div style={{ textAlign: 'left', flex: 1 }}>
+            <div className="role-title" style={{ fontSize: '1.35rem' }}>Rooms &amp; houses to rent</div>
+            <div className="role-sub">See what’s available now — open to everyone, no sign-in</div>
+          </div>
+          <IconArrowRight size={20} />
+        </button>
+
+        {/* A quick preview of what the app does, before signing in. */}
+        <div className="preview">
+          <div className="eyebrow" style={{ color: 'var(--text-faint)', marginBottom: 12 }}>A quick look at what you get</div>
+          <div className="preview-grid">
+            {PREVIEW.map(({ icon: Icon, title, sub }) => (
+              <div key={title} className="pv-card">
+                <div className="pv-ico"><Icon size={17} /></div>
+                <div className="pv-t">{title}</div>
+                <div className="pv-s">{sub}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Only appears when the device can actually install it (and isn't already). */}
@@ -81,6 +112,23 @@ export default function RolePicker() {
           font-size: 0.84rem; font-weight: 500; transition: all 0.16s;
         }
         .role-mini:hover { color: var(--gold); border-color: var(--gold-line); background: var(--gold-bg); }
+        .role-ico.gold { background: var(--gold-bg); border-color: var(--gold-line); color: var(--gold); }
+        .role-card.public {
+          background: linear-gradient(135deg, rgba(200,168,75,0.13), rgba(200,168,75,0.03));
+          border-color: var(--gold-line);
+        }
+        .role-card.public:hover { border-color: var(--gold); box-shadow: 0 22px 48px -24px var(--gold); }
+        .role-card.public svg:last-child { color: var(--gold); }
+        .preview { margin-top: 34px; text-align: left; }
+        .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .pv-card { background: var(--bg-raised); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 15px 16px; }
+        .pv-ico {
+          width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+          background: var(--surface-2); color: var(--gold); margin-bottom: 10px;
+        }
+        .pv-t { font-weight: 600; font-size: 0.95rem; }
+        .pv-s { color: var(--text-dim); font-size: 0.82rem; margin-top: 3px; line-height: 1.45; }
+        @media (max-width: 560px) { .preview-grid { grid-template-columns: 1fr; } }
         .demo-note {
           margin-top: 30px; display: flex; gap: 9px; align-items: flex-start; text-align: left;
           font-size: 0.8rem; color: var(--text-faint); background: var(--bg-raised);
