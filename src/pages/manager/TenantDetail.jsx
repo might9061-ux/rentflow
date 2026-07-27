@@ -14,6 +14,7 @@ import { IconArrowRight, IconEdit, IconKey, IconReceipt, IconMail, IconPhone, Ic
 import { downloadStatementCsv, printStatement } from '../../lib/statement.js'
 import { sendWhatsApp, receiptMessage } from '../../lib/whatsapp.js'
 import { formatPeriod } from '../../lib/billing.js'
+import { buildLedger } from '../../lib/ledger.js'
 
 export default function TenantDetail() {
   const { id } = useParams()
@@ -41,6 +42,12 @@ export default function TenantDetail() {
 
   const property = properties.find((p) => p.id === tenant.property_id)
   const approved = payments.filter((p) => p.status === 'approved')
+  // Derive totals from the actual approved payments + the shared ledger, so they
+  // stay accurate even if a payment is edited/removed directly in the database
+  // (the stored total_paid / credit_balance are only snapshots from approvals).
+  const totalPaid = approved.reduce((s, p) => s + Number(p.amount || 0), 0)
+  const led = buildLedger({ payments, rent: Number(tenant.rent || 0), dueDay: tenant.due_day, startDate: tenant.lease_start || tenant.created_at })
+  const credit = led.creditAdvance
 
   const resend = async () => {
     const { tempPassword } = await db.resendCredentials(tenant.id)
@@ -125,8 +132,8 @@ export default function TenantDetail() {
 
       <div className="grid stats" style={{ marginBottom: 24 }}>
         <StatCard label="Monthly rent" value={money(tenant.rent)} icon={<IconWallet size={18} />} />
-        <StatCard label="Total paid" value={money(tenant.total_paid)} sub={`${approved.length} payments`} />
-        <StatCard label="Credit balance" value={money(tenant.credit_balance)} sub={tenant.credit_balance > 0 ? 'Carried forward' : '—'} />
+        <StatCard label="Total paid" value={money(totalPaid)} sub={`${approved.length} payments`} />
+        <StatCard label="Credit balance" value={money(credit)} sub={credit > 0 ? 'Carried forward' : '—'} />
       </div>
 
       <h3 style={{ marginBottom: 12 }}>Payment history</h3>
