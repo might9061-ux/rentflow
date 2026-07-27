@@ -94,6 +94,27 @@ function RequireAdmin({ children }) {
   return children
 }
 
+// A small persistent marker while a visitor is exploring the opt-in demo, with a
+// one-tap way out (clears the demo flag + mock session and returns to the real app).
+function DemoRibbon() {
+  let on = false
+  try { on = localStorage.getItem('rentflow_demo') === '1' } catch {}
+  if (!on) return null
+  const exit = () => {
+    try { localStorage.removeItem('rentflow_demo'); localStorage.removeItem('rentflow_session_v1') } catch {}
+    window.location.assign('/')
+  }
+  return (
+    <div style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 400, display: 'flex', alignItems: 'center', gap: 10,
+      padding: '7px 8px 7px 14px', borderRadius: 999, background: 'var(--gold-bg)', border: '1px solid var(--gold-line)',
+      color: 'var(--text)', fontSize: '0.82rem', boxShadow: 'var(--shadow)' }}>
+      <span style={{ fontWeight: 700, color: 'var(--gold)' }}>Demo</span>
+      <span className="muted" style={{ fontSize: '0.76rem' }}>sample data</span>
+      <button className="btn ghost sm" onClick={exit}>Exit</button>
+    </div>
+  )
+}
+
 export default function App() {
   const { loading, session, profile } = useAuth()
   if (loading) return <LoadingScreen />
@@ -106,6 +127,7 @@ export default function App() {
     <>
     {/* Covers the whole app when it's been backgrounded — session stays live. */}
     <AppLock />
+    <DemoRibbon />
     <Suspense fallback={<LoadingScreen />}>
     <Routes>
       {/* Landing role picker */}

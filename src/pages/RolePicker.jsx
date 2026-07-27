@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { DEMO_MODE } from '../lib/db.js'
+import { DEMO_MODE, db } from '../lib/db.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import {
   IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart, IconCheck, IconSparkle,
 } from '../components/icons.jsx'
+import { Spinner } from '../components/ui.jsx'
 import QuickUnlockCard from '../components/QuickUnlockCard.jsx'
 import InstallApp from '../components/InstallApp.jsx'
 
@@ -27,8 +29,49 @@ const FAQS = [
 
 export default function RolePicker() {
   const nav = useNavigate()
+  const { refresh } = useAuth()
   const [openFaq, setOpenFaq] = useState(0)
+  const [demoLoading, setDemoLoading] = useState(false)
   const goEnter = () => document.getElementById('enter')?.scrollIntoView({ behavior: 'smooth' })
+
+  // "Try the demo": switch this browser into the seeded demo engine, then reload
+  // so `db` binds to the mock. The effect below finishes the sign-in after reload.
+  const enterDemo = () => {
+    setDemoLoading(true)
+    try {
+      localStorage.setItem('rentflow_demo', '1')
+      localStorage.setItem('rentflow_demo_start', 'manager')
+    } catch {}
+    window.location.assign('/')
+  }
+
+  // After the reload, if a demo start is pending and we're now in demo mode,
+  // sign into the demo manager account (no credentials) and open the dashboard.
+  useEffect(() => {
+    let start = null
+    try { start = localStorage.getItem('rentflow_demo_start') } catch {}
+    if (!start || !DEMO_MODE) return
+    setDemoLoading(true)
+    try { localStorage.removeItem('rentflow_demo_start') } catch {}
+    ;(async () => {
+      try {
+        await db.signInManager({ email: 'demo@rentflow.app', password: 'demo1234' })
+        await refresh()
+        nav('/manager', { replace: true })
+      } catch { setDemoLoading(false) }
+    })()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (demoLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', gap: 14 }}>
+        <div className="center" style={{ gap: 14 }}>
+          <Spinner />
+          <div className="muted">Starting your demo…</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="lp">
@@ -37,7 +80,7 @@ export default function RolePicker() {
         <div className="lp-nav-in">
           <a className="lp-brand" href="#top"><span className="brand-mark sm">RL</span> RentLoja</a>
           <nav className="lp-nav-r">
-            <button className="lp-link" onClick={() => nav('/demo')}>View demo</button>
+            <button className="lp-link" onClick={enterDemo}>Try the demo</button>
             <button className="lp-link" onClick={() => nav('/rent')}>Browse rentals</button>
             <button className="btn primary sm" onClick={goEnter}><IconKey size={14} /> Sign in</button>
           </nav>
@@ -56,7 +99,7 @@ export default function RolePicker() {
         </p>
         <div className="lp-cta">
           <button className="btn primary lg" onClick={() => nav('/manager/auth')}>Start your 7-day free trial <IconArrowRight size={16} /></button>
-          <button className="btn ghost lg" onClick={() => nav('/demo')}><IconSparkle size={16} /> View demo</button>
+          <button className="btn ghost lg" onClick={enterDemo}><IconSparkle size={16} /> Try the demo — no sign-up</button>
           <button className="btn ghost lg" onClick={() => nav('/rent')}>Browse rooms &amp; houses</button>
         </div>
         <div className="lp-trust"><IconCheck size={14} /> 7 days free · no charge today · cancel anytime</div>

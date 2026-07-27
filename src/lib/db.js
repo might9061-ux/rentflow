@@ -13,7 +13,15 @@ import { mockApi, genTempPassword, resetDemo } from './mockDb.js'
 import { capacityFor } from './pricing.js'
 import { createApiDb } from './apiDb.js'
 
-export const DEMO_MODE = !isSupabaseConfigured
+// A visitor can opt into the self-contained demo (localStorage mock with seeded
+// data) even on the deployed app — the landing "Try the demo" sets this flag and
+// reloads, so `db` below binds to the mock. Isolated to their browser; nothing
+// touches the real backend. Cleared by "Exit demo".
+const demoOptIn = (() => {
+  try { return typeof localStorage !== 'undefined' && localStorage.getItem('rentflow_demo') === '1' } catch { return false }
+})()
+
+export const DEMO_MODE = !isSupabaseConfigured || demoOptIn
 export { genTempPassword, resetDemo }
 
 // Convenience: throw on a Supabase error.
@@ -650,7 +658,7 @@ const sb = {
 //                            actions, falling back to Supabase for the rest
 //   • Supabase only        → the browser talks to Supabase directly
 const API_URL = import.meta.env.VITE_API_URL?.trim()
-export const db = !isSupabaseConfigured
+export const db = (!isSupabaseConfigured || demoOptIn)
   ? mockApi
   : API_URL
     ? createApiDb(sb)
