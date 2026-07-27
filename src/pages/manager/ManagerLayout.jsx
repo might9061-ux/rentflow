@@ -33,15 +33,11 @@ const NAV = [
   { to: '/manager/team', label: 'Agents', icon: IconShield, owner: true },
   { to: '/manager/plan', label: 'Plan', icon: IconTag, owner: true },
   { to: '/manager/branding', label: 'Branding', icon: IconPalette, owner: true },
-  // The demo/tour is a "try before you buy" tour of fake data. Once the owner
-  // has actually paid for a plan they have the real thing, so it just clutters
-  // the menu — `preSale` hides it for subscribers.
-  { to: '/manager/demo', label: 'Demo', icon: IconSparkle, owner: true, preSale: true },
   { to: '/manager/settings', label: 'Settings', icon: IconSettings, owner: true },
 ]
 
 // Pages only the account owner may open (staff are redirected away).
-const OWNER_ONLY = ['/manager/team', '/manager/plan', '/manager/branding', '/manager/demo', '/manager/settings']
+const OWNER_ONLY = ['/manager/team', '/manager/plan', '/manager/branding', '/manager/settings']
 
 export default function ManagerLayout() {
   const { profile, userId, signOut } = useAuth()
@@ -116,7 +112,7 @@ export default function ManagerLayout() {
 
   // New OWNERS must pick an installment plan before using the rest of the app
   // (the plan page and the demo/tour are allowed while onboarding). Staff skip this.
-  if (isOwner && profile && profile.onboarded === false && loc.pathname !== '/manager/plan' && loc.pathname !== '/manager/demo') {
+  if (isOwner && profile && profile.onboarded === false && loc.pathname !== '/manager/plan') {
     return <Navigate to="/manager/plan" replace />
   }
   // Staff cannot reach owner-only pages.
@@ -128,12 +124,7 @@ export default function ManagerLayout() {
   if (!canPayroll && (loc.pathname.startsWith('/manager/payroll') || loc.pathname.startsWith('/manager/workers'))) {
     return <Navigate to="/manager" replace />
   }
-  // Paid up? The demo tour is no longer relevant — hide it and send anyone who
-  // reaches the URL (old link, bookmark) to their real dashboard.
   const hasPlan = !!profile?.plan_active
-  if (hasPlan && loc.pathname.startsWith('/manager/demo')) {
-    return <Navigate to="/manager" replace />
-  }
 
   const brandName = profile?.brand_name || 'RentLoja'
   const brandMark = profile?.brand_name ? profile.brand_name.slice(0, 2).toUpperCase() : 'RL'

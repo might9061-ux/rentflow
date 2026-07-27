@@ -172,16 +172,6 @@ export default function Plan() {
     } catch (e) { toast.error('Could not resume', e.message) } finally { setBusy(false) }
   }
 
-  const continueFree = async () => {
-    setBusy(true)
-    try {
-      await db.updateManagerSettings(userId, { onboarded: true })
-      await refresh()
-      toast.info('Exploring without a plan', 'Subscribe from Plan & billing when you’re ready to add tenants.')
-      nav('/manager')
-    } catch (err) { toast.error('Could not continue', err.message); setBusy(false) }
-  }
-
   return (
     <div className="page" style={{ maxWidth: 820 }}>
       <div className="page-head">
@@ -193,13 +183,7 @@ export default function Plan() {
       {onboarding && (
         <div className="banner gold" style={{ marginBottom: 18 }}>
           <div className="b-ico"><IconTag size={18} /></div>
-          <div className="spread grow wrap" style={{ gap: 10 }}>
-            <span>Your account is ready! See how RentLoja works for managers and tenants, then pick a monthly installment — an active plan is required to add tenants.</span>
-            <div className="row gap">
-              <button className="btn sm" onClick={() => nav('/manager/demo')}>View demo</button>
-              <button className="btn ghost sm" onClick={continueFree} disabled={busy}>Explore first</button>
-            </div>
-          </div>
+          <div>Your account is ready — choose a capacity below and <b>start your 7-day free trial</b>. You won’t be charged today, and you can cancel any time before it ends.</div>
         </div>
       )}
 

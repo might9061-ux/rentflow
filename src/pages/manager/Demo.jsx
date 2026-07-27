@@ -1,66 +1,71 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
-import { db } from '../../lib/db.js'
+import { Link, useNavigate } from 'react-router-dom'
 import { money } from '../../lib/format.js'
-import { StatCard, StatusPill, PeriodTag } from '../../components/ui.jsx'
+import { StatCard, StatusPill } from '../../components/ui.jsx'
 import { DonutChart } from '../../components/Charts.jsx'
 import {
   IconWallet, IconClock, IconBuilding, IconCheckCircle, IconUsers, IconReceipt,
-  IconSparkle, IconBell, IconArrowRight, IconKey,
+  IconSparkle, IconArrowRight, IconKey,
 } from '../../components/icons.jsx'
 
-const PERIOD = { from: '2026-05-01', to: '2026-06-01' }
-
+// Public product tour — anyone can open it from the landing page (no account).
+// All data here is illustrative sample data, not a real workspace.
 export default function Demo() {
-  const { profile, userId, refresh } = useAuth()
-  const toast = useToast()
   const nav = useNavigate()
   const [side, setSide] = useState('manager')
-  const onboarding = profile?.onboarded === false
-  const [busy, setBusy] = useState(false)
-
-  const startExploring = async () => {
-    setBusy(true)
-    try {
-      await db.updateManagerSettings(userId, { onboarded: true })
-      await refresh()
-      toast.info('You’re in', 'Add a property and choose a plan when you’re ready to add tenants.')
-      nav('/manager')
-    } catch (e) { toast.error('Could not continue', e.message); setBusy(false) }
-  }
 
   return (
-    <div className="page" style={{ maxWidth: 900 }}>
-      <div className="spread page-head wrap" style={{ gap: 12 }}>
-        <div>
-          <div className="eyebrow">Product tour</div>
-          <h1>See RentLoja in action</h1>
-          <p>A quick demo of both sides — explore freely, then choose a plan when you’re ready.</p>
+    <div className="pub">
+      <header className="pub-top">
+        <div className="pub-top-l">
+          <Link to="/" className="btn ghost sm">‹ Back</Link>
+          <Link to="/" className="pub-brand">RentLoja</Link>
         </div>
-        <div className="seg">
-          <button className={side === 'manager' ? 'on' : ''} onClick={() => setSide('manager')}>Manager side</button>
-          <button className={side === 'tenant' ? 'on' : ''} onClick={() => setSide('tenant')}>Tenant side</button>
-        </div>
-      </div>
+        <button className="btn primary sm" onClick={() => nav('/manager/auth')}>Start free trial</button>
+      </header>
 
-      {side === 'manager' ? <ManagerDemo /> : <TenantDemo />}
-
-      {/* CTAs */}
-      <div className="card pad" style={{ marginTop: 24, background: 'var(--gold-bg)', borderColor: 'var(--gold-line)' }}>
-        <div className="spread wrap" style={{ gap: 12 }}>
+      <div className="page" style={{ maxWidth: 960 }}>
+        <div className="spread page-head wrap" style={{ gap: 12 }}>
           <div>
-            <div style={{ fontWeight: 600, fontFamily: 'var(--serif)', fontSize: '1.2rem' }}>Ready to go live?</div>
-            <div className="muted" style={{ fontSize: '0.86rem' }}>Pick a monthly plan to start adding your own tenants — or keep exploring first.</div>
+            <div className="eyebrow" style={{ color: 'var(--gold)' }}>Product tour</div>
+            <h1>See RentLoja in action</h1>
+            <p>A live look at both sides of the app, with sample data. No sign-in needed.</p>
           </div>
-          <div className="row gap">
-            {onboarding && <button className="btn ghost" onClick={startExploring} disabled={busy}>Skip &amp; explore</button>}
-            {!onboarding && <button className="btn ghost" onClick={() => nav('/manager')}>Back to dashboard</button>}
-            <button className="btn primary" onClick={() => nav('/manager/plan')}>Choose a plan <IconArrowRight size={15} /></button>
+          <div className="seg">
+            <button className={side === 'manager' ? 'on' : ''} onClick={() => setSide('manager')}>Manager side</button>
+            <button className={side === 'tenant' ? 'on' : ''} onClick={() => setSide('tenant')}>Tenant side</button>
+          </div>
+        </div>
+
+        {side === 'manager' ? <ManagerDemo /> : <TenantDemo />}
+
+        {/* AI highlight */}
+        <div className="card pad" style={{ marginTop: 16, background: 'var(--gold-bg)', borderColor: 'var(--gold-line)' }}>
+          <div className="row gap" style={{ alignItems: 'flex-start' }}>
+            <span style={{ width: 40, height: 40, borderRadius: 11, display: 'grid', placeItems: 'center', background: 'var(--surface)', border: '1px solid var(--gold-line)', color: 'var(--gold)', flexShrink: 0 }}><IconSparkle size={20} /></span>
+            <div>
+              <div style={{ fontWeight: 600, fontFamily: 'var(--serif)', fontSize: '1.15rem' }}>Built-in AI assistant</div>
+              <div className="muted" style={{ fontSize: '0.88rem' }}>Managers and tenants each get an assistant grounded in their own data — ask about arrears, approvals, your rent, balance or receipts and get instant answers. Powered by Claude.</div>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="card pad" style={{ marginTop: 24, background: 'var(--gold-bg)', borderColor: 'var(--gold-line)' }}>
+          <div className="spread wrap" style={{ gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 600, fontFamily: 'var(--serif)', fontSize: '1.2rem' }}>Like what you see?</div>
+              <div className="muted" style={{ fontSize: '0.86rem' }}>Start free for 7 days — add your own properties and tenants. No charge today.</div>
+            </div>
+            <div className="row gap">
+              <button className="btn ghost" onClick={() => nav('/rent')}>Browse rentals</button>
+              <button className="btn primary" onClick={() => nav('/manager/auth')}>Start free trial <IconArrowRight size={15} /></button>
+            </div>
           </div>
         </div>
       </div>
+
+      <style>{PUB_TOP_CSS}</style>
     </div>
   )
 }
@@ -79,40 +84,54 @@ function FeatureList({ items }) {
   )
 }
 
+const DEMO_TENANTS = [
+  { name: 'Rudo Chikore', prop: 'Avondale Heights', unit: 'A1', rent: 350, status: 'paid' },
+  { name: 'Farai Ncube', prop: 'Avondale Heights', unit: 'A2', rent: 350, status: 'overdue' },
+  { name: 'Tendai Moyo', prop: 'Avondale Heights', unit: 'A3', rent: 350, status: 'paid' },
+  { name: 'Kudzai Sibanda', prop: 'Avondale Heights', unit: 'A4', rent: 400, status: 'paid' },
+  { name: 'Chipo Dube', prop: 'Borrowdale Villas', unit: 'B1', rent: 600, status: 'paid' },
+  { name: 'Nyasha Banda', prop: 'Borrowdale Villas', unit: 'B2', rent: 600, status: 'due' },
+  { name: 'Tariro Gwe', prop: 'Borrowdale Villas', unit: 'B3', rent: 600, status: 'paid' },
+  { name: 'Blessing Phiri', prop: 'Sunningdale Cluster', unit: 'House 2', rent: 450, status: 'pending' },
+]
+
+const DEMO_RECENT = [
+  { name: 'Tariro Gwe', amount: 600, method: 'EcoCash', period: 'Jun 2026' },
+  { name: 'Rudo Chikore', amount: 350, method: 'Card', period: 'Jun 2026' },
+  { name: 'Kudzai Sibanda', amount: 400, method: 'Bank Transfer', period: 'Jun 2026' },
+  { name: 'Chipo Dube', amount: 600, method: 'Card', period: 'Jun 2026' },
+  { name: 'Tendai Moyo', amount: 350, method: 'InnBucks', period: 'Jun 2026' },
+]
+
 function ManagerDemo() {
-  const tenants = [
-    { name: 'Rudo Chikore', unit: 'A1', rent: 350, status: 'paid', credit: 0 },
-    { name: 'Farai Ncube', unit: 'A2', rent: 350, status: 'due', credit: 0 },
-    { name: 'Chipo Dube', unit: 'V3', rent: 600, status: 'paid', credit: 250 },
-  ]
   return (
     <div className="col" style={{ gap: 16 }}>
       <div className="banner gold"><div className="b-ico"><IconKey size={18} /></div>
         <div>This is the <b>manager workspace</b> — your command centre. (Sample data shown.)</div></div>
 
       <div className="grid stats">
-        <StatCard label="Total collected" value={money(7000)} sub="15 approved payments" icon={<IconWallet size={18} />} />
-        <StatCard label="Outstanding" value={money(700)} sub="Across unpaid tenants" icon={<IconClock size={18} />} />
-        <StatCard label="Occupancy" value="67%" sub="6 of 9 units" icon={<IconBuilding size={18} />} />
-        <StatCard label="Pending approvals" value={1} sub="Awaiting review" icon={<IconCheckCircle size={18} />} />
+        <StatCard label="Total collected" value={money(18450)} sub="42 approved payments" icon={<IconWallet size={18} />} />
+        <StatCard label="Outstanding" value={money(1750)} sub="Across unpaid tenants" icon={<IconClock size={18} />} />
+        <StatCard label="Occupancy" value="82%" sub="18 of 22 units" icon={<IconBuilding size={18} />} />
+        <StatCard label="Pending approvals" value={3} sub="Awaiting review" icon={<IconCheckCircle size={18} />} />
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.2fr)' }}>
+      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.3fr)', alignItems: 'start' }}>
         <div className="card pad">
           <h3 style={{ marginBottom: 14 }}>Rent collection</h3>
-          <DonutChart centerValue={money(7000)} centerLabel="Collected"
-            segments={[{ label: 'Collected rent', value: 7000, color: 'var(--green)' }, { label: 'Not yet paid', value: 700, color: '#d98b5f' }]} />
+          <DonutChart centerValue={money(18450)} centerLabel="Collected"
+            segments={[{ label: 'Collected', value: 18450, color: 'var(--green)' }, { label: 'Outstanding', value: 1750, color: '#d98b5f' }]} />
         </div>
         <div className="card">
-          <div className="spread" style={{ padding: '16px 18px 10px' }}><h3>Tenants</h3><span className="pill neutral"><IconUsers size={13} /> {tenants.length}</span></div>
+          <div className="spread" style={{ padding: '16px 18px 10px' }}><h3>Tenants</h3><span className="pill neutral"><IconUsers size={13} /> {DEMO_TENANTS.length}</span></div>
           <div className="divider" style={{ margin: 0 }} />
           <div className="table-wrap" style={{ border: 'none' }}>
             <table className="data">
               <thead><tr><th>Tenant</th><th>Unit</th><th>Rent</th><th>Status</th></tr></thead>
               <tbody>
-                {tenants.map((t) => (
+                {DEMO_TENANTS.map((t) => (
                   <tr key={t.name}>
-                    <td style={{ fontWeight: 600 }}>{t.name}</td>
+                    <td><div style={{ fontWeight: 600 }}>{t.name}</div><div className="muted" style={{ fontSize: '0.76rem' }}>{t.prop}</div></td>
                     <td>{t.unit}</td>
                     <td className="mono">{money(t.rent)}</td>
                     <td><StatusPill status={t.status} /></td>
@@ -124,15 +143,41 @@ function ManagerDemo() {
         </div>
       </div>
 
+      <div className="card">
+        <div className="spread" style={{ padding: '16px 18px 10px' }}><h3>Recent payments</h3><span className="pill neutral">This month</span></div>
+        <div className="divider" style={{ margin: 0 }} />
+        <div className="table-wrap" style={{ border: 'none' }}>
+          <table className="data">
+            <thead><tr><th>Tenant</th><th>For</th><th>Method</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
+            <tbody>
+              {DEMO_RECENT.map((p, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: 600 }}>{p.name}</td>
+                  <td className="muted">{p.period}</td>
+                  <td>{p.method}</td>
+                  <td className="mono" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--gold)' }}>{money(p.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <FeatureList items={[
-        'Add properties and create tenant logins (with a WhatsApp credential hand-off)',
+        'Add properties, name each unit, and create tenant logins with a WhatsApp credential hand-off',
         'Approve or reject tenant payments and auto-issue receipts',
         'Send notifications to all tenants, a property, or one person',
-        'Track collections, costs, occupancy and arrears at a glance',
+        'Track collections, costs, occupancy, arrears and payroll at a glance',
+        'Ask the built-in AI assistant about arrears, approvals, occupancy and how-tos',
       ]} />
     </div>
   )
 }
+
+const DEMO_HISTORY = [
+  ['Jun 2026', 'pending'], ['May 2026', 'paid'], ['Apr 2026', 'paid'], ['Mar 2026', 'paid'],
+  ['Feb 2026', 'paid'], ['Jan 2026', 'paid'], ['Dec 2025', 'paid'], ['Nov 2025', 'paid'],
+]
 
 function TenantDemo() {
   return (
@@ -151,22 +196,23 @@ function TenantDemo() {
       <div className="grid stats">
         <StatCard label="Monthly rent" value={money(600)} sub="Due day 5" icon={<IconWallet size={18} />} />
         <StatCard label="Current status" value={<StatusPill status="paid" />} sub="May 2026 → Jun 2026" />
-        <StatCard label="Total paid (all time)" value={money(3050)} sub="6 receipts" icon={<IconReceipt size={18} />} />
+        <StatCard label="Total paid (all time)" value={money(4800)} sub="8 receipts" icon={<IconReceipt size={18} />} />
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.2fr)' }}>
+      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.2fr)', alignItems: 'start' }}>
         <div className="card pad">
           <h3 style={{ marginBottom: 14 }}>Paid vs due</h3>
-          <DonutChart centerValue={money(3050)} centerLabel="Paid"
-            segments={[{ label: 'Paid', value: 3050, color: 'var(--green)' }, { label: 'Not yet paid', value: 0, color: '#e0b15f' }]} />
+          <DonutChart centerValue={money(4800)} centerLabel="Paid"
+            segments={[{ label: 'Paid', value: 4800, color: 'var(--green)' }, { label: 'Not yet paid', value: 600, color: '#e0b15f' }]} />
         </div>
         <div className="card pad">
           <h3 style={{ marginBottom: 10 }}>Ways to pay</h3>
           <div className="row gap wrap" style={{ marginBottom: 14 }}>
             {['Card', 'EcoCash', 'Cash USD', 'InnBucks', 'Bank Transfer', 'Mukuru'].map((m) => <span key={m} className="pill green">{m}</span>)}
           </div>
+          <h3 style={{ margin: '4px 0 10px', fontSize: '1rem' }}>Payment history</h3>
           <div className="col" style={{ gap: 8 }}>
-            {[['Apr 2026', 'paid'], ['May 2026', 'paid'], ['Jun 2026', 'pending']].map(([mo, st]) => (
+            {DEMO_HISTORY.map(([mo, st]) => (
               <div key={mo} className="spread" style={{ fontSize: '0.86rem' }}>
                 <span className="row gap"><IconReceipt size={14} /> {mo}</span>
                 <StatusPill status={st} />
@@ -181,7 +227,18 @@ function TenantDemo() {
         'See live status, credit balance and a 5-year payment history',
         'Download official receipts for every approved payment',
         'Get notices from the manager with an unread bell',
+        'Ask the AI assistant about your rent, balance, payment methods and receipts',
       ]} />
     </div>
   )
 }
+
+// Minimal top bar shared look — kept local so the tour renders correctly for a
+// logged-out visitor before the app theme hydrates.
+const PUB_TOP_CSS = `
+  .pub { min-height: 100vh; background: var(--bg); color: var(--text); }
+  .pub-top { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 16px 22px; max-width: 960px; margin: 0 auto; }
+  .pub-top-l { display: flex; align-items: center; gap: 12px; }
+  .pub-brand { font-weight: 800; font-size: 1.3rem; letter-spacing: -.02em; color: var(--text); text-decoration: none; }
+`

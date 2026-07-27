@@ -129,6 +129,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/demo" element={<Demo />} />
       {/* Public property marketplace — no login. */}
       <Route path="/rent" element={<PublicListings />} />
       <Route path="/rent/:id" element={<PublicListing />} />
@@ -155,7 +156,6 @@ export default function App() {
         <Route path="plan" element={<Plan />} />
         <Route path="branding" element={<Branding />} />
         <Route path="team" element={<Team />} />
-        <Route path="demo" element={<Demo />} />
       </Route>
 
       {/* Tenant app */}

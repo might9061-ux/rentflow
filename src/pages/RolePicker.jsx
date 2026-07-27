@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DEMO_MODE } from '../lib/db.js'
 import {
-  IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart, IconCheck,
+  IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart, IconCheck, IconSparkle,
 } from '../components/icons.jsx'
 import QuickUnlockCard from '../components/QuickUnlockCard.jsx'
 import InstallApp from '../components/InstallApp.jsx'
@@ -12,6 +12,7 @@ const FEATURES = [
   { icon: IconWallet, title: 'Collect rent online', sub: 'Tenants pay by card, EcoCash or proof upload. Every payment is logged with an instant receipt.' },
   { icon: IconBell, title: 'Reminders & notices', sub: 'Automatic rent reminders and one-tap notices over WhatsApp and SMS — no more chasing.' },
   { icon: IconChart, title: 'Finances in one place', sub: 'Collected, outstanding, arrears and payroll — a clear picture of every workspace.' },
+  { icon: IconSparkle, title: 'Built-in AI assistant', sub: 'Ask about arrears, approvals or your rent and get instant answers — for managers and tenants alike.' },
 ]
 
 const FAQS = [
@@ -36,6 +37,7 @@ export default function RolePicker() {
         <div className="lp-nav-in">
           <a className="lp-brand" href="#top"><span className="brand-mark sm">RL</span> RentLoja</a>
           <nav className="lp-nav-r">
+            <button className="lp-link" onClick={() => nav('/demo')}>View demo</button>
             <button className="lp-link" onClick={() => nav('/rent')}>Browse rentals</button>
             <button className="btn primary sm" onClick={goEnter}><IconKey size={14} /> Sign in</button>
           </nav>
@@ -54,6 +56,7 @@ export default function RolePicker() {
         </p>
         <div className="lp-cta">
           <button className="btn primary lg" onClick={() => nav('/manager/auth')}>Start your 7-day free trial <IconArrowRight size={16} /></button>
+          <button className="btn ghost lg" onClick={() => nav('/demo')}><IconSparkle size={16} /> View demo</button>
           <button className="btn ghost lg" onClick={() => nav('/rent')}>Browse rooms &amp; houses</button>
         </div>
         <div className="lp-trust"><IconCheck size={14} /> 7 days free · no charge today · cancel anytime</div>
