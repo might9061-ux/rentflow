@@ -43,9 +43,12 @@ router.patch('/:id', h(async (req, res) => {
 }))
 
 router.delete('/:id', h(async (req, res) => {
-  ok(await req.db.from('tenants').delete().eq('id', req.params.id))
-  // Also remove their auth login so a deleted tenant can't sign in (best-effort;
-  // fine if there was never an auth user, e.g. an unverified tenant).
+  // Soft-delete: keep the payment history for the manager's records (payments
+  // cascade off the tenant row, so a hard delete would erase them). Mark
+  // deleted_at, free the unit and remove the login; the row stays as the anchor.
+  ok(await req.db.from('tenants').update({
+    deleted_at: new Date().toISOString(), account_status: 'suspended', property_id: null, unit: '',
+  }).eq('id', req.params.id))
   try { await admin.auth.admin.deleteUser(req.params.id) } catch { /* no auth user */ }
   res.json({ deleted: true })
 }))

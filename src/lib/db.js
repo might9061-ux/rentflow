@@ -598,7 +598,11 @@ const sb = {
     return { tenant, tempPassword: res.temp_password }
   },
   async updateTenant(id, patch) { return ok(await supabase.from('tenants').update(patch).eq('id', id).select().single()) },
-  async deleteTenant(id) { ok(await supabase.from('tenants').delete().eq('id', id)); return { deleted: true } },
+  async deleteTenant(id) {
+    // Soft-delete so payments survive (see server route / migration 0034).
+    ok(await supabase.from('tenants').update({ deleted_at: new Date().toISOString(), account_status: 'suspended', property_id: null, unit: '' }).eq('id', id))
+    return { deleted: true }
+  },
   async resendCredentials(tenantId) {
     const tempPassword = genTempPassword()
     // Only the password changes — verification and account_status describe

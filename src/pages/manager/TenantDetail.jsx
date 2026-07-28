@@ -71,7 +71,7 @@ export default function TenantDetail() {
   const deleteNow = async () => {
     try {
       await db.deleteTenant(tenant.id)
-      toast.success('Tenant deleted', 'The record and its history were removed.')
+      toast.success('Tenant deleted', 'Their login and record were removed — payment history is kept in your Finances.')
       nav('/manager/tenants')
     } catch (e) { toast.error('Could not delete', e.message) }
   }
@@ -148,7 +148,7 @@ export default function TenantDetail() {
               ? <button className="btn ghost danger" onClick={() => setShowVacate(true)}>Vacate</button>
               : (<>
                   <button className="btn ghost" onClick={restore}>Restore</button>
-                  <button className="btn ghost danger" onClick={() => { if (window.confirm(`Permanently delete ${fullName(tenant)} and their payment history? This cannot be undone.`)) deleteNow() }}>Delete permanently</button>
+                  <button className="btn ghost danger" onClick={() => { if (window.confirm(`Permanently delete ${fullName(tenant)}? Their login and record are removed, but their payment history stays in your Finances.`)) deleteNow() }}>Delete permanently</button>
                 </>)}
           </div>
         </div>
@@ -218,7 +218,7 @@ export default function TenantDetail() {
             <button className="card pad" style={{ textAlign: 'left', cursor: 'pointer', borderColor: 'var(--danger)' }}
               onClick={() => { setShowVacate(false); deleteNow() }}>
               <div style={{ fontWeight: 600, color: 'var(--danger)' }}>Delete permanently now</div>
-              <div className="muted" style={{ fontSize: '0.85rem', marginTop: 3 }}>Removes the tenant and their payment history immediately. This cannot be undone.</div>
+              <div className="muted" style={{ fontSize: '0.85rem', marginTop: 3 }}>Removes the tenant and their login. Their <b>payment history stays</b> in your Finances. This cannot be undone.</div>
             </button>
           </div>
         </Modal>

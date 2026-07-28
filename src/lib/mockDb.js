@@ -1039,14 +1039,19 @@ export const mockApi = {
     save(d); return stripSecret(t)
   },
 
-  // Permanently remove a tenant and their payment history (demo equivalent of
-  // DELETE /api/tenants/:id).
+  // Permanently delete a tenant but KEEP their payment history for the manager's
+  // records. We soft-delete: mark deleted_at, remove the login, free the unit and
+  // hide them from every list — the row stays so their payments remain in
+  // Finances / totals, attributed to their name. (Demo equivalent of DELETE
+  // /api/tenants/:id.)
   async deleteTenant(id) {
     await delay(); const d = db()
     const t = d.tenants.find((x) => x.id === id)
     if (!canSeeTenant(d, t)) throw new Error('Not found in your workspace.')
-    d.tenants = d.tenants.filter((x) => x.id !== id)
-    d.payments = (d.payments || []).filter((p) => p.tenant_id !== id)
+    t.deleted_at = new Date().toISOString()
+    t.account_status = 'suspended'
+    t.property_id = null; t.unit = ''
+    t.password = null; t.temp_password = null // login removed
     save(d); return { deleted: true }
   },
 

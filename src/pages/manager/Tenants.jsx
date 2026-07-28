@@ -37,9 +37,11 @@ export default function Tenants() {
   }
   useEffect(() => { load() }, [userId])
 
-  // Vacated tenants are archived — kept for reference but out of the active roster.
-  const active = tenants.filter((t) => !t.vacated_at)
-  const past = tenants.filter((t) => t.vacated_at)
+  // Deleted tenants are hidden everywhere (their payments stay in Finances).
+  // Vacated ones are archived — kept for reference but out of the active roster.
+  const visible = tenants.filter((t) => !t.deleted_at)
+  const active = visible.filter((t) => !t.vacated_at)
+  const past = visible.filter((t) => t.vacated_at)
   // Plan capacity: block adding tenants once the plan (or free allowance) is full.
   const cap = manager ? capacityFor(manager) : Infinity
   const atCapacity = !!manager && active.length >= cap
