@@ -1032,11 +1032,22 @@ export const mockApi = {
     if (!canSeeTenant(d, t)) throw new Error('Not found in your workspace.')
     const allowed = ['property_id', 'first_name', 'last_name', 'email', 'phone', 'unit',
       'rent', 'due_day', 'lease_start', 'lease_end', 'lease_doc', 'lease_doc_name',
-      'status', 'credit_balance', 'account_status', 'avatar']
+      'status', 'credit_balance', 'account_status', 'avatar', 'vacated_at']
     allowed.forEach((k) => { if (k in patch) t[k] = patch[k] })
     if ('rent' in patch) t.rent = Number(patch.rent) || 0
     if ('credit_balance' in patch) t.credit_balance = Number(patch.credit_balance) || 0
     save(d); return stripSecret(t)
+  },
+
+  // Permanently remove a tenant and their payment history (demo equivalent of
+  // DELETE /api/tenants/:id).
+  async deleteTenant(id) {
+    await delay(); const d = db()
+    const t = d.tenants.find((x) => x.id === id)
+    if (!canSeeTenant(d, t)) throw new Error('Not found in your workspace.')
+    d.tenants = d.tenants.filter((x) => x.id !== id)
+    d.payments = (d.payments || []).filter((p) => p.tenant_id !== id)
+    save(d); return { deleted: true }
   },
 
   async resendCredentials(tenantId) {

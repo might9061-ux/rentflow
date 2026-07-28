@@ -44,6 +44,9 @@ router.patch('/:id', h(async (req, res) => {
 
 router.delete('/:id', h(async (req, res) => {
   ok(await req.db.from('tenants').delete().eq('id', req.params.id))
+  // Also remove their auth login so a deleted tenant can't sign in (best-effort;
+  // fine if there was never an auth user, e.g. an unverified tenant).
+  try { await admin.auth.admin.deleteUser(req.params.id) } catch { /* no auth user */ }
   res.json({ deleted: true })
 }))
 

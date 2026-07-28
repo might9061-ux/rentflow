@@ -7,10 +7,11 @@ import { money, fullName, fmtDate } from '../../lib/format.js'
 import { prettyPhone } from '../../lib/phone.js'
 import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
 import ReceiptModal from '../../components/Receipt.jsx'
+import Modal from '../../components/Modal.jsx'
 import TenantModal from './TenantModal.jsx'
 import CredentialsModal from './CredentialsModal.jsx'
 import RecordPaymentModal from './RecordPaymentModal.jsx'
-import { IconArrowRight, IconEdit, IconKey, IconReceipt, IconMail, IconPhone, IconWallet, IconDownload } from '../../components/icons.jsx'
+import { IconArrowRight, IconEdit, IconKey, IconReceipt, IconMail, IconPhone, IconWallet, IconDownload, IconClock } from '../../components/icons.jsx'
 import { downloadStatementCsv, printStatement } from '../../lib/statement.js'
 import { sendWhatsApp, receiptMessage } from '../../lib/whatsapp.js'
 import { formatPeriod } from '../../lib/billing.js'
@@ -30,6 +31,7 @@ export default function TenantDetail() {
   const [creds, setCreds] = useState(null)
   const [recording, setRecording] = useState(false)
   const [stmtOpen, setStmtOpen] = useState(false)
+  const [showVacate, setShowVacate] = useState(false)
 
   const load = async () => {
     const [t, pays, props] = await Promise.all([db.getTenant(id), db.listTenantPayments(id), db.listProperties(userId)])
@@ -48,12 +50,37 @@ export default function TenantDetail() {
   const totalPaid = approved.reduce((s, p) => s + Number(p.amount || 0), 0)
   const led = buildLedger({ payments, rent: Number(tenant.rent || 0), dueDay: tenant.due_day, startDate: tenant.lease_start || tenant.created_at })
   const credit = led.creditAdvance
+  const vacatedAt = tenant.vacated_at
 
   const resend = async () => {
     const { tempPassword } = await db.resendCredentials(tenant.id)
     toast.success('New credentials generated')
     setCreds({ tenant, tempPassword })
     load()
+  }
+
+  // Vacate = archive the tenancy: free their unit and block sign-in, but keep the
+  // record + payment history until the manager deletes it.
+  const vacate = async () => {
+    try {
+      await db.updateTenant(tenant.id, { vacated_at: new Date().toISOString(), account_status: 'suspended', property_id: null, unit: '' })
+      toast.success('Tenant vacated', 'Their record is archived and the unit is freed.')
+      setShowVacate(false); load()
+    } catch (e) { toast.error('Could not vacate', e.message) }
+  }
+  const deleteNow = async () => {
+    try {
+      await db.deleteTenant(tenant.id)
+      toast.success('Tenant deleted', 'The record and its history were removed.')
+      nav('/manager/tenants')
+    } catch (e) { toast.error('Could not delete', e.message) }
+  }
+  const restore = async () => {
+    try {
+      await db.updateTenant(tenant.id, { vacated_at: null, account_status: 'active' })
+      toast.success('Tenant restored', 'Re-assign their property and unit from Edit.')
+      load()
+    } catch (e) { toast.error('Could not restore', e.message) }
   }
 
   const brandOpts = {
@@ -112,11 +139,17 @@ export default function TenantDetail() {
                 showing one would hand out a credential that no longer works, and
                 issuing a fresh one would lock them out of the password they know.
                 A tenant who forgets theirs uses "Forgot password?" themselves. */}
-            {tenant.first_login && (
+            {!vacatedAt && tenant.first_login && (
               <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
             )}
-            <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>
+            {!vacatedAt && <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>}
             <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>
+            {!vacatedAt
+              ? <button className="btn ghost danger" onClick={() => setShowVacate(true)}>Vacate</button>
+              : (<>
+                  <button className="btn ghost" onClick={restore}>Restore</button>
+                  <button className="btn ghost danger" onClick={() => { if (window.confirm(`Permanently delete ${fullName(tenant)} and their payment history? This cannot be undone.`)) deleteNow() }}>Delete permanently</button>
+                </>)}
           </div>
         </div>
 
@@ -129,6 +162,13 @@ export default function TenantDetail() {
           <span className="pill neutral">{tenant.phone_verified ? '✓ Phone' : '✗ Phone'}</span>
         </div>
       </div>
+
+      {vacatedAt && (
+        <div className="banner gold" style={{ marginBottom: 20 }}>
+          <div className="b-ico"><IconClock size={18} /></div>
+          <div>This tenant <b>vacated</b> on {fmtDate(vacatedAt)}. Their unit is freed and access is off, but the record and payment history are kept for reference — <b>Restore</b> them or <b>Delete permanently</b> above.</div>
+        </div>
+      )}
 
       <div className="grid stats" style={{ marginBottom: 24 }}>
         <StatCard label="Monthly rent" value={money(tenant.rent)} icon={<IconWallet size={18} />} />
@@ -164,6 +204,25 @@ export default function TenantDetail() {
         </div>
       )}
 
+      {showVacate && (
+        <Modal title={`Vacate ${fullName(tenant)}`} onClose={() => setShowVacate(false)}
+          footer={<button className="btn ghost" onClick={() => setShowVacate(false)}>Cancel</button>}>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {fullName(tenant)} is moving out — their unit will be freed and their access turned off. Choose what happens to their record:
+          </p>
+          <div className="col" style={{ gap: 12 }}>
+            <button className="card pad" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={vacate}>
+              <div style={{ fontWeight: 600 }}>Keep the record (archive)</div>
+              <div className="muted" style={{ fontSize: '0.85rem', marginTop: 3 }}>Keeps their details and full payment history for reference. You can delete it any time later.</div>
+            </button>
+            <button className="card pad" style={{ textAlign: 'left', cursor: 'pointer', borderColor: 'var(--danger)' }}
+              onClick={() => { setShowVacate(false); deleteNow() }}>
+              <div style={{ fontWeight: 600, color: 'var(--danger)' }}>Delete permanently now</div>
+              <div className="muted" style={{ fontSize: '0.85rem', marginTop: 3 }}>Removes the tenant and their payment history immediately. This cannot be undone.</div>
+            </button>
+          </div>
+        </Modal>
+      )}
       {viewing && <ReceiptModal payment={viewing} tenant={tenant} manager={profile} property={property} onClose={() => setViewing(null)} onWhatsapp={() => resendReceipt(viewing)} />}
       {editing && (
         <TenantModal tenant={tenant} properties={properties} userId={userId}

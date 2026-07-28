@@ -99,6 +99,7 @@ export function createApiDb(sb) {
     listTenants: () => req('GET', '/api/tenants'),
     getTenant: (id) => req('GET', `/api/tenants/${id}`),
     updateTenant: (id, patch) => req('PATCH', `/api/tenants/${id}`, patch),
+    deleteTenant: (id) => req('DELETE', `/api/tenants/${id}`),
 
     // ── payments ─────────────────────────────────────────────────────────────
     listPayments: (_managerId, { status } = {}) =>

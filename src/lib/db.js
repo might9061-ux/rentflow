@@ -598,6 +598,7 @@ const sb = {
     return { tenant, tempPassword: res.temp_password }
   },
   async updateTenant(id, patch) { return ok(await supabase.from('tenants').update(patch).eq('id', id).select().single()) },
+  async deleteTenant(id) { ok(await supabase.from('tenants').delete().eq('id', id)); return { deleted: true } },
   async resendCredentials(tenantId) {
     const tempPassword = genTempPassword()
     // Only the password changes — verification and account_status describe

@@ -24,6 +24,7 @@ export default function Tenants() {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(null)
   const [creds, setCreds] = useState(null) // { tenant, tempPassword }
+  const [showPast, setShowPast] = useState(false) // active vs vacated tenants
 
   const load = async () => {
     const [t, p, m, pays] = await Promise.all([
@@ -36,9 +37,12 @@ export default function Tenants() {
   }
   useEffect(() => { load() }, [userId])
 
+  // Vacated tenants are archived — kept for reference but out of the active roster.
+  const active = tenants.filter((t) => !t.vacated_at)
+  const past = tenants.filter((t) => t.vacated_at)
   // Plan capacity: block adding tenants once the plan (or free allowance) is full.
   const cap = manager ? capacityFor(manager) : Infinity
-  const atCapacity = !!manager && tenants.length >= cap
+  const atCapacity = !!manager && active.length >= cap
 
   const propName = (id) => properties.find((p) => p.id === id)?.name || '—'
 
@@ -49,7 +53,8 @@ export default function Tenants() {
     load()
   }
 
-  const filtered = tenants.filter((t) => {
+  const base = showPast ? past : active
+  const filtered = base.filter((t) => {
     const q = query.toLowerCase()
     return !q || fullName(t).toLowerCase().includes(q) || t.email.toLowerCase().includes(q) || (t.unit || '').toLowerCase().includes(q)
   })
@@ -63,8 +68,8 @@ export default function Tenants() {
           <p>Everyone renting across your properties.</p>
         </div>
         <div className="row gap">
-          <button className="btn ghost" disabled={tenants.length === 0}
-            onClick={() => exportTenantsCsv(tenants, (id) => propName(id))}>
+          <button className="btn ghost" disabled={base.length === 0}
+            onClick={() => exportTenantsCsv(base, (id) => propName(id))}>
             <IconReceipt size={15} /> Export CSV
           </button>
           <button className="btn primary" onClick={() => setEditing({})} disabled={properties.length === 0 || atCapacity}>
@@ -83,7 +88,7 @@ export default function Tenants() {
           <div className="spread grow wrap" style={{ gap: 10 }}>
             <span>
               {manager.plan_active
-                ? `You’ve reached your plan capacity (${tenants.length}/${cap} tenants). Upgrade to add more.`
+                ? `You’ve reached your plan capacity (${active.length}/${cap} tenants). Upgrade to add more.`
                 : `You need an active plan to add tenants. Subscribe and pay your installment to get started.`}
             </span>
             <Link to="/manager/plan" className="btn primary sm">{manager.plan_active ? 'Upgrade plan' : 'Choose a plan'}</Link>
@@ -92,12 +97,20 @@ export default function Tenants() {
       )}
 
       <div className="card" style={{ marginBottom: 16, padding: 12 }}>
-        <input className="input" placeholder="Search by name, email or unit…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="row gap wrap" style={{ alignItems: 'center' }}>
+          <input className="input grow" placeholder="Search by name, email or unit…" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 200 }} />
+          {past.length > 0 && (
+            <div className="seg">
+              <button className={!showPast ? 'on' : ''} onClick={() => setShowPast(false)}>Active ({active.length})</button>
+              <button className={showPast ? 'on' : ''} onClick={() => setShowPast(true)}>Past ({past.length})</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {loading ? <div className="center" style={{ minHeight: 200 }}><Spinner /></div>
         : filtered.length === 0 ? (
-          <div className="card"><EmptyState icon="👤" title="No tenants found">{query ? 'Try a different search.' : 'Add your first tenant to get started.'}</EmptyState></div>
+          <div className="card"><EmptyState icon="👤" title="No tenants found">{query ? 'Try a different search.' : showPast ? 'No past (vacated) tenants.' : 'Add your first tenant to get started.'}</EmptyState></div>
         ) : (
           <div className="table-wrap">
             <table className="data">
