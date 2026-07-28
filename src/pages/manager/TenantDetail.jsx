@@ -51,6 +51,7 @@ export default function TenantDetail() {
   const led = buildLedger({ payments, rent: Number(tenant.rent || 0), dueDay: tenant.due_day, startDate: tenant.lease_start || tenant.created_at })
   const credit = led.creditAdvance
   const vacatedAt = tenant.vacated_at
+  const deletedAt = tenant.deleted_at
 
   const resend = async () => {
     const { tempPassword } = await db.resendCredentials(tenant.id)
@@ -139,17 +140,21 @@ export default function TenantDetail() {
                 showing one would hand out a credential that no longer works, and
                 issuing a fresh one would lock them out of the password they know.
                 A tenant who forgets theirs uses "Forgot password?" themselves. */}
-            {!vacatedAt && tenant.first_login && (
-              <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
-            )}
-            {!vacatedAt && <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>}
-            <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>
-            {!vacatedAt
-              ? <button className="btn ghost danger" onClick={() => setShowVacate(true)}>Vacate</button>
-              : (<>
-                  <button className="btn ghost" onClick={restore}>Restore</button>
-                  <button className="btn ghost danger" onClick={() => { if (window.confirm(`Permanently delete ${fullName(tenant)}? Their login and record are removed, but their payment history stays in your Finances.`)) deleteNow() }}>Delete permanently</button>
-                </>)}
+            {/* Deleted tenants are read-only "past residents": only the statement /
+                receipts remain. Everything else is hidden. */}
+            {!deletedAt && (<>
+              {!vacatedAt && tenant.first_login && (
+                <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
+              )}
+              {!vacatedAt && <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>}
+              <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>
+              {!vacatedAt
+                ? <button className="btn ghost danger" onClick={() => setShowVacate(true)}>Vacate</button>
+                : (<>
+                    <button className="btn ghost" onClick={restore}>Restore</button>
+                    <button className="btn ghost danger" onClick={() => { if (window.confirm(`Permanently delete ${fullName(tenant)}? Their login and record are removed, but their payment history stays in your Finances.`)) deleteNow() }}>Delete permanently</button>
+                  </>)}
+            </>)}
           </div>
         </div>
 
@@ -163,7 +168,12 @@ export default function TenantDetail() {
         </div>
       </div>
 
-      {vacatedAt && (
+      {deletedAt ? (
+        <div className="banner" style={{ marginBottom: 20 }}>
+          <div className="b-ico"><IconClock size={18} /></div>
+          <div><b>Past resident</b> — this tenant was deleted on {fmtDate(deletedAt)}. Their record is read-only, but their payment history is kept below for your records.</div>
+        </div>
+      ) : vacatedAt && (
         <div className="banner gold" style={{ marginBottom: 20 }}>
           <div className="b-ico"><IconClock size={18} /></div>
           <div>This tenant <b>vacated</b> on {fmtDate(vacatedAt)}. Their unit is freed and access is off, but the record and payment history are kept for reference — <b>Restore</b> them or <b>Delete permanently</b> above.</div>
