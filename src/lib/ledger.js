@@ -80,3 +80,14 @@ export function buildLedger({ payments = [], rent = 0, dueDay = 1, startDate } =
 
   return { cells, curKey, curIdx, curCell, creditAdvance, currentStatus, owedThisMonth, overdueAmount, overdueMonths, totalOwed, nextDue, monthsAhead, pendingByKey }
 }
+
+// Build a tenant's ledger from the manager's full payment list, and expose the
+// two headline figures other screens show. Deriving these everywhere means any
+// change to the payments — including a raw database edit — is always reflected.
+export function tenantLedger(tenant, allPayments = []) {
+  const pays = (allPayments || []).filter((p) => p.tenant_id === tenant.id)
+  return buildLedger({ payments: pays, rent: Number(tenant.rent || 0), dueDay: tenant.due_day, startDate: tenant.lease_start || tenant.created_at })
+}
+export const tenantCredit = (tenant, allPayments) => tenantLedger(tenant, allPayments).creditAdvance
+export const tenantTotalPaid = (tenant, allPayments = []) =>
+  (allPayments || []).filter((p) => p.tenant_id === tenant.id && p.status === 'approved').reduce((s, p) => s + Number(p.amount || 0), 0)

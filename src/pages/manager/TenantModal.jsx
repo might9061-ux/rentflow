@@ -33,7 +33,6 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
     unit: tenant?.unit || '', rent: tenant?.rent != null ? String(Math.round(Number(tenant.rent))) : propRent(properties.find((p) => p.id === initialPropId)), due_day: tenant?.due_day ?? 1,
     lease_start: tenant?.lease_start || '', lease_end: tenant?.lease_end || '', status: tenant?.status || 'pending',
     account_status: tenant?.account_status || 'pending_verification',
-    credit_balance: tenant?.credit_balance ?? 0,
     lease_doc: tenant?.lease_doc || null, lease_doc_name: tenant?.lease_doc_name || null,
   })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -89,8 +88,7 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
         ...form,
         rent: Number(form.rent) || 0,
         due_day: Number(form.due_day) || 1,
-        credit_balance: Number(form.credit_balance) || 0,
-        property_id: form.property_id || null,
+            property_id: form.property_id || null,
         // Date columns reject "" — send null when a lease date is left blank.
         lease_start: form.lease_start || null,
         lease_end: form.lease_end || null,
@@ -159,18 +157,14 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
           <Input label="Lease start" type="date" value={form.lease_start || ''} onChange={set('lease_start')} />
           <Input label="Lease end" type="date" value={form.lease_end || ''} onChange={set('lease_end')} />
         </Row>
-        <Row>
-          <Input label="Credit balance (USD)" type="number" min="0" step="0.01" value={form.credit_balance} onChange={set('credit_balance')}
-            hint="Advance carried forward" />
-          <div className="field">
-            <label>Lease document</label>
-            <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={onLeaseFile} style={{ display: 'none' }} />
-            <button type="button" className="btn ghost" onClick={() => fileRef.current?.click()} style={{ justifyContent: 'flex-start' }}>
-              <IconReceipt size={15} /> {form.lease_doc ? (form.lease_doc_name || 'Replace document') : 'Upload lease (PDF/image)'}
-            </button>
-            {form.lease_doc && <span className="hint" style={{ color: 'var(--green)' }}>Attached — tenants can download it.</span>}
-          </div>
-        </Row>
+        <div className="field">
+          <label>Lease document</label>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={onLeaseFile} style={{ display: 'none' }} />
+          <button type="button" className="btn ghost" onClick={() => fileRef.current?.click()} style={{ justifyContent: 'flex-start' }}>
+            <IconReceipt size={15} /> {form.lease_doc ? (form.lease_doc_name || 'Replace document') : 'Upload lease (PDF/image)'}
+          </button>
+          {form.lease_doc && <span className="hint" style={{ color: 'var(--green)' }}>Attached — tenants can download it.</span>}
+        </div>
 
         {!isNew && (
           <Row>
