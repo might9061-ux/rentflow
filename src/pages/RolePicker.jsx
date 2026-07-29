@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { DEMO_MODE, db, resetDemo } from '../lib/db.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
-  IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart, IconCheck, IconSparkle,
+  IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart, IconCheck, IconSparkle, IconWrench,
 } from '../components/icons.jsx'
 import { Spinner } from '../components/ui.jsx'
 import QuickUnlockCard from '../components/QuickUnlockCard.jsx'
@@ -171,11 +171,25 @@ export default function RolePicker() {
             </div>
           </div>
         </div>
-          <div className="lp-notif">
-            <div className="lp-notif-ic"><IconBell size={15} /></div>
+          <div className="lp-notif" style={{ animationDelay: '0s' }}>
+            <div className="lp-notif-ic green"><IconBell size={15} /></div>
             <div>
               <div className="lp-notif-t">Payment received</div>
               <div className="lp-notif-s">$600 · Tariro Gwe · EcoCash</div>
+            </div>
+          </div>
+          <div className="lp-notif" style={{ animationDelay: '4s' }}>
+            <div className="lp-notif-ic amber"><IconWrench size={15} /></div>
+            <div>
+              <div className="lp-notif-t">New maintenance request</div>
+              <div className="lp-notif-s">Leaking tap · Unit A2</div>
+            </div>
+          </div>
+          <div className="lp-notif" style={{ animationDelay: '8s' }}>
+            <div className="lp-notif-ic green"><IconBell size={15} /></div>
+            <div>
+              <div className="lp-notif-t">Payment received</div>
+              <div className="lp-notif-s">$400 · Kudzai Sibanda · Bank</div>
             </div>
           </div>
         </div>
@@ -326,19 +340,23 @@ export default function RolePicker() {
         .lp-notif { position: absolute; top: 62px; right: 20px; z-index: 3;
           display: flex; align-items: center; gap: 10px; padding: 10px 13px; border-radius: 12px;
           background: var(--surface); border: 1px solid var(--gold-line);
-          box-shadow: 0 20px 44px -18px rgba(0,0,0,0.45); animation: lpNotif 7.5s ease-in-out infinite; }
-        .lp-notif-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
-          background: var(--green-bg); color: var(--green); flex-shrink: 0; }
+          box-shadow: 0 20px 44px -18px rgba(0,0,0,0.45); animation: lpNotif 12s ease-in-out infinite backwards; }
+        .lp-notif-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; }
+        .lp-notif-ic.green { background: var(--green-bg); color: var(--green); }
+        .lp-notif-ic.amber { background: var(--gold-bg); color: var(--gold); }
         .lp-notif-t { font-weight: 600; font-size: 0.83rem; }
         .lp-notif-s { font-size: 0.73rem; color: var(--text-dim); }
+        /* Each notif is on the same 12s loop, staggered 4s apart, so one shows at a time. */
         @keyframes lpNotif {
-          0%, 6% { opacity: 0; transform: translateX(22px) scale(0.96); }
-          14%, 58% { opacity: 1; transform: translateX(0) scale(1); }
-          68%, 100% { opacity: 0; transform: translateX(22px) scale(0.96); }
+          0% { opacity: 0; transform: translateX(22px) scale(0.96); }
+          3% { opacity: 1; transform: translateX(0) scale(1); }
+          25% { opacity: 1; transform: translateX(0) scale(1); }
+          30%, 100% { opacity: 0; transform: translateX(22px) scale(0.96); }
         }
         @media (prefers-reduced-motion: reduce) {
           .lp-shot-frame { animation: none; }
-          .lp-notif { animation: none; opacity: 1; transform: none; }
+          .lp-notif { animation: none; opacity: 0; }
+          .lp-notif:first-child { opacity: 1; transform: none; }
         }
         .lp-shot-bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px;
           background: var(--bg-raised); border-bottom: 1px solid var(--line-soft); }
