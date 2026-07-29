@@ -326,29 +326,30 @@ const sb = {
 
   // Platform admin overview. RLS must restrict these tables to platform_admin.
   async adminOverview() {
-    const { platformFee } = await import('./fees.js')
+    const { feeFor } = await import('./fees.js')
     const [owners, agents, subs, tenants, approved] = await Promise.all([
       ok(await supabase.from('managers').select('id,first_name,last_name,brand_name,email,country,plan_active,plan_capacity,plan_price,created_at').eq('role', 'owner').neq('platform_admin', true)),
       ok(await supabase.from('managers').select('id,owner_id').eq('role', 'staff')),
       ok(await supabase.from('subscription_payments').select('*').order('created_at', { ascending: false })),
       ok(await supabase.from('tenants').select('manager_id')),
-      ok(await supabase.from('payments').select('manager_id,amount,fee,approved_at,paid_date,created_at').eq('status', 'approved')),
+      ok(await supabase.from('payments').select('manager_id,amount,fee,paid_online,approved_at,paid_date,created_at').eq('status', 'approved')),
     ])
     const name = (m) => `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || '—'
     const workspaces = owners.map((m) => {
       const ws = subs.filter((s) => s.manager_id === m.id)
-      const volume = approved.filter((p) => p.manager_id === m.id).reduce((s, p) => s + Number(p.amount), 0)
+      const mgrPays = approved.filter((p) => p.manager_id === m.id)
+      const volume = mgrPays.reduce((s, p) => s + Number(p.amount), 0)
       return { id: m.id, name: name(m), company: m.brand_name || name(m), email: m.email, country: m.country || 'ZW',
         plan_active: !!m.plan_active, plan_capacity: Number(m.plan_capacity) || 0, plan_price: Number(m.plan_price) || 0,
         tenants: tenants.filter((t) => t.manager_id === m.id).length,
         agents: agents.filter((a) => a.owner_id === m.id).length,
         total_paid: ws.reduce((s, x) => s + Number(x.amount), 0), payments: ws.length,
-        rent_volume: volume, fees: platformFee(volume),
+        rent_volume: volume, fees: mgrPays.reduce((s, p) => s + feeFor(p), 0),
         last_payment_at: ws[0]?.created_at || null, joined_at: m.created_at }
     }).sort((a, b) => b.total_paid - a.total_paid)
     const subscriptionRevenue = subs.reduce((s, x) => s + Number(x.amount), 0)
     const transactionVolume = approved.reduce((s, p) => s + Number(p.amount), 0)
-    const transactionFees = platformFee(transactionVolume)
+    const transactionFees = approved.reduce((s, p) => s + feeFor(p), 0)
     return {
       subscriptionRevenue, transactionVolume, transactionFees,
       totalRevenue: subscriptionRevenue + transactionFees,
@@ -356,7 +357,7 @@ const sb = {
       activeSubs: owners.filter((o) => o.plan_active).length, totalWorkspaces: owners.length,
       users: { tenants: tenants.length, managers: owners.length, agents: agents.length },
       subscriptions: subs.map((s) => ({ created_at: s.created_at, amount: Number(s.amount), manager_id: s.manager_id })),
-      transactions: approved.map((p) => ({ created_at: p.approved_at || p.paid_date || p.created_at, amount: Number(p.amount), fee: p.fee != null ? Number(p.fee) : platformFee(p.amount), manager_id: p.manager_id })),
+      transactions: approved.map((p) => ({ created_at: p.approved_at || p.paid_date || p.created_at, amount: Number(p.amount), fee: feeFor(p), manager_id: p.manager_id })),
       workspaces, recentPayments: subs.slice(0, 15).map((p) => ({ ...p, workspace: name(owners.find((o) => o.id === p.manager_id)) })),
     }
   },
@@ -440,21 +441,21 @@ const sb = {
       mrr: owners.filter((o) => o.plan_active).reduce((s, o) => s + (Number(o.plan_price) || 0), 0), payments }
   },
   async adminTransactions() {
-    const { platformFee } = await import('./fees.js')
+    const { feeFor } = await import('./fees.js')
     const [owners, tenants, approved] = await Promise.all([
       ok(await supabase.from('managers').select('id,first_name,last_name,brand_name').eq('role', 'owner').neq('platform_admin', true)),
       ok(await supabase.from('tenants').select('id,first_name,last_name')),
-      ok(await supabase.from('payments').select('id,manager_id,tenant_id,amount,fee,method,approved_at,paid_date,created_at').eq('status', 'approved').order('created_at', { ascending: false })),
+      ok(await supabase.from('payments').select('id,manager_id,tenant_id,amount,fee,paid_online,method,approved_at,paid_date,created_at').eq('status', 'approved').order('created_at', { ascending: false })),
     ])
     const name = (m) => `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || '—'
     const company = (o) => o?.brand_name || name(o)
     const payments = approved.map((p) => { const o = owners.find((x) => x.id === p.manager_id); return { id: p.id, manager_id: p.manager_id, created_at: p.approved_at || p.paid_date || p.created_at,
-      amount: Number(p.amount), fee: p.fee != null ? Number(p.fee) : platformFee(p.amount), method: p.method,
+      amount: Number(p.amount), fee: feeFor(p), method: p.method,
       workspace: company(o), manager: name(o), tenant: name(tenants.find((t) => t.id === p.tenant_id)) } })
     const byWorkspace = owners.map((m) => {
       const ws = approved.filter((p) => p.manager_id === m.id)
       const volume = ws.reduce((s, p) => s + Number(p.amount), 0)
-      return { id: m.id, name: company(m), manager: name(m), volume, fees: platformFee(volume), count: ws.length }
+      return { id: m.id, name: company(m), manager: name(m), volume, fees: ws.reduce((s, p) => s + feeFor(p), 0), count: ws.length }
     }).filter((w) => w.count > 0).sort((a, b) => b.fees - a.fees)
     return { totalVolume: payments.reduce((s, r) => s + r.amount, 0), totalFees: payments.reduce((s, r) => s + r.fee, 0),
       count: payments.length, byWorkspace, payments }

@@ -10,6 +10,9 @@ const router = Router()
 
 const FEE_RATE = 0.005
 const platformFee = (amt) => Math.round((Number(amt) || 0) * FEE_RATE * 100) / 100
+// Fee applies only to payments taken THROUGH the app (online gateway). Cash,
+// bank transfer or any "upload proof" payment happened outside the app: no fee.
+const feeFor = (p) => (p?.paid_online ? platformFee(p.amount) : 0)
 const name = (m) => `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || '—'
 
 // Gate: every /api/platform route requires the caller to be a platform admin.
@@ -138,24 +141,26 @@ router.get('/overview', h(async (req, res) => {
     ok(await admin.from('managers').select('id,owner_id').eq('role', 'staff')),
     ok(await admin.from('subscription_payments').select('*').order('created_at', { ascending: false })),
     ok(await admin.from('tenants').select('manager_id')),
-    ok(await admin.from('payments').select('manager_id,amount,fee,approved_at,paid_date,created_at').eq('status', 'approved')),
+    ok(await admin.from('payments').select('manager_id,amount,fee,paid_online,approved_at,paid_date,created_at').eq('status', 'approved')),
   ])
+  const transactionFees = approved.reduce((s, p) => s + feeFor(p), 0)
   const workspaces = owners.map((m) => {
     const ws = subs.filter((s) => s.manager_id === m.id)
-    const volume = approved.filter((p) => p.manager_id === m.id).reduce((s, p) => s + Number(p.amount), 0)
+    const mgrPays = approved.filter((p) => p.manager_id === m.id)
+    const volume = mgrPays.reduce((s, p) => s + Number(p.amount), 0)
     return { id: m.id, name: name(m), company: m.brand_name || name(m), email: m.email, country: m.country || 'ZW',
       plan_active: !!m.plan_active, plan_capacity: Number(m.plan_capacity) || 0, plan_price: Number(m.plan_price) || 0,
       tenants: tenants.filter((t) => t.manager_id === m.id).length,
       agents: agents.filter((a) => a.owner_id === m.id).length,
       total_paid: ws.reduce((s, x) => s + Number(x.amount), 0), payments: ws.length,
-      rent_volume: volume, fees: platformFee(volume),
+      rent_volume: volume, fees: mgrPays.reduce((s, p) => s + feeFor(p), 0),
       last_payment_at: ws[0]?.created_at || null, joined_at: m.created_at }
   }).sort((a, b) => b.total_paid - a.total_paid)
   const subscriptionRevenue = subs.reduce((s, x) => s + Number(x.amount), 0)
   const transactionVolume = approved.reduce((s, p) => s + Number(p.amount), 0)
   res.json({
-    subscriptionRevenue, transactionVolume, transactionFees: platformFee(transactionVolume),
-    totalRevenue: subscriptionRevenue + platformFee(transactionVolume),
+    subscriptionRevenue, transactionVolume, transactionFees,
+    totalRevenue: subscriptionRevenue + transactionFees,
     mrr: owners.filter((o) => o.plan_active).reduce((s, o) => s + (Number(o.plan_price) || 0), 0),
     activeSubs: owners.filter((o) => o.plan_active).length, totalWorkspaces: owners.length,
     users: { tenants: tenants.length, managers: owners.length, agents: agents.length },
@@ -174,7 +179,7 @@ router.get('/overview', h(async (req, res) => {
         method: s.method || '—',
       }
     }),
-    transactions: approved.map((p) => ({ created_at: p.approved_at || p.paid_date || p.created_at, amount: Number(p.amount), fee: p.fee != null ? Number(p.fee) : platformFee(p.amount), manager_id: p.manager_id })),
+    transactions: approved.map((p) => ({ created_at: p.approved_at || p.paid_date || p.created_at, amount: Number(p.amount), fee: feeFor(p), manager_id: p.manager_id })),
     workspaces,
   })
 }))
@@ -206,16 +211,16 @@ router.get('/transactions', h(async (_req, res) => {
   const [owners, tenants, approved] = await Promise.all([
     ok(await admin.from('managers').select('id,first_name,last_name,brand_name').eq('role', 'owner').neq('platform_admin', true)),
     ok(await admin.from('tenants').select('id,first_name,last_name')),
-    ok(await admin.from('payments').select('id,manager_id,tenant_id,amount,fee,method,approved_at,paid_date,created_at').eq('status', 'approved').order('created_at', { ascending: false })),
+    ok(await admin.from('payments').select('id,manager_id,tenant_id,amount,fee,paid_online,method,approved_at,paid_date,created_at').eq('status', 'approved').order('created_at', { ascending: false })),
   ])
   const company = (o) => o?.brand_name || name(o)
   const payments = approved.map((p) => { const o = owners.find((x) => x.id === p.manager_id); return { id: p.id, manager_id: p.manager_id, created_at: p.approved_at || p.paid_date || p.created_at,
-    amount: Number(p.amount), fee: p.fee != null ? Number(p.fee) : platformFee(p.amount), method: p.method,
+    amount: Number(p.amount), fee: feeFor(p), method: p.method,
     workspace: company(o), manager: name(o), tenant: name(tenants.find((t) => t.id === p.tenant_id)) } })
   const byWorkspace = owners.map((m) => {
     const ws = approved.filter((p) => p.manager_id === m.id)
     const volume = ws.reduce((s, p) => s + Number(p.amount), 0)
-    return { id: m.id, name: company(m), manager: name(m), volume, fees: platformFee(volume), count: ws.length }
+    return { id: m.id, name: company(m), manager: name(m), volume, fees: ws.reduce((s, p) => s + feeFor(p), 0), count: ws.length }
   }).filter((w) => w.count > 0).sort((a, b) => b.fees - a.fees)
   res.json({ totalVolume: payments.reduce((s, r) => s + r.amount, 0), totalFees: payments.reduce((s, r) => s + r.fee, 0),
     count: payments.length, byWorkspace, payments })

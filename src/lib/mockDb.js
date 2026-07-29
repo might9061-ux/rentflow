@@ -13,7 +13,7 @@ import { capacityFor } from './pricing.js'
 import { computeArrears } from './arrears.js'
 import { computeDueReminders, remindersEnabled } from './reminders.js'
 import { marketFor } from './markets.js'
-import { platformFee } from './fees.js'
+import { platformFee, feeFor } from './fees.js'
 
 const KEY = 'rentflow_db_v1'
 const SESSION_KEY = 'rentflow_session_v1'
@@ -558,7 +558,8 @@ export const mockApi = {
 
     const workspaces = owners.map((m) => {
       const ws = subs.filter((s) => s.manager_id === m.id).sort(byCreatedDesc)
-      const volume = approved.filter((p) => p.manager_id === m.id).reduce((s, p) => s + Number(p.amount), 0)
+      const mgrPays = approved.filter((p) => p.manager_id === m.id)
+      const volume = mgrPays.reduce((s, p) => s + Number(p.amount), 0)
       return {
         id: m.id, name: name(m), company: m.brand_name || name(m), email: m.email, country: m.country || 'ZW',
         plan_active: !!m.plan_active, plan_capacity: Number(m.plan_capacity) || 0, plan_price: Number(m.plan_price) || 0,
@@ -566,7 +567,7 @@ export const mockApi = {
         agents: d.managers.filter((x) => x.role === 'staff' && x.owner_id === m.id).length,
         total_paid: ws.reduce((s, x) => s + Number(x.amount), 0),
         payments: ws.length, last_payment_at: ws[0]?.created_at || null,
-        rent_volume: volume, fees: platformFee(volume),
+        rent_volume: volume, fees: mgrPays.reduce((s, p) => s + feeFor(p), 0),
         joined_at: m.created_at,
       }
     }).sort((a, b) => b.total_paid - a.total_paid)
@@ -577,7 +578,7 @@ export const mockApi = {
 
     const subscriptionRevenue = subs.reduce((s, x) => s + Number(x.amount), 0)
     const transactionVolume = approved.reduce((s, p) => s + Number(p.amount), 0)
-    const transactionFees = platformFee(transactionVolume)
+    const transactionFees = approved.reduce((s, p) => s + feeFor(p), 0)
 
     return {
       subscriptionRevenue, transactionVolume, transactionFees,
@@ -588,7 +589,7 @@ export const mockApi = {
       users: { tenants: d.tenants.length, managers: owners.length, agents: d.managers.filter((m) => m.role === 'staff').length },
       // Raw (lightweight) rows so the views can scope by time-frame & compare months.
       subscriptions: subs.map((s) => ({ created_at: s.created_at, amount: Number(s.amount), manager_id: s.manager_id })),
-      transactions: approved.map((p) => ({ created_at: p.approved_at || p.paid_date || p.created_at, amount: Number(p.amount), fee: p.fee != null ? Number(p.fee) : platformFee(p.amount), manager_id: p.manager_id })),
+      transactions: approved.map((p) => ({ created_at: p.approved_at || p.paid_date || p.created_at, amount: Number(p.amount), fee: feeFor(p), manager_id: p.manager_id })),
       workspaces, recentPayments,
     }
   },
@@ -734,13 +735,13 @@ export const mockApi = {
     const company = (o) => o?.brand_name || name(o)
     const payments = approved.map((p) => { const o = owners.find((x) => x.id === p.manager_id); return {
       id: p.id, manager_id: p.manager_id, created_at: p.approved_at || p.paid_date || p.created_at,
-      amount: Number(p.amount), fee: p.fee != null ? Number(p.fee) : platformFee(p.amount), method: p.method,
+      amount: Number(p.amount), fee: feeFor(p), method: p.method,
       workspace: company(o), manager: name(o), tenant: tname(d.tenants.find((t) => t.id === p.tenant_id)),
     } })
     const byWorkspace = owners.map((m) => {
       const ws = approved.filter((p) => p.manager_id === m.id)
       const volume = ws.reduce((s, p) => s + Number(p.amount), 0)
-      return { id: m.id, name: company(m), manager: name(m), volume, fees: platformFee(volume), count: ws.length }
+      return { id: m.id, name: company(m), manager: name(m), volume, fees: ws.reduce((s, p) => s + feeFor(p), 0), count: ws.length }
     }).filter((w) => w.count > 0).sort((a, b) => b.fees - a.fees)
     return {
       totalVolume: payments.reduce((s, r) => s + r.amount, 0),

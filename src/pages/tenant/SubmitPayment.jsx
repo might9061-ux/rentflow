@@ -63,7 +63,11 @@ export default function SubmitPayment() {
   const manualMethods = options.filter((o) => o.kind === 'manual' && accepted.includes(o.key)).map((o) => o.key)
   const showManual = manualMethods.length > 0
   const amt = Number(amount) || 0
-  const fee = platformFee(amt)        // 0.5% paid by the tenant, on top
+  // The platform fee only applies to payments made through the app (card /
+  // EcoCash express). Uploading proof of a cash/bank/etc. payment happened
+  // outside the app, so no fee is added.
+  const isOnline = method === 'card' || method === 'express'
+  const fee = isOnline ? platformFee(amt) : 0
   const total = amt + fee             // what the tenant actually pays
   const preview = amt > 0 ? previewPayment({ rent, creditBalance: credit, amount: amt, currentPaid }) : null
 
@@ -108,7 +112,9 @@ export default function SubmitPayment() {
         {amt > 0 && (
           <div className="fee-box">
             <div className="spread"><span className="muted">Rent</span><span className="mono">{money(amt)}</span></div>
-            <div className="spread"><span className="muted">Platform fee ({PLATFORM_FEE_LABEL})</span><span className="mono">{money(fee)}</span></div>
+            {fee > 0
+              ? <div className="spread"><span className="muted">Platform fee ({PLATFORM_FEE_LABEL})</span><span className="mono">{money(fee)}</span></div>
+              : <div className="spread"><span className="muted">Platform fee</span><span className="mono" style={{ color: 'var(--green)' }}>None</span></div>}
             <div className="spread fee-total"><b>Total to pay</b><b className="mono">{money(total)}</b></div>
           </div>
         )}
@@ -323,7 +329,7 @@ function ManualForm({ amt, fee, charge, userId, period, refresh, nav, methods, d
 
       <div className="fee-box" style={{ marginBottom: 14 }}>
         <div className="spread"><span className="muted">Rent</span><span className="mono">{money(amt)}</span></div>
-        <div className="spread"><span className="muted">Platform fee (0.5%)</span><span className="mono">{money(fee)}</span></div>
+        <div className="spread"><span className="muted">Platform fee</span><span className="mono" style={{ color: 'var(--green)' }}>None — paid outside the app</span></div>
         <div className="spread fee-total"><b>Total to send</b><b className="mono">{money(charge)}</b></div>
       </div>
 
