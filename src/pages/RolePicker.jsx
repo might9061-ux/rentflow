@@ -118,6 +118,7 @@ export default function RolePicker() {
 
       {/* A framed preview of the manager Overview — advertising the real app. */}
       <section className="lp-shot">
+        <div className="lp-shot-stage">
         <div className="lp-shot-frame">
           <div className="lp-shot-bar">
             <span className="lp-dot" style={{ background: '#e8705a' }} />
@@ -167,6 +168,14 @@ export default function RolePicker() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+          <div className="lp-notif">
+            <div className="lp-notif-ic"><IconBell size={15} /></div>
+            <div>
+              <div className="lp-notif-t">Payment received</div>
+              <div className="lp-notif-s">$600 · Tariro Gwe · EcoCash</div>
             </div>
           </div>
         </div>
@@ -308,8 +317,29 @@ export default function RolePicker() {
 
         /* Framed dashboard preview */
         .lp-shot { max-width: 920px; margin: 4px auto 0; padding: 8px 22px 0; }
+        .lp-shot-stage { position: relative; }
         .lp-shot-frame { border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
-          background: var(--surface); box-shadow: 0 44px 90px -46px rgba(0,0,0,0.55); }
+          background: var(--surface); box-shadow: 0 44px 90px -46px rgba(0,0,0,0.55);
+          transform-origin: center; animation: lpBreathe 6s ease-in-out infinite; }
+        @keyframes lpBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.018); } }
+        /* Incoming payment notification — slides in, holds, slides out, on a loop */
+        .lp-notif { position: absolute; top: 62px; right: 20px; z-index: 3;
+          display: flex; align-items: center; gap: 10px; padding: 10px 13px; border-radius: 12px;
+          background: var(--surface); border: 1px solid var(--gold-line);
+          box-shadow: 0 20px 44px -18px rgba(0,0,0,0.45); animation: lpNotif 7.5s ease-in-out infinite; }
+        .lp-notif-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+          background: var(--green-bg); color: var(--green); flex-shrink: 0; }
+        .lp-notif-t { font-weight: 600; font-size: 0.83rem; }
+        .lp-notif-s { font-size: 0.73rem; color: var(--text-dim); }
+        @keyframes lpNotif {
+          0%, 6% { opacity: 0; transform: translateX(22px) scale(0.96); }
+          14%, 58% { opacity: 1; transform: translateX(0) scale(1); }
+          68%, 100% { opacity: 0; transform: translateX(22px) scale(0.96); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lp-shot-frame { animation: none; }
+          .lp-notif { animation: none; opacity: 1; transform: none; }
+        }
         .lp-shot-bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px;
           background: var(--bg-raised); border-bottom: 1px solid var(--line-soft); }
         .lp-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
