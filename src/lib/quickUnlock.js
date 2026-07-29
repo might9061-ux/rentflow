@@ -12,6 +12,15 @@
 
 const VAULT_KEY = 'rentflow_unlock_v1'
 
+// The in-app lock screen is a phone convenience — leave the app, come back,
+// unlock with a PIN / fingerprint. On a desktop with a mouse it's just friction,
+// so the lock (and the offer to set it up) only engage on touch devices.
+export function isMobileDevice() {
+  try {
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches && (navigator.maxTouchPoints || 0) > 0)
+  } catch { return false }
+}
+
 function loadVault() {
   try { return JSON.parse(localStorage.getItem(VAULT_KEY)) || { accounts: [] } }
   catch { return { accounts: [] } }

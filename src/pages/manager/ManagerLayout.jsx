@@ -10,7 +10,7 @@ import QuickUnlockSetup from '../../components/QuickUnlockSetup.jsx'
 import ProfileModal from '../../components/ProfileModal.jsx'
 import SetAgentPassword from '../../components/SetAgentPassword.jsx'
 import GlobalSearch from '../../components/GlobalSearch.jsx'
-import { hasQuickUnlock } from '../../lib/quickUnlock.js'
+import { hasQuickUnlock, isMobileDevice } from '../../lib/quickUnlock.js'
 import {
   IconGrid, IconBuilding, IconUsers, IconCheckCircle, IconWallet,
   IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconTag, IconSparkle, IconPalette, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash, IconSearch, IconMail,
@@ -94,7 +94,7 @@ export default function ManagerLayout() {
   useEffect(() => {
     if (!userId || !profile) return
     const flag = `rentflow_ql_prompted_${userId}`
-    if (!hasQuickUnlock(userId) && !sessionStorage.getItem(flag)) {
+    if (isMobileDevice() && !hasQuickUnlock(userId) && !sessionStorage.getItem(flag)) {
       sessionStorage.setItem(flag, '1'); setShowQuickUnlock(true)
     }
   }, [userId, profile])

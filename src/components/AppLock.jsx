@@ -22,7 +22,8 @@ const GRACE_MS = 15_000 // brief app-switches (copying a reference, reading a te
 export default function AppLock() {
   const { session, userId, profile, signOut } = useAuth()
   const toast = useToast()
-  const secured = !!userId && (unlock.hasPin(userId) || unlock.hasBiometric(userId))
+  // Phones only — never lock on desktop (see isMobileDevice).
+  const secured = !!userId && unlock.isMobileDevice() && (unlock.hasPin(userId) || unlock.hasBiometric(userId))
 
   const [locked, setLocked] = useState(false)
   const [pin, setPin] = useState('')

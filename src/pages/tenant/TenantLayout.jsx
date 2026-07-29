@@ -8,7 +8,7 @@ import ChangePasswordModal from '../../components/ChangePasswordModal.jsx'
 import AssistantWidget from '../../components/AssistantWidget.jsx'
 import QuickUnlockSetup from '../../components/QuickUnlockSetup.jsx'
 import ProfileModal from '../../components/ProfileModal.jsx'
-import { hasQuickUnlock } from '../../lib/quickUnlock.js'
+import { hasQuickUnlock, isMobileDevice } from '../../lib/quickUnlock.js'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
 import { setActiveCurrency } from '../../lib/format.js'
 import { currencyByCode, marketFor } from '../../lib/markets.js'
@@ -62,7 +62,7 @@ export default function TenantLayout() {
   useEffect(() => {
     if (!userId || !profile || profile.first_login) return
     const flag = `rentflow_ql_prompted_${userId}`
-    if (!hasQuickUnlock(userId) && !sessionStorage.getItem(flag)) {
+    if (isMobileDevice() && !hasQuickUnlock(userId) && !sessionStorage.getItem(flag)) {
       sessionStorage.setItem(flag, '1'); setShowQuickUnlock(true)
     }
   }, [userId, profile])

@@ -6,6 +6,7 @@ import { db } from '../lib/db.js'
 import { fileToAvatar } from '../lib/upload.js'
 import { fullName, initials } from '../lib/format.js'
 import { prettyPhone } from '../lib/phone.js'
+import { hasQuickUnlock, forgetAccount } from '../lib/quickUnlock.js'
 import Modal from './Modal.jsx'
 import MfaSetup from './MfaSetup.jsx'
 import { IconMail, IconPhone, IconKey, IconLogout, IconTrash, IconSun, IconMoon, IconEye, IconShield } from './icons.jsx'
@@ -17,7 +18,15 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
   const { theme, toggle, textSize, setTextSize } = useTheme()
   const [showMfa, setShowMfa] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [hasLock, setHasLock] = useState(() => hasQuickUnlock(userId))
   const toast = useToast()
+
+  // Remove this device's app-lock PIN / fingerprint so it stops asking to unlock.
+  const removeLock = () => {
+    forgetAccount(userId)
+    setHasLock(false)
+    toast.success('App lock removed', 'This device won’t ask for a PIN anymore.')
+  }
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
 
@@ -76,6 +85,12 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
           <div className="pf-row">
             <span className="row gap muted"><IconShield size={15} /> Two-factor</span>
             <button className="btn ghost sm" onClick={() => setShowMfa(true)}>Set up</button>
+          </div>
+        )}
+        {hasLock && (
+          <div className="pf-row">
+            <span className="row gap muted"><IconKey size={15} /> App lock (PIN)</span>
+            <button className="btn ghost sm danger" onClick={removeLock}>Remove</button>
           </div>
         )}
       </div>
