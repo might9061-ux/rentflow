@@ -116,6 +116,63 @@ export default function RolePicker() {
         </div>
       </section>
 
+      {/* A framed preview of the manager Overview — advertising the real app. */}
+      <section className="lp-shot">
+        <div className="lp-shot-frame">
+          <div className="lp-shot-bar">
+            <span className="lp-dot" style={{ background: '#e8705a' }} />
+            <span className="lp-dot" style={{ background: '#e8b84b' }} />
+            <span className="lp-dot" style={{ background: '#5aad7e' }} />
+            <span className="lp-shot-url">rentloja.com/manager</span>
+          </div>
+          <div className="lp-shot-body">
+            <div className="eyebrow" style={{ color: 'var(--gold)' }}>Overview</div>
+            <div className="lp-shot-hi">Good day, Tendai</div>
+            <div className="lp-shot-stats">
+              {[
+                { l: 'Total collected', v: '$18,450', s: '42 payments', I: IconWallet },
+                { l: 'Outstanding', v: '$1,750', s: 'Unpaid tenants', I: IconChart },
+                { l: 'Occupancy', v: '82%', s: '18 / 22 units', I: IconBuilding },
+                { l: 'Pending', v: '3', s: 'To approve', I: IconCheck },
+              ].map(({ l, v, s, I }) => (
+                <div key={l} className="lp-stat">
+                  <div className="lp-stat-top"><span className="lp-stat-l">{l}</span><span className="lp-stat-ic"><I size={14} /></span></div>
+                  <div className="lp-stat-v">{v}</div>
+                  <div className="lp-stat-s">{s}</div>
+                </div>
+              ))}
+            </div>
+            <div className="lp-shot-lower">
+              <div className="lp-shot-card">
+                <div className="lp-shot-ct">Rent collection</div>
+                <div className="lp-donut">
+                  <svg viewBox="0 0 120 120" aria-hidden="true">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--line)" strokeWidth="13" />
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--green)" strokeWidth="13" strokeLinecap="round"
+                      strokeDasharray="287 314" transform="rotate(-90 60 60)" />
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#d98b5f" strokeWidth="13" strokeLinecap="round"
+                      strokeDasharray="27 314" strokeDashoffset="-289" transform="rotate(-90 60 60)" />
+                  </svg>
+                  <div className="lp-donut-c"><div className="lp-donut-v">$18,450</div><div className="lp-donut-l">Collected</div></div>
+                </div>
+              </div>
+              <div className="lp-shot-card">
+                <div className="lp-shot-ct">Recent payments</div>
+                <div className="lp-rows">
+                  {[['Tariro Gwe', '$600', 'EcoCash'], ['Rudo Chikore', '$350', 'Card'], ['Kudzai Sibanda', '$400', 'Bank Transfer']].map(([n, a, m]) => (
+                    <div key={n} className="lp-row">
+                      <div><div className="lp-row-n">{n}</div><div className="lp-row-m">{m}</div></div>
+                      <div className="lp-row-a">{a}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="lp-shot-cap">A live look at the manager dashboard.</div>
+      </section>
+
       {/* Sign in / role entry */}
       <section id="enter" className="lp-enter">
         <h2>Sign in to RentLoja</h2>
@@ -248,6 +305,43 @@ export default function RolePicker() {
           margin-top: 20px; padding: 10px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-soft); }
         .lp-demo-label { display: inline-flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 0.86rem; }
         .lp-demo-label svg { color: var(--gold); }
+
+        /* Framed dashboard preview */
+        .lp-shot { max-width: 920px; margin: 4px auto 0; padding: 8px 22px 0; }
+        .lp-shot-frame { border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
+          background: var(--surface); box-shadow: 0 44px 90px -46px rgba(0,0,0,0.55); }
+        .lp-shot-bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px;
+          background: var(--bg-raised); border-bottom: 1px solid var(--line-soft); }
+        .lp-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+        .lp-shot-url { margin-left: 12px; font-size: 0.74rem; color: var(--text-faint);
+          background: var(--surface); padding: 3px 14px; border-radius: 99px; border: 1px solid var(--line-soft); }
+        .lp-shot-body { padding: 20px; text-align: left; background: var(--bg); }
+        .lp-shot-hi { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; margin: 4px 0 16px; }
+        .lp-shot-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .lp-stat { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 12px; padding: 13px 14px; }
+        .lp-stat-top { display: flex; justify-content: space-between; align-items: center; }
+        .lp-stat-l { font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+        .lp-stat-ic { color: var(--gold); display: inline-flex; }
+        .lp-stat-v { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; margin-top: 6px; line-height: 1; }
+        .lp-stat-s { font-size: 0.72rem; color: var(--text-dim); margin-top: 4px; }
+        .lp-shot-lower { display: grid; grid-template-columns: 1fr 1.25fr; gap: 12px; margin-top: 12px; }
+        .lp-shot-card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 12px; padding: 15px; }
+        .lp-shot-ct { font-weight: 600; font-size: 0.9rem; margin-bottom: 10px; }
+        .lp-donut { position: relative; width: 132px; height: 132px; margin: 4px auto 0; }
+        .lp-donut svg { width: 100%; height: 100%; display: block; }
+        .lp-donut-c { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+        .lp-donut-v { font-family: var(--serif); font-weight: 700; font-size: 1.05rem; }
+        .lp-donut-l { font-size: 0.66rem; color: var(--text-faint); }
+        .lp-rows { display: flex; flex-direction: column; gap: 12px; }
+        .lp-row { display: flex; justify-content: space-between; align-items: center; }
+        .lp-row-n { font-weight: 600; font-size: 0.86rem; }
+        .lp-row-m { font-size: 0.74rem; color: var(--text-faint); }
+        .lp-row-a { font-family: var(--serif); font-weight: 600; color: var(--gold); }
+        .lp-shot-cap { text-align: center; color: var(--text-faint); font-size: 0.8rem; margin-top: 12px; }
+        @media (max-width: 640px) {
+          .lp-shot-stats { grid-template-columns: repeat(2, 1fr); }
+          .lp-shot-lower { grid-template-columns: 1fr; }
+        }
 
         /* Enter / sign-in */
         .lp-enter { max-width: 560px; margin: 0 auto; padding: 30px 22px 20px; text-align: center; }
