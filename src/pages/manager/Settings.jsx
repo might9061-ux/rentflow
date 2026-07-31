@@ -268,6 +268,11 @@ function GatewaySection({ wmId }) {
   const [intKey, setIntKey] = useState('')
   const [live, setLive] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Browsers autofill saved logins into a text field followed by a password
+  // field — which would inject the owner's email into the Integration key. Start
+  // the key fields readOnly (browsers don't autofill readonly inputs) and unlock
+  // on focus, so nothing gets filled behind the owner's back.
+  const [locked, setLocked] = useState(true)
 
   useEffect(() => {
     if (!wmId) return
@@ -284,6 +289,10 @@ function GatewaySection({ wmId }) {
   const savedName = GATEWAYS.find((p) => p.key === status.provider)?.name || 'Gateway'
 
   const save = async () => {
+    // Guard against an autofilled email ever being stored as a key.
+    if (intId.includes('@') || intKey.includes('@')) {
+      return toast.error('That looks like an email', `Paste your ${meta.name} keys (a long token), not your email.`)
+    }
     setBusy(true)
     try {
       const s = await db.savePaymentGateway(wmId, {
@@ -330,12 +339,16 @@ function GatewaySection({ wmId }) {
       <div className="field-row">
         <div className="field">
           <label>{meta.idLabel}</label>
-          <input className="input" value={intId} onChange={(e) => setIntId(e.target.value)} autoComplete="off"
+          <input className="input" value={intId} onChange={(e) => setIntId(e.target.value)}
+            readOnly={locked} onFocus={() => setLocked(false)}
+            autoComplete="off" name="pesepay-integration-id" data-lpignore="true" data-1p-ignore data-form-type="other" spellCheck={false}
             placeholder={status.connected ? '•••••••• saved — leave blank to keep' : `Your ${meta.name} ${meta.idLabel.toLowerCase()}`} />
         </div>
         <div className="field">
           <label>{meta.keyLabel}</label>
-          <input className="input" type="password" value={intKey} onChange={(e) => setIntKey(e.target.value)} autoComplete="off"
+          <input className="input" type="password" value={intKey} onChange={(e) => setIntKey(e.target.value)}
+            readOnly={locked} onFocus={() => setLocked(false)}
+            autoComplete="new-password" name="pesepay-encryption-key" data-lpignore="true" data-1p-ignore data-form-type="other" spellCheck={false}
             placeholder={status.connected ? '•••••••• saved — leave blank to keep' : `Your ${meta.name} ${meta.keyLabel.toLowerCase()}`} />
         </div>
       </div>
