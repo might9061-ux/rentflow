@@ -10,6 +10,7 @@ import {
 import { Spinner } from '../../components/ui.jsx'
 import { IconTag, IconCheck, IconUsers, IconWarn, IconWallet, IconReceipt } from '../../components/icons.jsx'
 import PlanCheckout from './PlanCheckout.jsx'
+import PlanGatewayCheckout from './PlanGatewayCheckout.jsx'
 
 function nextDue(from) {
   const d = new Date(from || Date.now())
@@ -350,8 +351,12 @@ export default function Plan() {
       <p className="hint" style={{ marginTop: 12 }}>Billed monthly. This is a demo; no real charge is made.</p>
 
       {checkout && (
-        <PlanCheckout {...checkout} manager={manager}
-          onClose={() => setCheckout(null)} onPaid={handlePaid} />
+        manager?.subscriptions_gateway_live && checkout.mode !== 'trial'
+          ? <PlanGatewayCheckout {...checkout}
+              onClose={() => setCheckout(null)}
+              onDone={async () => { setCheckout(null); await refresh(); await load() }} />
+          : <PlanCheckout {...checkout} manager={manager}
+              onClose={() => setCheckout(null)} onPaid={handlePaid} />
       )}
 
       <style>{`

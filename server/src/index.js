@@ -22,6 +22,7 @@ import otp from './routes/otp.js'
 import platform from './routes/platform.js'
 import paynowResult from './routes/paynowResult.js'
 import pesepayResult from './routes/pesepayResult.js'
+import pesepaySubscriptionResult from './routes/pesepaySubscriptionResult.js'
 import loginEvents from './routes/loginEvents.js'
 import authReset from './routes/authReset.js'
 import loginOtp from './routes/loginOtp.js'
@@ -61,6 +62,7 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'rentflow-api', 
 // — it authenticates itself by a hash keyed to the workspace's integration key.
 app.use('/paynow', paynowResult)
 app.use('/pesepay', pesepayResult)
+app.use('/pesepay-subscription', pesepaySubscriptionResult)
 
 // Public (pre-auth) — role-scoped password reset, before the auth gate.
 app.use('/api/auth', authReset)

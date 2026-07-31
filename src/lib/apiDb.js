@@ -172,6 +172,10 @@ export function createApiDb(sb) {
     // ── subscription (plan) payments ────────────────────────────────────────────
     recordSubscriptionPayment: (_managerId, data) => req('POST', '/api/subscriptions', data),
     listSubscriptionPayments: () => req('GET', '/api/subscriptions'),
+    // Pay the subscription into the PLATFORM's Pesepay: start → { payment,
+    // redirectUrl?, instructions? }; poll status until paid → the plan activates.
+    startSubscriptionPayment: (data) => req('POST', '/api/subscriptions/gateway/start', data),
+    subscriptionPaymentStatus: (id) => req('GET', `/api/subscriptions/gateway/status/${id}`),
 
     // ── payroll ──────────────────────────────────────────────────────────────────
     listPayees: () => req('GET', '/api/payroll/payees'),

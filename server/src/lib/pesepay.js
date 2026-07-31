@@ -2,12 +2,14 @@
 // Pesepay (Zimbabwe) — server-side gateway adapter.
 //
 // Same shape/interface as paynow.js so the gateway routes stay provider-agnostic
-// (see gateway.js). Rent goes to the LANDLORD: we build a Pesepay client from
-// the paying tenant's manager's own keys, held in `payment_credentials` and read
-// with the service role — never sent to the browser.
+// (see gateway.js). Two callers:
+//   • RENT → the LANDLORD's own keys (payment_credentials, per manager). Rent
+//     lands in that landlord's Pesepay wallet.
+//   • SUBSCRIPTIONS → the PLATFORM's own keys (env vars, one account). Landlords'
+//     RentLoja subscription fees land in the app owner's Pesepay wallet.
 //
 // Mapping onto the shared credentials columns:
-//   integration_id  = Pesepay INTEGRATION key
+//   integration_id  = Pesepay INTEGRATION key  (sent as the auth header)
 //   integration_key = Pesepay ENCRYPTION key   (the SDK uses it for AES-256-CBC)
 //
 // Flows:
@@ -29,6 +31,10 @@ const MOBILE_CODES = { ecocash: 'PZW211', innbucks: 'PZW212' }
 
 export function gatewayConfigured() { return !!API_BASE }
 
+// ── credentials ──────────────────────────────────────────────────────────────
+
+// A landlord's own Pesepay keys (for rent). Service role: RLS would hide these
+// from the tenant who is actually paying.
 export async function credentialsFor(managerId) {
   const { data, error } = await admin
     .from('payment_credentials')
@@ -43,36 +49,64 @@ export async function credentialsFor(managerId) {
   return data
 }
 
+// The PLATFORM's own Pesepay keys (for subscriptions), from Render env vars so
+// they never sit in the database or reach any browser.
+export function platformConfigured() {
+  return !!(API_BASE && process.env.PESEPAY_PLATFORM_INTEGRATION_KEY && process.env.PESEPAY_PLATFORM_ENCRYPTION_KEY)
+}
+export function platformCreds() {
+  const integration_id = process.env.PESEPAY_PLATFORM_INTEGRATION_KEY
+  const integration_key = process.env.PESEPAY_PLATFORM_ENCRYPTION_KEY
+  if (!integration_id || !integration_key) {
+    throw new Error('Subscription payments are not set up on the server yet (platform Pesepay keys missing).')
+  }
+  return { integration_id, integration_key, live: true }
+}
+
 function clientFor(creds) {
   return new PesePayClient(creds.integration_id, creds.integration_key)
 }
 
 // The SDK surfaces raw axios errors ("Request failed with status code 404"),
-// which tell a landlord nothing. Translate the common ones into something they
-// can act on — almost always a wrong integration/encryption key.
+// which tell a payer nothing. Translate the common ones into something they can
+// act on — almost always a wrong integration/encryption key.
 function pesepayError(e, fallback) {
   const status = e?.response?.status
   const data = e?.response?.data
   const detail = typeof data === 'string' ? data : (data?.message || data?.error || null)
   if (status === 401 || status === 403) {
-    return new Error('Pesepay rejected the integration key. Re-enter your Pesepay keys in Settings → Connect online payments.')
+    return new Error('Pesepay rejected the integration key. Re-check the keys in Settings → Connect online payments (or the platform keys on the server).')
   }
   if (status === 404) {
-    return new Error('Pesepay didn’t recognise this request — usually a wrong integration key (make sure you pasted the Integration key from Pesepay, not your email). Re-enter your Pesepay keys in Settings.')
+    return new Error('Pesepay didn’t recognise this request — usually a wrong integration key (make sure it’s the Integration key from Pesepay, not an email). Re-check the keys.')
   }
   return new Error(detail ? `Pesepay: ${detail}` : (e?.message || fallback))
 }
 
+// ── initiate ─────────────────────────────────────────────────────────────────
+
+// Rent: charge into the landlord's account.
 export async function initiate({ managerId, reference, email, amount, method, phone, description }) {
+  const creds = await credentialsFor(managerId)
+  return initiateWith(creds, { reference, email, amount, method, phone, description,
+    resultPath: '/pesepay/result', returnPath: '/tenant/history' })
+}
+
+// Subscription: charge into the platform's account.
+export async function initiatePlatform({ reference, email, amount, method, phone, description }) {
+  return initiateWith(platformCreds(), { reference, email, amount, method, phone, description,
+    resultPath: '/pesepay-subscription/result', returnPath: '/manager/plan' })
+}
+
+async function initiateWith(creds, { reference, email, amount, method, phone, description, resultPath, returnPath }) {
   if (!API_BASE) throw new Error('Online payments are not configured on the server (PUBLIC_API_URL missing).')
   const amt = Number(amount)
   if (!Number.isFinite(amt) || amt <= 0) throw new Error('Enter a valid amount.')
 
-  const creds = await credentialsFor(managerId)
   const client = clientFor(creds)
   const currencyCode = 'USD'
-  const resultUrl = `${API_BASE}/pesepay/result` // server-to-server outcome
-  const returnUrl = `${APP_BASE}/tenant/history`  // where the payer lands after
+  const resultUrl = `${API_BASE}${resultPath}` // server-to-server outcome
+  const returnUrl = `${APP_BASE}${returnPath}`  // where the payer lands after
 
   const mobileCode = MOBILE_CODES[method]
   if (mobileCode) {
@@ -81,7 +115,7 @@ export async function initiate({ managerId, reference, email, amount, method, ph
       res = await client.makeSeamlessPayment({
         amountDetails: { amount: amt, currencyCode },
         merchantReference: reference,
-        reasonForPayment: description || 'Rent payment',
+        reasonForPayment: description || 'Payment',
         resultUrl,
         paymentMethodCode: mobileCode,
         customer: { phoneNumber: phone, email: email || undefined },
@@ -102,7 +136,7 @@ export async function initiate({ managerId, reference, email, amount, method, ph
     res = await client.initiateTransaction({
       amountDetails: { amount: amt, currencyCode },
       merchantReference: reference,
-      reasonForPayment: description || 'Rent payment',
+      reasonForPayment: description || 'Payment',
       resultUrl,
       returnUrl,
     })
@@ -115,9 +149,16 @@ export async function initiate({ managerId, reference, email, amount, method, ph
   }
 }
 
+// ── status ───────────────────────────────────────────────────────────────────
+
 // Ask Pesepay where a transaction stands, by reference. 'paid' | 'pending' | 'cancelled'.
 export async function poll({ managerId, reference }) {
-  const creds = await credentialsFor(managerId)
+  return pollWith(await credentialsFor(managerId), reference)
+}
+export async function pollPlatform(reference) {
+  return pollWith(platformCreds(), reference)
+}
+async function pollWith(creds, reference) {
   try {
     const status = await clientFor(creds).checkPaymentStatus(reference)
     return normalise(status)
@@ -132,6 +173,7 @@ export async function parseResult(body, creds) {
   const status = await clientFor(creds).checkPaymentStatus(reference)
   return { state: normalise(status), reference }
 }
+export function parseResultPlatform(body) { return parseResult(body, platformCreds()) }
 
 function normalise(status) {
   if (status?.paid === true) return 'paid'

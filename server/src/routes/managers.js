@@ -3,12 +3,17 @@
 import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
 import { admin, verifyPassword } from '../supabase.js'
+import * as pesepay from '../lib/pesepay.js'
 
 const router = Router()
 
 // GET /api/managers/me — the signed-in manager's profile.
 router.get('/me', h(async (req, res) => {
-  res.json(ok(await req.db.from('managers').select('*').eq('id', req.user.id).single()))
+  const me = ok(await req.db.from('managers').select('*').eq('id', req.user.id).single())
+  // Whether the platform can take a real subscription charge (its Pesepay keys
+  // are configured on the server). Drives the Plan page: real checkout when on,
+  // the trust-based activation while it's not.
+  res.json({ ...me, subscriptions_gateway_live: pesepay.platformConfigured() })
 }))
 
 // GET /api/managers/workspace — the OWNER profile for the caller's workspace
