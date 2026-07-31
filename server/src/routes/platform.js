@@ -9,7 +9,8 @@ import { logAdmin } from '../lib/audit.js'
 const router = Router()
 
 const FEE_RATE = 0.005
-const platformFee = (amt) => Math.round((Number(amt) || 0) * FEE_RATE * 100) / 100
+const FEE_CAP = 5 // never more than $5 on a single payment
+const platformFee = (amt) => Math.round(Math.min((Number(amt) || 0) * FEE_RATE, FEE_CAP) * 100) / 100
 // Fee applies only to payments taken THROUGH the app (online gateway). Cash,
 // bank transfer or any "upload proof" payment happened outside the app: no fee.
 const feeFor = (p) => (p?.paid_online ? platformFee(p.amount) : 0)

@@ -7,10 +7,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const PLATFORM_FEE_RATE = 0.005 // 0.5%
-export const PLATFORM_FEE_LABEL = '0.5%'
+export const PLATFORM_FEE_CAP = 5    // never more than $5 on a single payment
+export const PLATFORM_FEE_LABEL = '0.5% (max $5)'
 
 export function platformFee(amount) {
-  return Math.round((Number(amount) || 0) * PLATFORM_FEE_RATE * 100) / 100
+  const raw = (Number(amount) || 0) * PLATFORM_FEE_RATE
+  return Math.round(Math.min(raw, PLATFORM_FEE_CAP) * 100) / 100
 }
 
 // The fee only applies to payments made THROUGH the app (the online gateway).
