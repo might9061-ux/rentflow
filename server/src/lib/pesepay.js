@@ -73,14 +73,21 @@ function clientFor(creds) {
 function pesepayError(e, fallback) {
   const status = e?.response?.status
   const data = e?.response?.data
-  const detail = typeof data === 'string' ? data : (data?.message || data?.error || null)
+  const detail = typeof data === 'string' ? data : (data?.message || data?.error || data?.reason || null)
+  // Log the raw gateway response so Render logs show exactly what Pesepay said.
+  try {
+    const dump = typeof data === 'string' ? data : JSON.stringify(data)
+    console.error(`[pesepay] gateway error status=${status} body=${(dump || '').slice(0, 400)}`)
+  } catch { /* ignore logging failure */ }
+  // Prefer Pesepay's own message when it gives one — it's the real reason.
+  if (detail) return new Error(`Pesepay says: ${detail}`)
   if (status === 401 || status === 403) {
     return new Error('Pesepay rejected the integration key. Re-check the keys in Settings → Connect online payments (or the platform keys on the server).')
   }
   if (status === 404) {
-    return new Error('Pesepay didn’t recognise this request — usually a wrong integration key (make sure it’s the Integration key from Pesepay, not an email). Re-check the keys.')
+    return new Error('Pesepay didn’t recognise this request — the integration key is wrong, or the keys are swapped, or your Pesepay account has no application/charge type set up yet.')
   }
-  return new Error(detail ? `Pesepay: ${detail}` : (e?.message || fallback))
+  return new Error(e?.message || fallback)
 }
 
 // ── initiate ─────────────────────────────────────────────────────────────────
