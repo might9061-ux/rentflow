@@ -91,8 +91,17 @@ async function onEitherHost(creds, fn) {
   try {
     return await fn(clientFor(creds, PROD_BASE))
   } catch (e) {
-    if (isKeyNotFound(e)) return await fn(clientFor(creds, TEST_BASE))
-    throw e
+    if (!isKeyNotFound(e)) throw e
+    try {
+      return await fn(clientFor(creds, TEST_BASE))
+    } catch (e2) {
+      // Rejected on BOTH hosts → the stored integration key isn't a real Pesepay
+      // key anywhere. Log a safe fingerprint (prefix + length only) so we can
+      // tell whether the right value is stored, without exposing the secret.
+      const id = String(creds?.integration_id || '')
+      console.error(`[pesepay] integration key not found on live OR test host. id_prefix="${id.slice(0, 6)}" id_len=${id.length}`)
+      throw e2
+    }
   }
 }
 
