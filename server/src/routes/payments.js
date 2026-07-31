@@ -71,6 +71,10 @@ router.post('/gateway/start', h(async (req, res) => {
     tenant_id: req.user.id, manager_id: t.manager_id,
     amount: rent, fee: feeAmt, method: method || 'card', payer_phone: phone || null,
     period_from, period_to,
+    // Set the same fields a manual/online payment does, so the receipt and the
+    // date-based finance views treat it like any other payment.
+    paid_date: new Date().toISOString().slice(0, 10),
+    reference: started.reference || reference,
     paid_online: true, status: 'pending',
     // Pesepay returns its own reference; fall back to ours (Paynow uses ours).
     gateway_ref: started.reference || reference, gateway_poll_url: started.pollUrl,
