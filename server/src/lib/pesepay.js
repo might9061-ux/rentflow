@@ -66,8 +66,10 @@ export function platformCreds() {
 // Pesepay runs two parallel environments on different hosts: live keys are
 // recognised on the production host, sandbox/test keys only on the test host.
 // The SDK hardcodes production, so we override its axios baseURL per host.
+// NB the two differ by more than the host: sandbox has no "/api/" path segment.
+// (per Pesepay's API docs — Production vs Sandbox endpoints.)
 const PROD_BASE = 'https://api.pesepay.com/api/payments-engine/'
-const TEST_BASE = 'https://api.test.pesepay.com/api/payments-engine/'
+const TEST_BASE = 'https://api.test.sandbox.pesepay.com/payments-engine/'
 
 function clientFor(creds, base) {
   const c = new PesePayClient(creds.integration_id, creds.integration_key)
