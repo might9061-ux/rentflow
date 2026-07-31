@@ -39,6 +39,7 @@ export default function SubmitPayment() {
   const [method, setMethod] = useState(null) // 'card' | 'express' | 'manual'
   const [amount, setAmount] = useState(rent || '')
   const [refundsOn, setRefundsOn] = useState(null)
+  const [liveGateway, setLiveGateway] = useState(false) // landlord's real gateway is on
   const [submitted, setSubmitted] = useState(null) // awaiting-approval confirmation
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function SubmitPayment() {
       const acc = acceptedMethods(m)
       setOptions(opts); setAccepted(acc)
       setRefundsOn(!!m?.refunds_enabled)
+      setLiveGateway(!!m?.online_payments_live)
       setPayDetails(m?.payment_details || {})
       const sCard = acc.includes('card')
       const expr = opts.find((o) => o.kind === 'online' && o.key !== 'card' && acc.includes(o.key))
@@ -151,8 +153,9 @@ export default function SubmitPayment() {
               icon={<IconReceipt size={20} />} title="Upload proof" sub={manualMethods.slice(0, 3).join(', ')} />}
           </div>
 
-          {method === 'card' && <CardForm amt={amt} charge={total} onPaid={finishOnline} />}
-          {method === 'express' && <ExpressForm amt={amt} charge={total} label={expressOpt.label.replace(' express', '')} defaultPhone={profile?.phone} onPaid={finishOnline} />}
+          {method === 'card' && <CardForm live={liveGateway} amt={amt} fee={fee} charge={total} period={period} nav={nav} onPaid={finishOnline} />}
+          {method === 'express' && <ExpressForm live={liveGateway} methodKey={expressOpt.key} amt={amt} fee={fee} charge={total} period={period} nav={nav}
+            label={expressOpt.label.replace(' express', '')} defaultPhone={profile?.phone} onPaid={finishOnline} />}
           {method === 'manual' && <ManualForm amt={amt} fee={fee} charge={total} userId={userId} period={period} refresh={refresh} nav={nav} methods={manualMethods} details={payDetails} />}
         </>
       )}
@@ -187,7 +190,7 @@ function MethodTile({ active, onClick, icon, title, sub }) {
 }
 
 // ── Card ────────────────────────────────────────────────────────────────────
-function CardForm({ amt, charge, onPaid }) {
+function CardForm({ live, amt, fee, charge, period, onPaid }) {
   const toast = useToast()
   const [num, setNum] = useState('')
   const [exp, setExp] = useState('')
@@ -195,6 +198,36 @@ function CardForm({ amt, charge, onPaid }) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const brand = detectBrand(num)
+
+  // LIVE: hand off to the provider's hosted checkout page. Card details are
+  // entered there, never on our page (so no card data touches RentLoja). The
+  // server already created the pending payment; the gateway webhook settles it
+  // and the payer lands back on their payment history.
+  const startHosted = async () => {
+    if (amt <= 0) return toast.error('Enter an amount first')
+    setBusy(true)
+    try {
+      const { redirectUrl } = await db.startGatewayPayment({
+        amount: amt, fee, method: 'card', period_from: period.from, period_to: period.to,
+      })
+      if (!redirectUrl) throw new Error('The gateway did not return a checkout link. Try another method.')
+      window.location.href = redirectUrl
+    } catch (err) { toast.error('Could not start payment', err.message); setBusy(false) }
+  }
+
+  if (live) {
+    return (
+      <div className="card pad">
+        <div className="banner" style={{ marginBottom: 12 }}>
+          <div className="b-ico"><IconWallet size={18} /></div>
+          <div style={{ fontSize: '.9rem' }}>You’ll be taken to a secure checkout page to enter your card details. RentLoja never sees your card number.</div>
+        </div>
+        <button className="btn primary block lg" disabled={busy} onClick={startHosted}>
+          {busy ? <><Spinner /> Opening secure checkout…</> : <>Pay {money(charge)} <IconArrowRight size={16} /></>}
+        </button>
+      </div>
+    )
+  }
 
   const pay = async (e) => {
     e.preventDefault()
@@ -225,7 +258,7 @@ function CardForm({ amt, charge, onPaid }) {
 }
 
 // ── Mobile-money express (EcoCash / M-Pesa / …) ─────────────────────────────
-function ExpressForm({ amt, charge, label, defaultPhone, onPaid }) {
+function ExpressForm({ live, methodKey, amt, fee, charge, period, nav, label, defaultPhone, onPaid }) {
   const toast = useToast()
   const [phone, setPhone] = useState(defaultPhone || '')
   const [stage, setStage] = useState('form') // form | pushing | awaiting
@@ -234,8 +267,30 @@ function ExpressForm({ amt, charge, label, defaultPhone, onPaid }) {
   const start = async (e) => {
     e.preventDefault()
     if (amt <= 0) return toast.error('Enter an amount first')
+    pollRef.current = { id: null, stop: false }
     setStage('pushing')
     try {
+      if (live) {
+        // REAL gateway: create the pending payment + push a PIN prompt to the
+        // handset, then poll the SERVER (never the client's word) until the
+        // gateway confirms it. The server records + approves it on confirmation,
+        // so there's no client-side insert here.
+        const { payment } = await db.startGatewayPayment({
+          amount: amt, fee, method: methodKey, phone, period_from: period.from, period_to: period.to,
+        })
+        setStage('awaiting')
+        for (let i = 0; i < 40; i++) {
+          if (pollRef.current.stop) return
+          await new Promise((r) => setTimeout(r, 3000))
+          const { state } = await db.gatewayPaymentStatus(payment.id)
+          if (state === 'paid') { toast.success('Payment received', 'Your receipt is ready.'); nav('/tenant/history'); return }
+          if (state === 'cancelled') { toast.error('Payment not authorised', 'The request was declined or timed out.'); setStage('form'); return }
+        }
+        toast.error('Request timed out', 'You didn’t approve it in time. Try again.')
+        setStage('form')
+        return
+      }
+
       const { pollId } = await initiateEcocash({ phone, amount: charge, reference: 'RENT' })
       pollRef.current = { id: pollId, stop: false }
       setStage('awaiting')
@@ -280,7 +335,9 @@ function ExpressForm({ amt, charge, label, defaultPhone, onPaid }) {
       <Input label={`${label} number making the payment`} value={phone} onChange={(e) => setPhone(e.target.value)}
         type="tel" placeholder="0772 123 456" required
         hint="A PIN prompt is pushed to this number to authorise the payment." />
-      <p className="hint" style={{ marginBottom: 12 }}>🔒 Demo gateway — no real money moves. The prompt auto-approves after a few seconds (a number ending 0000 simulates a decline).</p>
+      <p className="hint" style={{ marginBottom: 12 }}>{live
+        ? `🔒 A payment request is sent to ${label}. Approve it with your PIN on your phone to complete.`
+        : '🔒 Demo gateway — no real money moves. The prompt auto-approves after a few seconds (a number ending 0000 simulates a decline).'}</p>
       <button className="btn primary block lg"><IconPhone size={16} /> Send payment request for {money(charge)}</button>
     </form>
   )

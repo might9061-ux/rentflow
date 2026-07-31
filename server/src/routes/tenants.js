@@ -15,7 +15,17 @@ router.get('/', h(async (req, res) => {
 // client but strictly scoped to the tenant's own manager_id.
 router.get('/me/manager', h(async (req, res) => {
   const me = ok(await req.db.from('tenants').select('manager_id').eq('id', req.user.id).single())
-  res.json(ok(await admin.from('managers').select('*').eq('id', me.manager_id).single()))
+  const manager = ok(await admin.from('managers').select('*').eq('id', me.manager_id).single())
+  // Whether this landlord's online gateway is connected AND switched live — a
+  // plain boolean so the tenant portal can offer a real online payment. The
+  // keys themselves are never exposed to the tenant.
+  const { data: creds } = await admin.from('payment_credentials')
+    .select('provider, live, integration_id, integration_key').eq('manager_id', me.manager_id).maybeSingle()
+  res.json({
+    ...manager,
+    online_payments_live: !!(creds?.live && creds?.integration_id && creds?.integration_key),
+    online_payments_provider: creds?.provider || null,
+  })
 }))
 
 // POST /api/tenants/me/delete — a tenant permanently deletes their own account.

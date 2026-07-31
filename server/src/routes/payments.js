@@ -47,7 +47,13 @@ router.post('/online', h(async (req, res) => {
 router.post('/gateway/start', h(async (req, res) => {
   const t = ok(await req.db.from('tenants')
     .select('manager_id, first_name, last_name, email').eq('id', req.user.id).single())
-  const { amount, method, phone, period_from, period_to } = req.body || {}
+  const { amount, fee, method, phone, period_from, period_to } = req.body || {}
+
+  // The tenant is charged rent + the platform fee; the record keeps them apart
+  // (amount = rent, fee = platform fee) so receipts and finances read correctly.
+  const rent = Number(amount) || 0
+  const feeAmt = Number(fee) || 0
+  const charge = rent + feeAmt
 
   const reference = `RENT-${Date.now().toString(36).toUpperCase()}`
   const gw = await adapterFor(t.manager_id)
@@ -55,7 +61,7 @@ router.post('/gateway/start', h(async (req, res) => {
     managerId: t.manager_id,
     reference,
     email: t.email || req.user.email,
-    amount,
+    amount: charge,
     method,
     phone,
     description: `Rent — ${[t.first_name, t.last_name].filter(Boolean).join(' ')}`,
@@ -63,7 +69,7 @@ router.post('/gateway/start', h(async (req, res) => {
 
   const row = ok(await req.db.from('payments').insert({
     tenant_id: req.user.id, manager_id: t.manager_id,
-    amount, method: method || 'card', payer_phone: phone || null,
+    amount: rent, fee: feeAmt, method: method || 'card', payer_phone: phone || null,
     period_from, period_to,
     paid_online: true, status: 'pending',
     // Pesepay returns its own reference; fall back to ours (Paynow uses ours).

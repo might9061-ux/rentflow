@@ -9,6 +9,7 @@ import managers from './routes/managers.js'
 import properties from './routes/properties.js'
 import tenants from './routes/tenants.js'
 import payments from './routes/payments.js'
+import paymentGateway from './routes/paymentGateway.js'
 import notifications from './routes/notifications.js'
 import maintenance from './routes/maintenance.js'
 import expenses from './routes/expenses.js'
@@ -78,6 +79,7 @@ app.use('/api/managers', managers)
 app.use('/api/properties', properties)
 app.use('/api/tenants', tenants)
 app.use('/api/payments', payments)
+app.use('/api/payment-gateway', paymentGateway)
 app.use('/api/notifications', notifications)
 app.use('/api/maintenance', maintenance)
 app.use('/api/expenses', expenses)

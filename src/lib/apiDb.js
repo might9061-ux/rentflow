@@ -110,6 +110,17 @@ export function createApiDb(sb) {
     rejectPayment: (paymentId, reason) => req('POST', `/api/payments/${paymentId}/reject`, { reason }),
     recordCashPayment: (tenantId, data) => req('POST', '/api/payments/log', { tenant_id: tenantId, ...data }),
 
+    // ── online-payment gateway (owner connects Paynow / Pesepay) ───────────────
+    // Status only comes back (never the secret keys). id arg is ignored — the
+    // server derives the workspace owner from the caller.
+    getPaymentGateway: (_managerId) => req('GET', '/api/payment-gateway'),
+    savePaymentGateway: (_managerId, patch) => req('PUT', '/api/payment-gateway', patch),
+    disconnectPaymentGateway: (_managerId) => req('DELETE', '/api/payment-gateway'),
+    // Tenant-side: run a REAL gateway payment. start → { payment, redirectUrl?, instructions? };
+    // then poll status until { state: 'paid' | 'cancelled' | 'pending' }.
+    startGatewayPayment: (data) => req('POST', '/api/payments/gateway/start', data),
+    gatewayPaymentStatus: (paymentId) => req('GET', `/api/payments/gateway/status/${paymentId}`),
+
     // ── notifications ────────────────────────────────────────────────────────
     listNotifications: () => req('GET', '/api/notifications'),
     createNotification: (_managerId, data) => req('POST', '/api/notifications', data),

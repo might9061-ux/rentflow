@@ -1129,6 +1129,33 @@ export const mockApi = {
     save(d); return clone(p)
   },
 
+  // ── online-payment gateway settings (demo) ───────────────────────────────────
+  // Stored so the Settings UX is fully explorable; the demo tenant keeps using
+  // the simulated gateway (there's no server here to run a real charge).
+  async getPaymentGateway(managerId) {
+    await delay(); const d = db()
+    const row = (d.paymentGateways || {})[managerId]
+    return { provider: row?.provider || null, live: !!row?.live, connected: !!(row?.integration_id && row?.integration_key) }
+  },
+  async savePaymentGateway(managerId, patch) {
+    await delay(); const d = db()
+    d.paymentGateways = d.paymentGateways || {}
+    const row = { ...(d.paymentGateways[managerId] || {}), provider: patch.provider }
+    if (patch.integration_id?.trim()) row.integration_id = patch.integration_id.trim()
+    if (patch.integration_key?.trim()) row.integration_key = patch.integration_key.trim()
+    if (typeof patch.live === 'boolean') row.live = patch.live
+    if (row.live && !(row.integration_id && row.integration_key)) throw new Error('Enter both keys before switching payments live.')
+    d.paymentGateways[managerId] = row
+    save(d)
+    return { provider: row.provider || null, live: !!row.live, connected: !!(row.integration_id && row.integration_key) }
+  },
+  async disconnectPaymentGateway(managerId) {
+    await delay(); const d = db()
+    if (d.paymentGateways) delete d.paymentGateways[managerId]
+    save(d)
+    return { provider: null, live: false, connected: false }
+  },
+
   async approvePayment(paymentId) {
     await delay(); const d = db()
     const p = d.payments.find((x) => x.id === paymentId)

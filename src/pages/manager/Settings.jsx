@@ -167,6 +167,8 @@ export default function Settings() {
         ))}
       </Section>
 
+      <GatewaySection wmId={wmId} />
+
       <Section title="Manual + proof" subtitle="Tenant uploads a receipt; you approve it from the queue. Add where each payment should go — tenants see it when they choose that method.">
         {manual.map((m) => (
           <div key={m.key}>
@@ -242,6 +244,112 @@ export default function Settings() {
         <button className="btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
       </div>
     </div>
+  )
+}
+
+// The provider-specific field labels + help. Both adapters store into the same
+// two columns server-side; only the wording differs.
+const GATEWAYS = [
+  { key: 'pesepay', name: 'Pesepay', idLabel: 'Integration key', keyLabel: 'Encryption key',
+    help: 'From your Pesepay dashboard → Integrations. Use your SANDBOX keys while testing, then switch to live keys.' },
+  { key: 'paynow', name: 'Paynow', idLabel: 'Integration ID', keyLabel: 'Integration key',
+    help: 'From your Paynow account → Integrations (the Integration ID and its matching key).' },
+]
+
+// Connect a Pesepay / Paynow merchant account. Keys are write-only from here:
+// the server stores them and never sends them back, so once connected the inputs
+// stay blank and are only sent again when the owner types a fresh value.
+function GatewaySection({ wmId }) {
+  const toast = useToast()
+  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState({ provider: null, live: false, connected: false })
+  const [provider, setProvider] = useState('pesepay')
+  const [intId, setIntId] = useState('')
+  const [intKey, setIntKey] = useState('')
+  const [live, setLive] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!wmId) return
+    (async () => {
+      try {
+        const s = await db.getPaymentGateway(wmId)
+        setStatus(s); setProvider(s.provider || 'pesepay'); setLive(!!s.live)
+      } catch { /* leave defaults — section still lets them connect */ }
+      setLoading(false)
+    })()
+  }, [wmId])
+
+  const meta = GATEWAYS.find((p) => p.key === provider) || GATEWAYS[0]
+  const savedName = GATEWAYS.find((p) => p.key === status.provider)?.name || 'Gateway'
+
+  const save = async () => {
+    setBusy(true)
+    try {
+      const s = await db.savePaymentGateway(wmId, {
+        provider,
+        integration_id: intId.trim() || undefined,
+        integration_key: intKey.trim() || undefined,
+        live,
+      })
+      setStatus(s); setLive(!!s.live); setIntId(''); setIntKey('')
+      toast.success(s.live ? 'Online payments are live' : 'Gateway saved',
+        s.connected ? 'Your merchant account is connected.' : 'Enter both keys to finish connecting.')
+    } catch (err) { toast.error('Could not save', err.message); setLive(status.live) }
+    finally { setBusy(false) }
+  }
+
+  const disconnect = async () => {
+    setBusy(true)
+    try {
+      const s = await db.disconnectPaymentGateway(wmId)
+      setStatus(s); setLive(false); setIntId(''); setIntKey('')
+      toast.success('Disconnected', 'Online payments are switched off.')
+    } catch (err) { toast.error('Could not disconnect', err.message) }
+    finally { setBusy(false) }
+  }
+
+  if (loading) return null
+
+  return (
+    <Section title="Connect online payments"
+      subtitle="Link your own Pesepay or Paynow merchant account so rent is paid straight to you. Keys are stored securely on the server and are never shown to tenants.">
+      <div className="row gap wrap" style={{ marginBottom: 2 }}>
+        {status.connected
+          ? <span className="cur-chip on"><IconCheck size={13} /> {savedName} connected{status.live ? ' · live' : ' · not live yet'}</span>
+          : <span className="muted" style={{ fontSize: '.82rem' }}>Not connected — tenants can still upload proof of manual payments.</span>}
+      </div>
+
+      <div className="field" style={{ marginBottom: 0 }}>
+        <label>Provider</label>
+        <select className="select" value={provider} onChange={(e) => setProvider(e.target.value)}>
+          {GATEWAYS.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
+        </select>
+      </div>
+
+      <div className="field-row">
+        <div className="field">
+          <label>{meta.idLabel}</label>
+          <input className="input" value={intId} onChange={(e) => setIntId(e.target.value)} autoComplete="off"
+            placeholder={status.connected ? '•••••••• saved — leave blank to keep' : `Your ${meta.name} ${meta.idLabel.toLowerCase()}`} />
+        </div>
+        <div className="field">
+          <label>{meta.keyLabel}</label>
+          <input className="input" type="password" value={intKey} onChange={(e) => setIntKey(e.target.value)} autoComplete="off"
+            placeholder={status.connected ? '•••••••• saved — leave blank to keep' : `Your ${meta.name} ${meta.keyLabel.toLowerCase()}`} />
+        </div>
+      </div>
+      <span className="hint">{meta.help}</span>
+
+      <ToggleRow title="Accept live payments"
+        desc={live ? 'Tenants can pay you online right now.' : 'Keep this off until you’ve tested with a small real payment.'}
+        on={live} onToggle={() => setLive((v) => !v)} />
+
+      <div className="row gap" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+        {status.connected && <button className="btn ghost danger" onClick={disconnect} disabled={busy}>Disconnect</button>}
+        <button className="btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save gateway'}</button>
+      </div>
+    </Section>
   )
 }
 

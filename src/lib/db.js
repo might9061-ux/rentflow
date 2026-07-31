@@ -630,6 +630,26 @@ const sb = {
       .insert({ tenant_id: tenantId, ...data, paid_online: true, status: 'pending' })
       .select().single())
   },
+  // ── online-payment gateway settings (owner-only via RLS) ─────────────────────
+  // The direct-Supabase path has no API server, so a real gateway charge can't
+  // run here — but the owner can still store/inspect their credentials.
+  async getPaymentGateway(managerId) {
+    const row = ok(await supabase.from('payment_credentials')
+      .select('provider, live, integration_id, integration_key').eq('manager_id', managerId).maybeSingle())
+    return { provider: row?.provider || null, live: !!row?.live, connected: !!(row?.integration_id && row?.integration_key) }
+  },
+  async savePaymentGateway(managerId, patch) {
+    const row = { manager_id: managerId, provider: patch.provider, updated_at: new Date().toISOString() }
+    if (patch.integration_id?.trim()) row.integration_id = patch.integration_id.trim()
+    if (patch.integration_key?.trim()) row.integration_key = patch.integration_key.trim()
+    if (typeof patch.live === 'boolean') row.live = patch.live
+    ok(await supabase.from('payment_credentials').upsert(row, { onConflict: 'manager_id' }))
+    return this.getPaymentGateway(managerId)
+  },
+  async disconnectPaymentGateway(managerId) {
+    ok(await supabase.from('payment_credentials').delete().eq('manager_id', managerId))
+    return { provider: null, live: false, connected: false }
+  },
   async approvePayment(paymentId) {
     ok(await supabase.rpc('approve_payment', { p_payment_id: paymentId }))
     return ok(await supabase.from('payments').select('*').eq('id', paymentId).single())
