@@ -36,6 +36,8 @@ export default function Maintenance() {
   const open = items.filter((m) => m.status === 'open').length
   const inProg = items.filter((m) => m.status === 'in_progress').length
   const shown = filter === 'all' ? items : items.filter((m) => m.status === filter)
+  // Count per filter, so each tab shows how many requests are in that state.
+  const counts = { all: items.length, open, in_progress: inProg, resolved: items.filter((m) => m.status === 'resolved').length }
 
   return (
     <div className="page">
@@ -52,8 +54,20 @@ export default function Maintenance() {
       </div>
 
       <div className="seg" style={{ marginBottom: 18 }}>
-        {FILTERS.map((f) => <button key={f.id} className={filter === f.id ? 'on' : ''} onClick={() => setFilter(f.id)}>{f.label}</button>)}
+        {FILTERS.map((f) => (
+          <button key={f.id} className={filter === f.id ? 'on' : ''} onClick={() => setFilter(f.id)}>
+            {f.label}
+            {counts[f.id] > 0 && <span className="seg-count">{counts[f.id]}</span>}
+          </button>
+        ))}
       </div>
+      <style>{`
+        .seg button { display: inline-flex; align-items: center; gap: 7px; }
+        .seg .seg-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+          display: inline-grid; place-items: center; font-size: 0.72rem; font-weight: 700; line-height: 1;
+          background: var(--accent, #c96a3a); color: #fff; }
+        .seg button.on .seg-count { background: rgba(255,255,255,0.28); color: #fff; }
+      `}</style>
 
       {shown.length === 0 ? (
         <div className="card"><EmptyState icon="✅" title="Nothing here">No requests in this view.</EmptyState></div>
