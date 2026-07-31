@@ -63,8 +63,37 @@ export function platformCreds() {
   return { integration_id, integration_key, live: true }
 }
 
-function clientFor(creds) {
-  return new PesePayClient(creds.integration_id, creds.integration_key)
+// Pesepay runs two parallel environments on different hosts: live keys are
+// recognised on the production host, sandbox/test keys only on the test host.
+// The SDK hardcodes production, so we override its axios baseURL per host.
+const PROD_BASE = 'https://api.pesepay.com/api/payments-engine/'
+const TEST_BASE = 'https://api.test.pesepay.com/api/payments-engine/'
+
+function clientFor(creds, base) {
+  const c = new PesePayClient(creds.integration_id, creds.integration_key)
+  if (base && c.http?.defaults) c.http.defaults.baseURL = base
+  return c
+}
+
+// Does this error mean "the gateway doesn't know this integration key"? That's
+// what we get when live keys hit the test host or vice-versa.
+function isKeyNotFound(e) {
+  const s = e?.response?.status
+  const body = e?.response?.data
+  const msg = typeof body === 'string' ? body : (body?.message || body?.error || '')
+  return s === 404 || /not\s*found/i.test(String(msg))
+}
+
+// Run a Pesepay call, trying production first and falling back to the test host
+// when the key isn't recognised there — so a landlord's sandbox keys just work
+// without them having to tell us which environment they're in.
+async function onEitherHost(creds, fn) {
+  try {
+    return await fn(clientFor(creds, PROD_BASE))
+  } catch (e) {
+    if (isKeyNotFound(e)) return await fn(clientFor(creds, TEST_BASE))
+    throw e
+  }
 }
 
 // The SDK surfaces raw axios errors ("Request failed with status code 404"),
@@ -110,7 +139,6 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
   const amt = Number(amount)
   if (!Number.isFinite(amt) || amt <= 0) throw new Error('Enter a valid amount.')
 
-  const client = clientFor(creds)
   const currencyCode = 'USD'
   const resultUrl = `${API_BASE}${resultPath}` // server-to-server outcome
   const returnUrl = `${APP_BASE}${returnPath}`  // where the payer lands after
@@ -119,7 +147,7 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
   if (mobileCode) {
     let res
     try {
-      res = await client.makeSeamlessPayment({
+      res = await onEitherHost(creds, (client) => client.makeSeamlessPayment({
         amountDetails: { amount: amt, currencyCode },
         merchantReference: reference,
         reasonForPayment: description || 'Payment',
@@ -127,7 +155,7 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
         paymentMethodCode: mobileCode,
         customer: { phoneNumber: phone, email: email || undefined },
         paymentMethodRequiredFields: { customerPhoneNumber: phone },
-      })
+      }))
     } catch (e) { throw pesepayError(e, 'The payment gateway rejected this transaction.') }
     return {
       pollUrl: res?.pollUrl || null,
@@ -140,13 +168,13 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
   // Card / other → hosted redirect page (no card data touches our server).
   let res
   try {
-    res = await client.initiateTransaction({
+    res = await onEitherHost(creds, (client) => client.initiateTransaction({
       amountDetails: { amount: amt, currencyCode },
       merchantReference: reference,
       reasonForPayment: description || 'Payment',
       resultUrl,
       returnUrl,
-    })
+    }))
   } catch (e) { throw pesepayError(e, 'The payment gateway rejected this transaction.') }
   return {
     pollUrl: res?.pollUrl || null,
@@ -167,7 +195,7 @@ export async function pollPlatform(reference) {
 }
 async function pollWith(creds, reference) {
   try {
-    const status = await clientFor(creds).checkPaymentStatus(reference)
+    const status = await onEitherHost(creds, (client) => client.checkPaymentStatus(reference))
     return normalise(status)
   } catch (e) { throw pesepayError(e, 'Could not check the payment status.') }
 }
@@ -177,7 +205,7 @@ async function pollWith(creds, reference) {
 export async function parseResult(body, creds) {
   const reference = body?.referenceNumber || body?.reference || null
   if (!reference) return { state: 'pending', reference: null }
-  const status = await clientFor(creds).checkPaymentStatus(reference)
+  const status = await onEitherHost(creds, (client) => client.checkPaymentStatus(reference))
   return { state: normalise(status), reference }
 }
 export function parseResultPlatform(body) { return parseResult(body, platformCreds()) }
