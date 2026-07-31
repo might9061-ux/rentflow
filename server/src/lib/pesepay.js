@@ -47,6 +47,22 @@ function clientFor(creds) {
   return new PesePayClient(creds.integration_id, creds.integration_key)
 }
 
+// The SDK surfaces raw axios errors ("Request failed with status code 404"),
+// which tell a landlord nothing. Translate the common ones into something they
+// can act on — almost always a wrong integration/encryption key.
+function pesepayError(e, fallback) {
+  const status = e?.response?.status
+  const data = e?.response?.data
+  const detail = typeof data === 'string' ? data : (data?.message || data?.error || null)
+  if (status === 401 || status === 403) {
+    return new Error('Pesepay rejected the integration key. Re-enter your Pesepay keys in Settings → Connect online payments.')
+  }
+  if (status === 404) {
+    return new Error('Pesepay didn’t recognise this request — usually a wrong integration key (make sure you pasted the Integration key from Pesepay, not your email). Re-enter your Pesepay keys in Settings.')
+  }
+  return new Error(detail ? `Pesepay: ${detail}` : (e?.message || fallback))
+}
+
 export async function initiate({ managerId, reference, email, amount, method, phone, description }) {
   if (!API_BASE) throw new Error('Online payments are not configured on the server (PUBLIC_API_URL missing).')
   const amt = Number(amount)
@@ -60,15 +76,18 @@ export async function initiate({ managerId, reference, email, amount, method, ph
 
   const mobileCode = MOBILE_CODES[method]
   if (mobileCode) {
-    const res = await client.makeSeamlessPayment({
-      amountDetails: { amount: amt, currencyCode },
-      merchantReference: reference,
-      reasonForPayment: description || 'Rent payment',
-      resultUrl,
-      paymentMethodCode: mobileCode,
-      customer: { phoneNumber: phone, email: email || undefined },
-      paymentMethodRequiredFields: { customerPhoneNumber: phone },
-    })
+    let res
+    try {
+      res = await client.makeSeamlessPayment({
+        amountDetails: { amount: amt, currencyCode },
+        merchantReference: reference,
+        reasonForPayment: description || 'Rent payment',
+        resultUrl,
+        paymentMethodCode: mobileCode,
+        customer: { phoneNumber: phone, email: email || undefined },
+        paymentMethodRequiredFields: { customerPhoneNumber: phone },
+      })
+    } catch (e) { throw pesepayError(e, 'The payment gateway rejected this transaction.') }
     return {
       pollUrl: res?.pollUrl || null,
       redirectUrl: null,
@@ -78,13 +97,16 @@ export async function initiate({ managerId, reference, email, amount, method, ph
   }
 
   // Card / other → hosted redirect page (no card data touches our server).
-  const res = await client.initiateTransaction({
-    amountDetails: { amount: amt, currencyCode },
-    merchantReference: reference,
-    reasonForPayment: description || 'Rent payment',
-    resultUrl,
-    returnUrl,
-  })
+  let res
+  try {
+    res = await client.initiateTransaction({
+      amountDetails: { amount: amt, currencyCode },
+      merchantReference: reference,
+      reasonForPayment: description || 'Rent payment',
+      resultUrl,
+      returnUrl,
+    })
+  } catch (e) { throw pesepayError(e, 'The payment gateway rejected this transaction.') }
   return {
     pollUrl: res?.pollUrl || null,
     redirectUrl: res?.redirectUrl || null,
@@ -96,8 +118,10 @@ export async function initiate({ managerId, reference, email, amount, method, ph
 // Ask Pesepay where a transaction stands, by reference. 'paid' | 'pending' | 'cancelled'.
 export async function poll({ managerId, reference }) {
   const creds = await credentialsFor(managerId)
-  const status = await clientFor(creds).checkPaymentStatus(reference)
-  return normalise(status)
+  try {
+    const status = await clientFor(creds).checkPaymentStatus(reference)
+    return normalise(status)
+  } catch (e) { throw pesepayError(e, 'Could not check the payment status.') }
 }
 
 // The result webhook posts a reference; we re-check the AUTHORITATIVE status by
