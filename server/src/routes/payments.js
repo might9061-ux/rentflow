@@ -133,6 +133,25 @@ router.post('/log', h(async (req, res) => {
 
 // POST /api/payments/:id/approve
 router.post('/:id/approve', h(async (req, res) => {
+  const p = ok(await req.db.from('payments')
+    .select('id, manager_id, status, paid_online, gateway_ref, gateway_poll_url').eq('id', req.params.id).single())
+
+  // Online payments are confirmed by the gateway, never on the manager's word.
+  // Re-check with the provider and approve only if it actually reads paid — so a
+  // cancelled/abandoned attempt can't be marked paid by clicking Approve.
+  if (p.status !== 'approved' && p.paid_online) {
+    if (!p.gateway_ref && !p.gateway_poll_url) {
+      throw new Error('This is an online payment awaiting the gateway — it’s marked paid automatically once the gateway confirms it, not by hand.')
+    }
+    const gw = await adapterFor(p.manager_id)
+    const state = await gw.poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
+    if (state !== 'paid') {
+      throw new Error('The payment gateway hasn’t confirmed this payment, so it can’t be approved. It updates automatically once the gateway confirms it.')
+    }
+    await settle(p.id)
+    return res.json(ok(await req.db.from('payments').select('*').eq('id', req.params.id).single()))
+  }
+
   ok(await req.db.rpc('approve_payment', { p_payment_id: req.params.id }))
   res.json(ok(await req.db.from('payments').select('*').eq('id', req.params.id).single()))
 }))

@@ -73,7 +73,9 @@ export default function ManagerLayout() {
       db.maintenanceOpenCount(userId),
       db.messagesUnread(userId).catch(() => 0),
     ])
-    setPending(rows.length); setDueReminders(due); setOpenRepairs(repairs); setUnreadMsgs(msgs)
+    // Online payments confirm automatically, so the manual-approval badge counts
+    // only proof/manual pendings (matches what the Approvals queue shows).
+    setPending(rows.filter((p) => !p.paid_online).length); setDueReminders(due); setOpenRepairs(repairs); setUnreadMsgs(msgs)
   }, [userId])
 
   useEffect(() => { loadPending() }, [loadPending, loc.pathname])

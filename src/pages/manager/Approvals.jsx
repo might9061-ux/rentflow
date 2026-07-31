@@ -24,7 +24,10 @@ export default function Approvals() {
 
   const load = async () => {
     const [rows, t] = await Promise.all([db.listPayments(userId, { status: 'pending' }), db.listTenants(userId)])
-    setPending(rows); setTenants(t); setLoading(false)
+    // Online (gateway) payments are confirmed automatically by the provider —
+    // they must never be approved by hand, so keep them out of this manual
+    // queue. Only proof/manual payments need a human review here.
+    setPending(rows.filter((p) => !p.paid_online)); setTenants(t); setLoading(false)
     ctx?.reloadPending?.()
   }
   useEffect(() => { load() }, [userId])
