@@ -4,7 +4,7 @@
 import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
 import { admin } from '../supabase.js'
-import * as paynow from '../lib/paynow.js'
+import { adapterFor } from '../lib/gateway.js'
 
 const router = Router()
 
@@ -50,7 +50,8 @@ router.post('/gateway/start', h(async (req, res) => {
   const { amount, method, phone, period_from, period_to } = req.body || {}
 
   const reference = `RENT-${Date.now().toString(36).toUpperCase()}`
-  const started = await paynow.initiate({
+  const gw = await adapterFor(t.manager_id)
+  const started = await gw.initiate({
     managerId: t.manager_id,
     reference,
     email: t.email || req.user.email,
@@ -65,7 +66,8 @@ router.post('/gateway/start', h(async (req, res) => {
     amount, method: method || 'card', payer_phone: phone || null,
     period_from, period_to,
     paid_online: true, status: 'pending',
-    gateway_ref: reference, gateway_poll_url: started.pollUrl,
+    // Pesepay returns its own reference; fall back to ours (Paynow uses ours).
+    gateway_ref: started.reference || reference, gateway_poll_url: started.pollUrl,
   }).select().single())
 
   res.json({
@@ -80,12 +82,14 @@ router.post('/gateway/start', h(async (req, res) => {
 // the tenant's device can only ASK, the gateway decides.
 router.get('/gateway/status/:id', h(async (req, res) => {
   const p = ok(await req.db.from('payments')
-    .select('id, manager_id, status, gateway_poll_url').eq('id', req.params.id).single())
+    .select('id, manager_id, status, gateway_poll_url, gateway_ref').eq('id', req.params.id).single())
 
   if (p.status === 'approved') return res.json({ state: 'paid', payment: p })
-  if (!p.gateway_poll_url) return res.json({ state: 'pending', payment: p })
+  // Paynow polls a pollUrl; Pesepay polls by reference. Need one of them.
+  if (!p.gateway_poll_url && !p.gateway_ref) return res.json({ state: 'pending', payment: p })
 
-  const state = await paynow.poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url })
+  const gw = await adapterFor(p.manager_id)
+  const state = await gw.poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
   if (state === 'paid') await settle(p.id)
   if (state === 'cancelled') {
     await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id)
