@@ -242,7 +242,7 @@ export default function TenantDetail() {
       {recording && (
         <RecordPaymentModal tenant={tenant} payments={payments}
           onClose={() => setRecording(false)}
-          onRecorded={() => { setRecording(false); load() }} />
+          onRecorded={(p) => { setRecording(false); load(); if (p) setViewing(p) }} />
       )}
 
       <style>{`
