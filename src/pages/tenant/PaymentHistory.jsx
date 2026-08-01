@@ -15,7 +15,7 @@ export default function PaymentHistory() {
   const [property, setProperty] = useState(null)
   const [tenant, setTenant] = useState(null)
   const [range, setRange] = useState(12) // 12 months | 60 months (5 years)
-  const [view, setView] = useState('monthly') // 'monthly' (ledger) | 'payments' (raw list)
+  const [view, setView] = useState('payments') // 'payments' (raw list, default) | 'monthly' (ledger)
   const [viewing, setViewing] = useState(null)
 
   useEffect(() => {
