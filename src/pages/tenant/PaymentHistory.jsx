@@ -144,10 +144,10 @@ export default function PaymentHistory() {
       ) : (
       <div className="table-wrap">
         <table className="data">
-          <thead><tr><th>Date &amp; time</th><th>Amount</th><th>Method</th><th>For period</th><th>Status</th><th>Receipt</th></tr></thead>
+          <thead><tr><th>Date &amp; time</th><th>Amount</th><th>Method</th><th>Reference</th><th>For period</th><th>Status</th><th>Receipt</th></tr></thead>
           <tbody>
             {payments.length === 0 ? (
-              <tr><td colSpan={6}><span className="faint">No payments yet.</span></td></tr>
+              <tr><td colSpan={7}><span className="faint">No payments yet.</span></td></tr>
             ) : (
               [...payments]
                 .sort((a, b) => new Date(b.created_at || b.paid_date || 0) - new Date(a.created_at || a.paid_date || 0))
@@ -158,6 +158,7 @@ export default function PaymentHistory() {
                       <td className="nowrap">{fmtDateTime(p.created_at || p.paid_date)}</td>
                       <td className="mono" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
                       <td>{p.method || <span className="faint">—</span>}</td>
+                      <td className="muted mono" style={{ fontSize: '0.8rem' }}>{p.reference || <span className="faint">—</span>}</td>
                       <td><PeriodTag from={p.period_from} to={p.period_to} /></td>
                       <td><StatusPill status={approved ? 'paid' : p.status} /></td>
                       <td>
