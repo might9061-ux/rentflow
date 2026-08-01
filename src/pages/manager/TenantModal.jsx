@@ -48,11 +48,17 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
   // Shared accommodation: roommates may share a unit, so occupied units stay
   // selectable and adding a co-tenant is allowed.
   const isShared = !!selectedProp?.shared
-  // Units already occupied by OTHER tenants in the selected property.
-  const takenUnits = new Set(
-    tenants.filter((t) => t.property_id === form.property_id && t.id !== tenant?.id && t.unit).map((t) => String(t.unit)),
-  )
-  const availableCount = isShared ? slots.length : slots.filter((s) => !takenUnits.has(s)).length
+  // Max roommates per shared unit (0 = no limit).
+  const capacity = Number(selectedProp?.shared_capacity) || 0
+  // How many OTHER tenants are in each unit of the selected property.
+  const unitCounts = {}
+  tenants.forEach((t) => {
+    if (t.property_id === form.property_id && t.id !== tenant?.id && t.unit) unitCounts[String(t.unit)] = (unitCounts[String(t.unit)] || 0) + 1
+  })
+  // A slot is "full" when it can take no more tenants: a non-shared unit at 1, or
+  // a shared unit at its capacity.
+  const slotFull = (s) => isShared ? (capacity > 0 && (unitCounts[s] || 0) >= capacity) : ((unitCounts[s] || 0) >= 1 && s !== tenant?.unit)
+  const availableCount = slots.filter((s) => !slotFull(s)).length
   // When editing, keep the tenant's current dwelling selectable even if it now
   // falls outside the list (e.g. the count was lowered), so saving never wipes it.
   const unitOptions = tenant?.unit && !slots.includes(tenant.unit) ? [...slots, tenant.unit] : slots
@@ -62,6 +68,9 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
   const occupant = form.unit
     ? tenants.find((t) => t.property_id === form.property_id && t.id !== tenant?.id && String(t.unit) === String(form.unit))
     : null
+  const pickedCount = unitCounts[String(form.unit)] || 0
+  // Picked unit is full (shared and at capacity) → block like an occupied unit.
+  const isFull = !!form.unit && isShared && capacity > 0 && pickedCount >= capacity && form.unit !== tenant?.unit
 
   const onPropertyChange = (e) => {
     const prop = properties.find((p) => p.id === e.target.value)
@@ -85,6 +94,7 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
     if (!isValidEmail(form.email)) return toast.error('Invalid email', 'Enter a valid email address for the tenant.')
     if (!form.phone) return toast.error('Phone required', 'Add the tenant’s phone number.')
     if (occupant && !isShared) return toast.error(`${noun} already occupied`, `${form.unit} is taken by ${fullName(occupant)}. Choose a different ${nounLower}.`)
+    if (isFull) return toast.error(`${noun} is full`, `${form.unit} already has its ${capacity} roommate${capacity > 1 ? 's' : ''}. Choose a different ${nounLower}.`)
     setBusy(true)
     try {
       const payload = {
@@ -132,12 +142,15 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
           </Select>
           {unitOptions.length > 0 ? (
             <Select label={unitLabel} value={unitOptions.includes(form.unit) ? form.unit : ''} onChange={set('unit')}
-              hint={isShared ? 'Shared property — roommates can share a ' + nounLower : (slots.length > 0 ? `${availableCount} of ${slots.length} ${nounLower}${slots.length > 1 ? 's' : ''} free` : undefined)}>
+              hint={isShared ? `Shared${capacity ? ` · up to ${capacity} per ${nounLower}` : ''} — roommates can share a ${nounLower}` : (slots.length > 0 ? `${availableCount} of ${slots.length} ${nounLower}${slots.length > 1 ? 's' : ''} free` : undefined)}>
               <option value="">— Select a {nounLower} —</option>
               {unitOptions.map((s) => {
-                const occ = takenUnits.has(s) && s !== tenant?.unit
-                // In a shared property occupied units stay selectable (co-tenants).
-                return <option key={s} value={s} disabled={occ && !isShared}>{s}{occ ? (isShared ? ' — shared' : ' — occupied') : ''}</option>
+                const cnt = unitCounts[s] || 0
+                const full = slotFull(s)
+                const label = isShared
+                  ? (cnt > 0 ? ` — ${cnt}${capacity ? '/' + capacity : ''} sharing${full ? ' · full' : ''}` : '')
+                  : (full ? ' — occupied' : '')
+                return <option key={s} value={s} disabled={full}>{s}{label}</option>
               })}
             </Select>
           ) : (
@@ -146,9 +159,14 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
             </Field>
           )}
         </Row>
-        {occupant && isShared && (
+        {isFull && (
+          <div className="hint" style={{ color: 'var(--danger)', marginTop: -8, marginBottom: 12, fontWeight: 500 }}>
+            ⚠ {form.unit} is full — it already has its {capacity} roommate{capacity > 1 ? 's' : ''}. Choose a different {nounLower}.
+          </div>
+        )}
+        {occupant && isShared && !isFull && (
           <div className="hint" style={{ color: 'var(--text-dim)', marginTop: -8, marginBottom: 12, fontWeight: 500 }}>
-            🤝 Shared {nounLower} — {form.unit} is also home to {fullName(occupant)}. This tenant is added as a co-tenant.
+            🤝 Shared {nounLower} — {form.unit} has {pickedCount} roommate{pickedCount > 1 ? 's' : ''}{capacity ? ` of ${capacity}` : ''} (incl. {fullName(occupant)}). This tenant joins as a co-tenant.
           </div>
         )}
         {occupant && !isShared && (

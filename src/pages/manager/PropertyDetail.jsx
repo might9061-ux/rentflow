@@ -190,17 +190,27 @@ export default function PropertyDetail() {
           <div className="card pad" style={{ marginBottom: 24 }}>
             <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
               {slots.map((slot) => {
-                const t = active.find((x) => String(x.unit) === String(slot))
+                // A shared unit can hold several roommates; show all of them.
+                const occupants = active.filter((x) => String(x.unit) === String(slot))
+                const t = occupants[0]
+                const cap = P.shared ? (Number(P.shared_capacity) || 0) : 1
                 return (
                   <div key={slot} onClick={t ? () => nav(`/manager/tenants/${t.id}`) : undefined}
                     style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '12px 14px',
-                      background: t ? 'var(--bg)' : 'var(--surface)', cursor: t ? 'pointer' : 'default' }}>
+                      background: occupants.length ? 'var(--bg)' : 'var(--surface)', cursor: t ? 'pointer' : 'default' }}>
                     <div className="spread" style={{ gap: 8 }}>
                       <b style={{ fontSize: '0.9rem' }}>{slot}</b>
-                      {t ? <StatusPill status={t.status} /> : <span className="pill neutral">Vacant</span>}
+                      {occupants.length
+                        ? (P.shared ? <span className="pill neutral">{occupants.length}{cap ? `/${cap}` : ''} sharing</span> : <StatusPill status={t.status} />)
+                        : <span className="pill neutral">Vacant</span>}
                     </div>
                     <div className="muted" style={{ fontSize: '0.82rem', marginTop: 6 }}>
-                      {t ? <span className="row gap"><IconUsers size={13} /> {fullName(t)}</span> : 'No tenant assigned'}
+                      {occupants.length === 0 ? 'No tenant assigned'
+                        : occupants.map((o) => (
+                          <span key={o.id} className="row gap" style={{ marginTop: 2 }} onClick={(e) => { e.stopPropagation(); nav(`/manager/tenants/${o.id}`) }}>
+                            <IconUsers size={13} /> {fullName(o)}
+                          </span>
+                        ))}
                     </div>
                   </div>
                 )

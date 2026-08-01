@@ -135,6 +135,7 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
     description: property.description || '', rules: property.rules || '',
     caretaker_name: property.caretaker_name || '', caretaker_phone: property.caretaker_phone || '',
     shared: property.shared || false,
+    shared_capacity: property.shared_capacity ?? '',
     is_advertised: property.is_advertised || false,
     ad_rent: property.ad_rent != null && property.ad_rent !== '' ? String(Math.round(Number(property.ad_rent))) : '', ad_currency: property.ad_currency || 'USD',
     ad_contact_name: property.ad_contact_name || '', ad_contact_phone: property.ad_contact_phone || '',
@@ -172,6 +173,7 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
         floor_size: num(form.floor_size), stand_size: num(form.stand_size),
         year_built: num(form.year_built), storeys: num(form.storeys),
         deposit: num(form.deposit), max_occupants: num(form.max_occupants), levy_fee: num(form.levy_fee),
+        shared_capacity: form.shared ? (num(form.shared_capacity) || null) : null,
         available_from: form.available_from || null,
         ad_rent: num(form.ad_rent),
         // Normalise the public enquiry number to +263… so the wa.me link on the
@@ -211,6 +213,10 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
           </div>
           <span className="switch"><input type="checkbox" checked={form.shared} onChange={(e) => setForm((f) => ({ ...f, shared: e.target.checked }))} /><span className="track" /></span>
         </label>
+        {form.shared && (
+          <Input label={`People per ${dwellingNoun(form.type) === 'House' ? 'house' : 'unit'}`} type="number" min="1" value={form.shared_capacity} onChange={set('shared_capacity')}
+            placeholder="e.g. 3" hint="Maximum roommates that can share one — adding more is blocked. Leave blank for no limit." />
+        )}
 
         {/* Photos */}
         <div className="field">
