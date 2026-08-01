@@ -37,6 +37,22 @@ export default function Payments() {
   const [viewing, setViewing] = useState(null)
   const [query, setQuery] = useState('')
 
+  // The Rejected tab badge is a notification: it counts only rejections the
+  // manager hasn't seen yet, and clears once they open the tab (persisted).
+  const seenKey = `rentflow_seen_rejected_${userId}`
+  const [seenRejected, setSeenRejected] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`rentflow_seen_rejected_${userId}`) || '[]') } catch { return [] }
+  })
+  const unseenRejected = rejected.filter((p) => !seenRejected.includes(p.id)).length
+
+  // Opening the Rejected tab marks everything currently there as seen.
+  useEffect(() => {
+    if (tab !== 'rejected' || rejected.length === 0) return
+    const ids = rejected.map((p) => p.id)
+    setSeenRejected(ids)
+    try { localStorage.setItem(seenKey, JSON.stringify(ids)) } catch { /* ignore */ }
+  }, [tab, rejected, seenKey])
+
   const load = useCallback(async () => {
     const [p, rej, ref, t, pr, wm] = await Promise.all([
       db.listPayments(userId, { status: 'approved' }),
@@ -104,7 +120,7 @@ export default function Payments() {
       <div className="seg" style={{ marginBottom: 20 }}>
         {TABS.map((t) => (
           <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>
-            {t.label}{t.id === 'rejected' && rejected.length > 0 && <span className="seg-count">{rejected.length}</span>}
+            {t.label}{t.id === 'rejected' && unseenRejected > 0 && <span className="seg-count">{unseenRejected}</span>}
           </button>
         ))}
       </div>
