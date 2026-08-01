@@ -3,6 +3,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { fileToProof } from '../../lib/upload.js'
 import { fullName } from '../../lib/format.js'
+import { openLease } from '../../lib/leaseDoc.js'
 import Modal from '../../components/Modal.jsx'
 import { Input, Textarea, Row } from '../../components/Field.jsx'
 
@@ -12,6 +13,7 @@ export default function LeaseModal({ tenant, property, manager, onClose, onSaved
   const toast = useToast()
   const [kind, setKind] = useState('generated')
   const [busy, setBusy] = useState(false)
+  const [signAsLandlord, setSignAsLandlord] = useState(true) // sign as landlord on create
   const [file, setFile] = useState(null) // { url, name }
   const [form, setForm] = useState({
     rent: (tenant.rent ?? '') + '',
@@ -37,11 +39,25 @@ export default function LeaseModal({ tenant, property, manager, onClose, onSaved
     catch (err) { toast.error('Upload failed', err.message) }
   }
 
+  // A lease object built from the current form — for the live preview and save.
+  const buildLease = () => ({
+    kind, currency: form.currency,
+    rent: Number(form.rent) || 0, deposit: Number(form.deposit) || 0,
+    start_date: form.start_date, end_date: endDate || null,
+    due_day: Number(form.due_day) || null, term_months: Number(form.term_months) || null,
+    terms: form.terms,
+    ...(signAsLandlord ? { manager_signed_name: fullName(manager), manager_signed_at: new Date().toISOString() } : {}),
+  })
+
+  // Preview the generated lease exactly as it will read, before creating it.
+  const preview = () => openLease({ lease: buildLease(), tenant, manager, property })
+
   const save = async () => {
     if (kind === 'uploaded' && !file) return toast.error('Choose a file to upload')
     setBusy(true)
     try {
-      const base = { tenant_id: tenant.id, property_id: tenant.property_id || null, kind, status: 'sent' }
+      const sig = signAsLandlord ? { manager_signed_name: fullName(manager), manager_signed_at: new Date().toISOString() } : {}
+      const base = { tenant_id: tenant.id, property_id: tenant.property_id || null, kind, status: 'sent', ...sig }
       const data = kind === 'uploaded'
         ? { ...base, document_url: file.url, file_name: file.name }
         : {
@@ -59,6 +75,7 @@ export default function LeaseModal({ tenant, property, manager, onClose, onSaved
     <Modal title={`Lease — ${fullName(tenant)}`} onClose={onClose}
       footer={<>
         <button className="btn ghost" onClick={onClose}>Cancel</button>
+        {kind === 'generated' && <button className="btn ghost" onClick={preview}>Preview</button>}
         <button className="btn primary" onClick={save} disabled={busy}>{busy ? 'Sending…' : 'Create & send lease'}</button>
       </>}>
       <div className="seg" style={{ marginBottom: 16 }}>
@@ -95,6 +112,14 @@ export default function LeaseModal({ tenant, property, manager, onClose, onSaved
             .dropzone:hover{border-color:var(--green-line);color:var(--text);}`}</style>
         </>
       )}
+
+      <label className="spread" style={{ marginTop: 14, padding: '11px 14px', border: '1px solid var(--line)', borderRadius: 'var(--radius)', background: signAsLandlord ? 'var(--accent-bg)' : 'var(--bg)', cursor: 'pointer' }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>Sign as landlord now</div>
+          <div className="muted" style={{ fontSize: '0.78rem' }}>Adds your signature ({fullName(manager)}) to the lease.</div>
+        </div>
+        <span className="switch"><input type="checkbox" checked={signAsLandlord} onChange={() => setSignAsLandlord((v) => !v)} /><span className="track" /></span>
+      </label>
     </Modal>
   )
 }

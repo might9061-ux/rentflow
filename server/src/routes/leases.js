@@ -9,7 +9,8 @@ const router = Router()
 
 // Fields a manager may set on a lease (never manager_id/signature/status-jump).
 const FIELDS = ['tenant_id', 'property_id', 'kind', 'rent', 'deposit', 'currency',
-  'start_date', 'end_date', 'due_day', 'term_months', 'terms', 'document_url', 'file_name']
+  'start_date', 'end_date', 'due_day', 'term_months', 'terms', 'document_url', 'file_name',
+  'manager_signed_name', 'manager_signed_at']
 const pick = (b) => Object.fromEntries(FIELDS.filter((k) => k in (b || {})).map((k) => [k, b[k]]))
 
 // GET /api/leases?tenant_id= — leases in the caller's workspace (optionally one tenant's).

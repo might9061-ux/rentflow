@@ -36,6 +36,7 @@ export default function TenantDetail() {
   const [showVacate, setShowVacate] = useState(false)
   const [leases, setLeases] = useState([])
   const [leaseModal, setLeaseModal] = useState(false)
+  const [confirmDelLease, setConfirmDelLease] = useState(null)
 
   const load = async () => {
     const [t, pays, props, lz] = await Promise.all([
@@ -107,10 +108,16 @@ export default function TenantDetail() {
     if (l.kind === 'uploaded' && l.document_url) window.open(l.document_url, '_blank')
     else printLease({ lease: l, tenant, manager: profile, property })
   }
-  const removeLease = async (l) => {
-    if (!window.confirm('Delete this lease? This cannot be undone.')) return
-    try { await db.deleteLease(l.id); toast.success('Lease deleted'); load() }
+  const confirmDeleteLease = async () => {
+    const l = confirmDelLease
+    try { await db.deleteLease(l.id); toast.success('Lease deleted'); setConfirmDelLease(null); load() }
     catch (e) { toast.error('Could not delete', e.message) }
+  }
+  const signAsLandlord = async (l) => {
+    try {
+      await db.updateLease(l.id, { manager_signed_name: fullName(profile), manager_signed_at: new Date().toISOString() })
+      toast.success('Signed as landlord'); load()
+    } catch (e) { toast.error('Could not sign', e.message) }
   }
   const downloadCsv = () => { setStmtOpen(false); downloadStatementCsv(tenant, payments); toast.success('Statement downloaded') }
   const printPdf = () => {
@@ -224,12 +231,14 @@ export default function TenantDetail() {
                     </div>
                     <div className="muted" style={{ fontSize: '.8rem' }}>
                       {l.kind === 'uploaded' ? 'Uploaded document' : leaseTermLabel(l)}
-                      {l.status === 'signed' && ` · Signed by ${l.signed_name} on ${fmtDate(l.signed_at)}`}
+                      {l.manager_signed_name ? ' · Landlord signed' : ' · Not signed by you'}
+                      {l.status === 'signed' && ` · Tenant signed ${fmtDate(l.signed_at)}`}
                     </div>
                   </div>
                   <div className="row gap">
+                    {!l.manager_signed_name && <button className="btn sm ghost" onClick={() => signAsLandlord(l)}>Sign</button>}
                     <button className="btn sm ghost" onClick={() => viewLease(l)}>View</button>
-                    <button className="btn sm ghost danger" onClick={() => removeLease(l)}>Delete</button>
+                    <button className="btn sm ghost danger" onClick={() => setConfirmDelLease(l)}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -288,6 +297,18 @@ export default function TenantDetail() {
       {leaseModal && (
         <LeaseModal tenant={tenant} property={property} manager={profile}
           onClose={() => setLeaseModal(false)} onSaved={() => { setLeaseModal(false); load() }} />
+      )}
+      {confirmDelLease && (
+        <Modal title="Delete this lease?" onClose={() => setConfirmDelLease(null)}
+          footer={<>
+            <button className="btn ghost" onClick={() => setConfirmDelLease(null)}>Cancel</button>
+            <button className="btn primary danger" onClick={confirmDeleteLease}>Delete lease</button>
+          </>}>
+          <p className="muted" style={{ marginTop: 0 }}>
+            This permanently removes the {confirmDelLease.kind === 'uploaded' ? 'uploaded lease' : 'lease agreement'} for {fullName(tenant)}
+            {confirmDelLease.status === 'signed' ? ', including the signed copy' : ''}. This cannot be undone.
+          </p>
+        </Modal>
       )}
       {viewing && <ReceiptModal payment={viewing} tenant={tenant} manager={profile} property={property} payments={payments} onClose={() => setViewing(null)} onWhatsapp={() => resendReceipt(viewing)} />}
       {editing && (
