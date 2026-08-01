@@ -104,6 +104,9 @@ router.post('/gateway/start', h(async (req, res) => {
 // abandoned. Covers the "tenant hit the phone's Back button" case, where the
 // gateway never sends a cancel and the row would otherwise stay pending forever.
 const STALE_PENDING_MS = 20 * 60 * 1000
+// If the gateway is unreachable we can't be sure it DIDN'T pay, so we only give
+// up much later (last-resort cleanup), never at the normal window.
+const STALE_UNREACHABLE_MS = 24 * 60 * 60 * 1000
 
 router.get('/gateway/status/:id', h(async (req, res) => {
   const p = ok(await req.db.from('payments')
@@ -114,32 +117,49 @@ router.get('/gateway/status/:id', h(async (req, res) => {
   if (!p.gateway_poll_url && !p.gateway_ref) return res.json({ state: 'pending', payment: p })
 
   // Split payments live on the PLATFORM app, so verify them with the platform
-  // keys; direct payments verify with the landlord's own keys. A poll failure
-  // (e.g. Pesepay doesn't recognise an abandoned reference) must NOT stop the
-  // age-based expiry below, so treat it as "unconfirmed".
-  let state
-  try {
-    state = p.via_platform
-      ? await pesepay.pollPlatform(p.gateway_ref)
-      : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
-  } catch { state = 'unconfirmed' }
-
-  const stale = new Date(p.created_at).getTime() < Date.now() - STALE_PENDING_MS
-  if (state === 'paid') await settle(p.id)
-  else if (state === 'cancelled') {
-    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id).eq('status', 'pending')
-  } else if (stale) {
-    // Unconfirmed well after it was started → the tenant walked away (Back
-    // button) or it never completed. Mark it not completed so it stops sitting
-    // in the queue — even if we couldn't reach the gateway to ask.
-    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Payment not completed' }).eq('id', p.id).eq('status', 'pending')
-    state = 'cancelled'
-  } else {
-    state = 'pending' // still within the grace window; keep waiting
-  }
+  // keys; direct payments verify with the landlord's own keys. If we can't reach
+  // the gateway we DON'T assume it failed — a real payment must never be
+  // rejected just because the status check errored.
+  const outcome = await gatewayOutcome(p) // 'paid' | 'cancelled' | 'pending' | 'unreachable'
+  const state = await applyOutcome(p, outcome)
   const fresh = ok(await req.db.from('payments').select('*').eq('id', p.id).single())
   res.json({ state, payment: fresh })
 }))
+
+// Ask the gateway where a payment stands. Returns 'paid' | 'cancelled' |
+// 'pending', or 'unreachable' if the check itself failed (never assume failure).
+async function gatewayOutcome(p) {
+  try {
+    return p.via_platform
+      ? await pesepay.pollPlatform(p.gateway_ref)
+      : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
+  } catch { return 'unreachable' }
+}
+
+// Act on a gateway outcome. Only expires a payment when the gateway CONFIRMS it
+// isn't paid (pending past the window); an unreachable gateway is left alone
+// until a much later last-resort cleanup, so a paid payment is never lost.
+// Returns the client-facing state.
+async function applyOutcome(p, outcome) {
+  const age = Date.now() - new Date(p.created_at).getTime()
+  if (outcome === 'paid') { await settle(p.id); return 'paid' }
+  if (outcome === 'cancelled') {
+    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id).eq('status', 'pending')
+    return 'cancelled'
+  }
+  // Gateway says still pending, and it's well past the start → abandoned.
+  if (outcome === 'pending' && age > STALE_PENDING_MS) {
+    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Payment not completed' }).eq('id', p.id).eq('status', 'pending')
+    return 'cancelled'
+  }
+  // Couldn't reach the gateway — only give up as a last resort, long after, so a
+  // real (paid) payment isn't rejected over a temporary outage.
+  if (outcome === 'unreachable' && age > STALE_UNREACHABLE_MS) {
+    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Payment not completed' }).eq('id', p.id).eq('status', 'pending')
+    return 'cancelled'
+  }
+  return 'pending' // keep waiting
+}
 
 // POST /api/payments/reconcile — re-check the caller's pending ONLINE payments
 // against the gateway and settle/reject/expire them. Cheap to call on a page
@@ -150,25 +170,11 @@ router.post('/reconcile', h(async (req, res) => {
     .eq('status', 'pending').eq('paid_online', true)
   let changed = 0
   for (const p of rows || []) {
-    const stale = new Date(p.created_at).getTime() < Date.now() - STALE_PENDING_MS
-    // Ask the gateway where it stands. A poll failure (unrecognised/abandoned
-    // reference, gateway down) must NOT block the age-based expiry below.
-    let state = 'unconfirmed'
-    if (p.gateway_poll_url || p.gateway_ref) {
-      try {
-        state = p.via_platform
-          ? await pesepay.pollPlatform(p.gateway_ref)
-          : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
-      } catch { state = 'unconfirmed' }
-    }
+    if (!p.gateway_poll_url && !p.gateway_ref) continue
     try {
-      if (state === 'paid') { await settle(p.id); changed++ }
-      else if (state === 'cancelled') {
-        await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id).eq('status', 'pending'); changed++
-      } else if (stale) {
-        // Pending/unconfirmed well past the start → abandoned. Expire it.
-        await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Payment not completed' }).eq('id', p.id).eq('status', 'pending'); changed++
-      }
+      const outcome = await gatewayOutcome(p)
+      const state = await applyOutcome(p, outcome)
+      if (state !== 'pending') changed++
     } catch { /* one bad row shouldn't fail the whole sweep */ }
   }
   res.json({ changed })
