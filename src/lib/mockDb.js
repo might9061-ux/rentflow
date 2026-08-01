@@ -1162,6 +1162,42 @@ export const mockApi = {
   // Demo has no live gateway (online payments settle instantly), so nothing to reconcile.
   async reconcilePayments() { return { changed: 0 } },
 
+  // ── leases (demo) ────────────────────────────────────────────────────────────
+  async listLeases(managerId, tenantId) {
+    await delay(); const d = db()
+    let rows = (d.leases || [])
+    rows = tenantId ? rows.filter((l) => l.tenant_id === tenantId) : rows.filter((l) => l.manager_id === managerId)
+    return clone(rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+  },
+  async listMyLeases(tenantId) {
+    await delay(); const d = db()
+    return clone((d.leases || []).filter((l) => l.tenant_id === tenantId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+  },
+  async createLease(managerId, data) {
+    await delay(); const d = db()
+    d.leases = d.leases || []
+    const row = { ...data, id: uid(), manager_id: managerId, status: data.status === 'draft' ? 'draft' : 'sent',
+      created_at: new Date().toISOString(), sent_at: new Date().toISOString(), signed_at: null, signed_name: null }
+    d.leases.push(row); save(d); return clone(row)
+  },
+  async updateLease(id, patch) {
+    await delay(); const d = db()
+    const l = (d.leases || []).find((x) => x.id === id)
+    if (l) Object.assign(l, patch)
+    save(d); return clone(l)
+  },
+  async deleteLease(id) {
+    await delay(); const d = db()
+    d.leases = (d.leases || []).filter((x) => x.id !== id)
+    save(d); return { deleted: true }
+  },
+  async signLease(id, name) {
+    await delay(); const d = db()
+    const l = (d.leases || []).find((x) => x.id === id)
+    if (l) { l.status = 'signed'; l.signed_name = name; l.signed_at = new Date().toISOString() }
+    save(d); return clone(l)
+  },
+
   async approvePayment(paymentId) {
     await delay(); const d = db()
     const p = d.payments.find((x) => x.id === paymentId)

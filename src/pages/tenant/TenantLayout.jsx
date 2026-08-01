@@ -14,13 +14,14 @@ import { setActiveCurrency } from '../../lib/format.js'
 import { currencyByCode, marketFor } from '../../lib/markets.js'
 import TenantVerify from './TenantVerify.jsx'
 import {
-  IconHome, IconWallet, IconReceipt, IconBell, IconLogout, IconMenu, IconUsers, IconWarn, IconInfo, IconKey, IconArrowRight, IconWrench, IconSun, IconMoon, IconSettings, IconMail,
+  IconHome, IconWallet, IconReceipt, IconBell, IconLogout, IconMenu, IconUsers, IconWarn, IconInfo, IconKey, IconArrowRight, IconWrench, IconSun, IconMoon, IconSettings, IconMail, IconEdit,
 } from '../../components/icons.jsx'
 
 const NAV = [
   { to: '/tenant', end: true, label: 'Dashboard', icon: IconHome },
   { to: '/tenant/pay', label: 'Submit payment', icon: IconWallet },
   { to: '/tenant/history', label: 'Payment history', icon: IconReceipt },
+  { to: '/tenant/lease', label: 'Lease', icon: IconEdit },
   { to: '/tenant/maintenance', label: 'Maintenance', icon: IconWrench },
   { to: '/tenant/messages', label: 'Messages', icon: IconMail, badge: 'messages' },
   { to: '/tenant/notifications', label: 'Notifications', icon: IconBell },

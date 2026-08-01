@@ -124,6 +124,14 @@ export function createApiDb(sb) {
     // abandoned ones). Safe to call on a payments page load.
     reconcilePayments: () => req('POST', '/api/payments/reconcile'),
 
+    // ── leases ─────────────────────────────────────────────────────────────────
+    listLeases: (_managerId, tenantId) => req('GET', `/api/leases${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ''}`),
+    listMyLeases: (_tenantId) => req('GET', '/api/leases/mine'),
+    createLease: (_managerId, data) => req('POST', '/api/leases', data),
+    updateLease: (id, patch) => req('PATCH', `/api/leases/${id}`, patch),
+    deleteLease: (id) => req('DELETE', `/api/leases/${id}`),
+    signLease: (id, name) => req('POST', `/api/leases/${id}/sign`, { name }),
+
     // ── notifications ────────────────────────────────────────────────────────
     listNotifications: () => req('GET', '/api/notifications'),
     createNotification: (_managerId, data) => req('POST', '/api/notifications', data),

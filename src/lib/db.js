@@ -654,6 +654,25 @@ const sb = {
   },
   // No API server in this path → the gateway can't be re-checked here.
   async reconcilePayments() { return { changed: 0 } },
+
+  // ── leases ───────────────────────────────────────────────────────────────────
+  async listLeases(managerId, tenantId) {
+    let q = supabase.from('leases').select('*').order('created_at', { ascending: false })
+    q = tenantId ? q.eq('tenant_id', tenantId) : q.eq('manager_id', managerId)
+    return ok(await q)
+  },
+  async listMyLeases(tenantId) {
+    return ok(await supabase.from('leases').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }))
+  },
+  async createLease(managerId, data) {
+    const row = { ...data, manager_id: managerId, status: data.status === 'draft' ? 'draft' : 'sent', sent_at: new Date().toISOString() }
+    return ok(await supabase.from('leases').insert(row).select().single())
+  },
+  async updateLease(id, patch) { return ok(await supabase.from('leases').update(patch).eq('id', id).select().single()) },
+  async deleteLease(id) { ok(await supabase.from('leases').delete().eq('id', id)); return { deleted: true } },
+  async signLease(id, name) {
+    return ok(await supabase.from('leases').update({ status: 'signed', signed_name: name, signed_at: new Date().toISOString() }).eq('id', id).select().single())
+  },
   async approvePayment(paymentId) {
     ok(await supabase.rpc('approve_payment', { p_payment_id: paymentId }))
     return ok(await supabase.from('payments').select('*').eq('id', paymentId).single())

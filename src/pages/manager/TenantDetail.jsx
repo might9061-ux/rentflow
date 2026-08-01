@@ -16,6 +16,8 @@ import { downloadStatementCsv, printStatement } from '../../lib/statement.js'
 import { sendWhatsApp, receiptMessage } from '../../lib/whatsapp.js'
 import { formatPeriod } from '../../lib/billing.js'
 import { buildLedger } from '../../lib/ledger.js'
+import LeaseModal from './LeaseModal.jsx'
+import { printLease, leaseTermLabel } from '../../lib/leaseDoc.js'
 
 export default function TenantDetail() {
   const { id } = useParams()
@@ -32,10 +34,14 @@ export default function TenantDetail() {
   const [recording, setRecording] = useState(false)
   const [stmtOpen, setStmtOpen] = useState(false)
   const [showVacate, setShowVacate] = useState(false)
+  const [leases, setLeases] = useState([])
+  const [leaseModal, setLeaseModal] = useState(false)
 
   const load = async () => {
-    const [t, pays, props] = await Promise.all([db.getTenant(id), db.listTenantPayments(id), db.listProperties(userId)])
-    setTenant(t); setPayments(pays); setProperties(props); setLoading(false)
+    const [t, pays, props, lz] = await Promise.all([
+      db.getTenant(id), db.listTenantPayments(id), db.listProperties(userId), db.listLeases(userId, id).catch(() => []),
+    ])
+    setTenant(t); setPayments(pays); setProperties(props); setLeases(lz); setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
@@ -94,6 +100,17 @@ export default function TenantDetail() {
     if (!tenant.phone) return toast.error('No phone number', 'Add a phone number to send on WhatsApp.')
     const msg = receiptMessage({ tenant, payment: p, manager: profile, periodLabel: formatPeriod({ from: p.period_from, to: p.period_to }) })
     sendWhatsApp(tenant.phone, msg)
+  }
+
+  // View a lease: uploaded → open the file; generated → print/PDF the document.
+  const viewLease = (l) => {
+    if (l.kind === 'uploaded' && l.document_url) window.open(l.document_url, '_blank')
+    else printLease({ lease: l, tenant, manager: profile, property })
+  }
+  const removeLease = async (l) => {
+    if (!window.confirm('Delete this lease? This cannot be undone.')) return
+    try { await db.deleteLease(l.id); toast.success('Lease deleted'); load() }
+    catch (e) { toast.error('Could not delete', e.message) }
   }
   const downloadCsv = () => { setStmtOpen(false); downloadStatementCsv(tenant, payments); toast.success('Statement downloaded') }
   const printPdf = () => {
@@ -186,6 +203,41 @@ export default function TenantDetail() {
         <StatCard label="Credit balance" value={money(credit)} sub={credit > 0 ? 'Carried forward' : '—'} />
       </div>
 
+      {!deletedAt && (
+        <div className="card pad" style={{ marginBottom: 24 }}>
+          <div className="spread">
+            <h3 style={{ margin: 0 }}>Lease agreement</h3>
+            {!vacatedAt && <button className="btn sm ok" onClick={() => setLeaseModal(true)}><IconReceipt size={14} /> {leases.length ? 'New lease' : 'Create lease'}</button>}
+          </div>
+          {leases.length === 0 ? (
+            <p className="muted" style={{ fontSize: '.86rem', margin: '10px 0 0' }}>No lease yet. Create one to send to {tenant.first_name} to view and sign.</p>
+          ) : (
+            <div className="col" style={{ gap: 0, marginTop: 6 }}>
+              {leases.map((l) => (
+                <div key={l.id} className="spread wrap" style={{ padding: '11px 0', borderTop: '1px solid var(--line)', gap: 10 }}>
+                  <div>
+                    <div className="row gap">
+                      <b>{l.kind === 'uploaded' ? (l.file_name || 'Uploaded lease') : 'Lease agreement'}</b>
+                      <span className={`pill ${l.status === 'signed' ? 'green' : ''}`}>
+                        {l.status === 'signed' ? 'Signed' : l.status === 'sent' ? 'Awaiting signature' : 'Draft'}
+                      </span>
+                    </div>
+                    <div className="muted" style={{ fontSize: '.8rem' }}>
+                      {l.kind === 'uploaded' ? 'Uploaded document' : leaseTermLabel(l)}
+                      {l.status === 'signed' && ` · Signed by ${l.signed_name} on ${fmtDate(l.signed_at)}`}
+                    </div>
+                  </div>
+                  <div className="row gap">
+                    <button className="btn sm ghost" onClick={() => viewLease(l)}>View</button>
+                    <button className="btn sm ghost danger" onClick={() => removeLease(l)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <h3 style={{ marginBottom: 12 }}>Payment history</h3>
       {payments.length === 0 ? (
         <div className="card"><EmptyState icon="🧾" title="No payments yet" /></div>
@@ -232,6 +284,10 @@ export default function TenantDetail() {
             </button>
           </div>
         </Modal>
+      )}
+      {leaseModal && (
+        <LeaseModal tenant={tenant} property={property} manager={profile}
+          onClose={() => setLeaseModal(false)} onSaved={() => { setLeaseModal(false); load() }} />
       )}
       {viewing && <ReceiptModal payment={viewing} tenant={tenant} manager={profile} property={property} onClose={() => setViewing(null)} onWhatsapp={() => resendReceipt(viewing)} />}
       {editing && (

@@ -43,6 +43,7 @@ const TenantLayout = lazy(() => import('./pages/tenant/TenantLayout.jsx'))
 const TenantDashboard = lazy(() => import('./pages/tenant/Dashboard.jsx'))
 const SubmitPayment = lazy(() => import('./pages/tenant/SubmitPayment.jsx'))
 const PaymentHistory = lazy(() => import('./pages/tenant/PaymentHistory.jsx'))
+const TenantLease = lazy(() => import('./pages/tenant/Lease.jsx'))
 const TenantNotifications = lazy(() => import('./pages/tenant/Notifications.jsx'))
 const TenantMessages = lazy(() => import('./pages/tenant/Messages.jsx'))
 const TenantMaintenance = lazy(() => import('./pages/tenant/Maintenance.jsx'))
@@ -199,6 +200,7 @@ export default function App() {
         <Route index element={<TenantDashboard />} />
         <Route path="pay" element={<SubmitPayment />} />
         <Route path="history" element={<PaymentHistory />} />
+        <Route path="lease" element={<TenantLease />} />
         <Route path="maintenance" element={<TenantMaintenance />} />
         <Route path="notifications" element={<TenantNotifications />} />
         <Route path="messages" element={<TenantMessages />} />
