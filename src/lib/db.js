@@ -652,6 +652,8 @@ const sb = {
     ok(await supabase.from('payment_credentials').delete().eq('manager_id', managerId))
     return { provider: null, live: false, connected: false }
   },
+  // No API server in this path → the gateway can't be re-checked here.
+  async reconcilePayments() { return { changed: 0 } },
   async approvePayment(paymentId) {
     ok(await supabase.rpc('approve_payment', { p_payment_id: paymentId }))
     return ok(await supabase.from('payments').select('*').eq('id', paymentId).single())

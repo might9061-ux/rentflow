@@ -19,14 +19,22 @@ export default function PaymentHistory() {
   const [viewing, setViewing] = useState(null)
 
   useEffect(() => {
-    (async () => {
-      // Fresh tenant record too, so credit_balance (→ advance months) is current.
+    let alive = true
+    // Fresh tenant record too, so credit_balance (→ advance months) is current.
+    const fetchAll = async () => {
       const [pays, mgr, me] = await Promise.all([
         db.listTenantPayments(userId), db.getTenantManager(userId), db.getTenant(userId),
       ])
-      setPayments(pays); setManager(mgr); setTenant(me)
-      setLoading(false)
+      if (!alive) return
+      setPayments(pays); setManager(mgr); setTenant(me); setLoading(false)
+    }
+    (async () => {
+      await fetchAll()
+      // Self-heal abandoned online payments (e.g. tenant hit Back at checkout):
+      // re-check them with the gateway in the background, then refresh if any changed.
+      try { const { changed } = await db.reconcilePayments(); if (changed && alive) await fetchAll() } catch { /* non-blocking */ }
     })()
+    return () => { alive = false }
   }, [userId])
 
   const t = tenant || profile

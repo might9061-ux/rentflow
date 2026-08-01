@@ -48,7 +48,15 @@ export default function Payments() {
     setRows(p); setRejected(rej); setRefunds(ref); setTenants(t); setProperties(pr)
     setRefundsOn(!!wm?.refunds_enabled); setLoading(false)
   }, [userId])
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      await load()
+      // Self-heal abandoned online payments in the background, then refresh.
+      try { const { changed } = await db.reconcilePayments(); if (changed && alive) await load() } catch { /* non-blocking */ }
+    })()
+    return () => { alive = false }
+  }, [load])
 
   const tenantOf = (id) => tenants.find((t) => t.id === id)
   const propOf = (t) => properties.find((p) => p.id === t?.property_id)

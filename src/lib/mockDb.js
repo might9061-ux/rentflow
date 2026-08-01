@@ -1159,6 +1159,8 @@ export const mockApi = {
     save(d)
     return { provider: null, live: false, connected: false }
   },
+  // Demo has no live gateway (online payments settle instantly), so nothing to reconcile.
+  async reconcilePayments() { return { changed: 0 } },
 
   async approvePayment(paymentId) {
     await delay(); const d = db()

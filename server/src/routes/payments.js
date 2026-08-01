@@ -100,9 +100,14 @@ router.post('/gateway/start', h(async (req, res) => {
 // GET /api/payments/gateway/status/:id — has the gateway confirmed it yet?
 // Approving here (rather than trusting the client) is what makes this safe:
 // the tenant's device can only ASK, the gateway decides.
+// How long a redirect payment may sit unconfirmed before we treat it as
+// abandoned. Covers the "tenant hit the phone's Back button" case, where the
+// gateway never sends a cancel and the row would otherwise stay pending forever.
+const STALE_PENDING_MS = 20 * 60 * 1000
+
 router.get('/gateway/status/:id', h(async (req, res) => {
   const p = ok(await req.db.from('payments')
-    .select('id, manager_id, status, gateway_poll_url, gateway_ref, via_platform').eq('id', req.params.id).single())
+    .select('id, manager_id, status, gateway_poll_url, gateway_ref, via_platform, created_at').eq('id', req.params.id).single())
 
   if (p.status === 'approved') return res.json({ state: 'paid', payment: p })
   // Paynow polls a pollUrl; Pesepay polls by reference. Need one of them.
@@ -110,15 +115,48 @@ router.get('/gateway/status/:id', h(async (req, res) => {
 
   // Split payments live on the PLATFORM app, so verify them with the platform
   // keys; direct payments verify with the landlord's own keys.
-  const state = p.via_platform
+  let state = p.via_platform
     ? await pesepay.pollPlatform(p.gateway_ref)
     : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
   if (state === 'paid') await settle(p.id)
   if (state === 'cancelled') {
     await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id)
   }
+  // Still pending long after it was started → the tenant walked away (Back
+  // button). Mark it not completed so it stops sitting in the queue.
+  if (state === 'pending' && new Date(p.created_at).getTime() < Date.now() - STALE_PENDING_MS) {
+    await admin.from('payments')
+      .update({ status: 'rejected', rejected_reason: 'Payment not completed' })
+      .eq('id', p.id).eq('status', 'pending')
+    state = 'cancelled'
+  }
   const fresh = ok(await req.db.from('payments').select('*').eq('id', p.id).single())
   res.json({ state, payment: fresh })
+}))
+
+// POST /api/payments/reconcile — re-check the caller's pending ONLINE payments
+// against the gateway and settle/reject/expire them. Cheap to call on a page
+// load; it self-heals abandoned redirect payments without anyone clicking.
+router.post('/reconcile', h(async (req, res) => {
+  const { data: rows } = await req.db.from('payments')
+    .select('id, manager_id, gateway_poll_url, gateway_ref, via_platform, created_at')
+    .eq('status', 'pending').eq('paid_online', true)
+  let changed = 0
+  for (const p of rows || []) {
+    if (!p.gateway_poll_url && !p.gateway_ref) continue
+    try {
+      const state = p.via_platform
+        ? await pesepay.pollPlatform(p.gateway_ref)
+        : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
+      if (state === 'paid') { await settle(p.id); changed++ }
+      else if (state === 'cancelled') {
+        await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id).eq('status', 'pending'); changed++
+      } else if (new Date(p.created_at).getTime() < Date.now() - STALE_PENDING_MS) {
+        await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Payment not completed' }).eq('id', p.id).eq('status', 'pending'); changed++
+      }
+    } catch { /* one bad row shouldn't fail the whole sweep */ }
+  }
+  res.json({ changed })
 }))
 
 // Mark a gateway-confirmed payment approved, via the same RPC the manager's

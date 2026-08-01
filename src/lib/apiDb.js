@@ -120,6 +120,9 @@ export function createApiDb(sb) {
     // then poll status until { state: 'paid' | 'cancelled' | 'pending' }.
     startGatewayPayment: (data) => req('POST', '/api/payments/gateway/start', data),
     gatewayPaymentStatus: (paymentId) => req('GET', `/api/payments/gateway/status/${paymentId}`),
+    // Re-check pending online payments against the gateway (settles/expires
+    // abandoned ones). Safe to call on a payments page load.
+    reconcilePayments: () => req('POST', '/api/payments/reconcile'),
 
     // ── notifications ────────────────────────────────────────────────────────
     listNotifications: () => req('GET', '/api/notifications'),
