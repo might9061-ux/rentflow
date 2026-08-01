@@ -103,7 +103,7 @@ router.post('/gateway/start', h(async (req, res) => {
 // How long a redirect payment may sit unconfirmed before we treat it as
 // abandoned. Covers the "tenant hit the phone's Back button" case, where the
 // gateway never sends a cancel and the row would otherwise stay pending forever.
-const STALE_PENDING_MS = 20 * 60 * 1000
+const STALE_PENDING_MS = 7 * 60 * 1000
 
 router.get('/gateway/status/:id', h(async (req, res) => {
   const p = ok(await req.db.from('payments')
