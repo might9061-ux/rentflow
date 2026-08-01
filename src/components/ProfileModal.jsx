@@ -104,11 +104,14 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
         <button className="btn ghost sm" onClick={signOut}><IconLogout size={14} /> Sign out</button>
       </div>
 
-      <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line-soft)' }}>
-        <button className="btn ghost sm danger" onClick={() => setShowDelete(true)}><IconTrash size={14} /> Delete account</button>
-      </div>
+      {/* Tenants can't delete their own account — only the manager manages it. */}
+      {role !== 'tenant' && (
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line-soft)' }}>
+          <button className="btn ghost sm danger" onClick={() => setShowDelete(true)}><IconTrash size={14} /> Delete account</button>
+        </div>
+      )}
 
-      {showDelete && <DeleteAccountModal role={role} onClose={() => setShowDelete(false)} />}
+      {showDelete && role !== 'tenant' && <DeleteAccountModal role={role} onClose={() => setShowDelete(false)} />}
 
       <style>{`
         /* The size picker needs room to wrap on narrow phones. */

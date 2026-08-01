@@ -325,7 +325,7 @@ table.data tbody tr.clickable-row { cursor: pointer; }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 24px 0; }
 .modal-head h3 { font-size: 1.4rem; }
 .modal-body { padding: 18px 24px 24px; }
-.modal-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 0 24px 22px; }
+.modal-foot { display: flex; gap: 10px; justify-content: flex-end; align-items: center; flex-wrap: wrap; padding: 0 24px 22px; }
 .x-btn {
   background: var(--surface-2); border: 1px solid var(--line); color: var(--text-dim);
   width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center;

@@ -1,7 +1,7 @@
 // Tenant reads/updates. Creating a tenant (which needs an auth account) lives
 // in routes/admin.js — this file covers listing, fetching and editing.
 import { Router } from 'express'
-import { admin, verifyPassword } from '../supabase.js'
+import { admin } from '../supabase.js'
 import { h, ok } from '../auth.js'
 import * as pesepay from '../lib/pesepay.js'
 
@@ -43,17 +43,9 @@ router.get('/me/manager', h(async (req, res) => {
 // POST /api/tenants/me/delete — a tenant permanently deletes their own account.
 // Password-verified. Removes the tenancy record (payments cascade off it) and
 // the auth login.
-router.post('/me/delete', h(async (req, res) => {
-  const password = String(req.body?.password || '')
-  if (!password) throw new Error('Enter your password to delete your account.')
-  const me = ok(await admin.from('tenants').select('email').eq('id', req.user.id).single())
-  if (!me?.email) throw new Error('Account not found.')
-  if (!(await verifyPassword(me.email, password))) {
-    return res.status(401).json({ error: 'Password is incorrect.' })
-  }
-  await admin.from('tenants').delete().eq('id', req.user.id)
-  await admin.auth.admin.deleteUser(req.user.id)
-  res.json({ deleted: true })
+router.post('/me/delete', h(async (_req, res) => {
+  // Tenants cannot delete their own account — only their manager manages it.
+  res.status(403).json({ error: 'Tenants can’t delete their own account. Please contact your manager.' })
 }))
 
 router.get('/:id', h(async (req, res) => {

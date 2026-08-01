@@ -27,15 +27,19 @@ export default function TenantDashboard() {
   const [manager, setManager] = useState(null)
   const [tenant, setTenant] = useState(null)
   const [frame, setFrame] = useState(6)
+  const [unsignedLease, setUnsignedLease] = useState(null)
 
   useEffect(() => {
     (async () => {
       // Pull a FRESH tenant record too, so the balance reflects payments the
       // manager just approved (the cached auth profile can be stale).
-      const [pays, mgr, me] = await Promise.all([
+      const [pays, mgr, me, leases] = await Promise.all([
         db.listTenantPayments(userId), db.getTenantManager(userId), db.getTenant(userId),
+        db.listMyLeases(userId).catch(() => []),
       ])
-      setPayments(pays); setManager(mgr); setTenant(me); setLoading(false)
+      setPayments(pays); setManager(mgr); setTenant(me)
+      setUnsignedLease((leases || []).find((l) => l.status !== 'signed') || null)
+      setLoading(false)
     })()
   }, [userId])
 
@@ -82,6 +86,17 @@ export default function TenantDashboard() {
         <h1>Hello, {profile.first_name}</h1>
         <p className="row gap"><IconHome size={15} /> Billing period <PeriodTag period={period} /></p>
       </div>
+
+      {unsignedLease && (
+        <Link to="/tenant/lease" className="card pad" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, textDecoration: 'none', borderColor: 'var(--gold-line)', background: 'var(--gold-bg)' }}>
+          <span style={{ width: 38, height: 38, borderRadius: 10, display: 'grid', placeItems: 'center', background: 'var(--surface)', border: '1px solid var(--gold-line)', color: 'var(--gold)', flexShrink: 0 }}><IconReceipt size={18} /></span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, color: 'var(--text)' }}>You have a lease awaiting your signature</div>
+            <div className="muted" style={{ fontSize: '.84rem' }}>Review and sign your lease agreement.</div>
+          </div>
+          <IconArrowRight size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+        </Link>
+      )}
 
       {/* This month's balance / next payment */}
       <div className="card pad" style={{ marginBottom: 20 }}>
