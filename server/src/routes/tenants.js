@@ -20,8 +20,16 @@ router.get('/me/manager', h(async (req, res) => {
   // Whether this landlord's online gateway is connected AND switched live — a
   // plain boolean so the tenant portal can offer a real online payment. The
   // keys themselves are never exposed to the tenant.
-  const { data: creds } = await admin.from('payment_credentials')
+  let { data: creds } = await admin.from('payment_credentials')
     .select('provider, live, integration_id, integration_key, beneficiary_email').eq('manager_id', me.manager_id).maybeSingle()
+  // Resilience: if beneficiary_email hasn't been added yet (migration not run),
+  // that select errors and returns null — which must NOT silently disable live
+  // payments. Fall back to the columns that always exist so the keys path still
+  // works and tenants keep seeing the real gateway.
+  if (!creds) {
+    ({ data: creds } = await admin.from('payment_credentials')
+      .select('provider, live, integration_id, integration_key').eq('manager_id', me.manager_id).maybeSingle())
+  }
   // Live if the landlord has flipped it on AND has a way to collect: their own
   // keys (direct), or a beneficiary email + a configured platform split app.
   const canCollect = (creds?.integration_id && creds?.integration_key) || (creds?.beneficiary_email && pesepay.platformConfigured())

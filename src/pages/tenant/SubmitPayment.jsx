@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import { db } from '../../lib/db.js'
+import { db, DEMO_MODE } from '../../lib/db.js'
 import { money } from '../../lib/format.js'
 import { prettyPhone, maskPhone } from '../../lib/phone.js'
 import { currentPeriod, nextPeriod, formatPeriod, previewPayment } from '../../lib/billing.js'
@@ -49,18 +49,25 @@ export default function SubmitPayment() {
       const acc = acceptedMethods(m)
       setOptions(opts); setAccepted(acc)
       setRefundsOn(!!m?.refunds_enabled)
-      setLiveGateway(!!m?.online_payments_live)
+      const live = !!m?.online_payments_live
+      setLiveGateway(live)
       setPayDetails(m?.payment_details || {})
-      const sCard = acc.includes('card')
-      const expr = opts.find((o) => o.kind === 'online' && o.key !== 'card' && acc.includes(o.key))
+      // Online methods (card / EcoCash) are only offered when the manager's
+      // gateway is actually live — or in the demo, which simulates it. Otherwise
+      // don't show a fake checkout; tenants use the manual "upload proof" options.
+      const onlineOffered = live || DEMO_MODE
+      const sCard = onlineOffered && acc.includes('card')
+      const expr = onlineOffered && opts.find((o) => o.kind === 'online' && o.key !== 'card' && acc.includes(o.key))
       const sManual = opts.some((o) => o.kind === 'manual' && acc.includes(o.key))
       setMethod(sCard ? 'card' : expr ? 'express' : sManual ? 'manual' : null)
       setLoadingCfg(false)
     })()
   }, [userId])
 
-  const showCard = accepted.includes('card')
-  const expressOpt = options.find((o) => o.kind === 'online' && o.key !== 'card' && accepted.includes(o.key))
+  // Only offer online methods when the gateway is live (or in the demo).
+  const onlineOffered = liveGateway || DEMO_MODE
+  const showCard = onlineOffered && accepted.includes('card')
+  const expressOpt = onlineOffered ? options.find((o) => o.kind === 'online' && o.key !== 'card' && accepted.includes(o.key)) : null
   const showExpress = !!expressOpt
   const manualMethods = options.filter((o) => o.kind === 'manual' && accepted.includes(o.key)).map((o) => o.key)
   const showManual = manualMethods.length > 0
@@ -90,7 +97,7 @@ export default function SubmitPayment() {
       <div className="page-head">
         <div className="eyebrow">Pay rent</div>
         <h1>Make a payment</h1>
-        <p>Pay online instantly, or upload proof of a payment you’ve made.</p>
+        <p>{onlineOffered ? 'Pay online instantly, or upload proof of a payment you’ve made.' : 'Upload proof of a payment you’ve made.'}</p>
       </div>
 
       <div className="card pad" style={{ marginBottom: 18 }}>

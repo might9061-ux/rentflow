@@ -23,9 +23,17 @@ const statusOf = (row) => ({
 })
 
 async function currentRow(req, owner) {
-  return ok(await req.db.from('payment_credentials')
+  // Fall back to the always-present columns if beneficiary_email hasn't been
+  // added yet (migration not run), so the connect screen still works.
+  let { data, error } = await req.db.from('payment_credentials')
     .select('provider, live, integration_id, integration_key, beneficiary_email')
-    .eq('manager_id', owner).maybeSingle())
+    .eq('manager_id', owner).maybeSingle()
+  if (error) {
+    ({ data } = await req.db.from('payment_credentials')
+      .select('provider, live, integration_id, integration_key')
+      .eq('manager_id', owner).maybeSingle())
+  }
+  return data
 }
 
 // GET /api/payment-gateway — is a gateway connected / live? (no secrets)
