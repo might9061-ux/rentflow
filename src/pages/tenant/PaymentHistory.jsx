@@ -176,7 +176,7 @@ export default function PaymentHistory() {
       )}
 
       {viewing && (
-        <ReceiptModal payment={viewing} tenant={profile} manager={manager} property={property}
+        <ReceiptModal payment={viewing} tenant={profile} manager={manager} property={property} payments={payments}
           onClose={() => setViewing(null)} />
       )}
     </div>

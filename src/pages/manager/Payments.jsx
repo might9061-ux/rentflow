@@ -254,6 +254,7 @@ export default function Payments() {
       {viewing && (
         <ReceiptModal payment={viewing} tenant={tenantOf(viewing.tenant_id)} manager={profile}
           property={propOf(tenantOf(viewing.tenant_id))}
+          payments={rows.filter((p) => p.tenant_id === viewing.tenant_id)}
           onClose={() => setViewing(null)} onWhatsapp={() => resend(viewing)} />
       )}
       </>}

@@ -289,7 +289,7 @@ export default function TenantDetail() {
         <LeaseModal tenant={tenant} property={property} manager={profile}
           onClose={() => setLeaseModal(false)} onSaved={() => { setLeaseModal(false); load() }} />
       )}
-      {viewing && <ReceiptModal payment={viewing} tenant={tenant} manager={profile} property={property} onClose={() => setViewing(null)} onWhatsapp={() => resendReceipt(viewing)} />}
+      {viewing && <ReceiptModal payment={viewing} tenant={tenant} manager={profile} property={property} payments={payments} onClose={() => setViewing(null)} onWhatsapp={() => resendReceipt(viewing)} />}
       {editing && (
         <TenantModal tenant={tenant} properties={properties} userId={userId}
           onClose={() => setEditing(false)} onUpdated={() => { setEditing(false); load() }} onCreated={() => {}} />

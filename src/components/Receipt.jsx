@@ -2,13 +2,26 @@ import { useState } from 'react'
 import Modal from './Modal.jsx'
 import { money, fmtDate, fullName } from '../lib/format.js'
 import { formatPeriod } from '../lib/billing.js'
+import { buildLedger } from '../lib/ledger.js'
 import { shareReceiptImage } from '../lib/receiptImage.js'
 import { IconWhatsapp, IconShare } from './icons.jsx'
 
 // Official receipt view. `onWhatsapp` (optional) shows a resend button.
-export default function ReceiptModal({ payment, tenant, manager, property, onClose, onWhatsapp }) {
+// `payments` (optional) is the tenant's payment list — when given, the credit
+// carried forward is DERIVED from actual payments (accurate) instead of the
+// stored per-payment snapshot, which can drift.
+export default function ReceiptModal({ payment, tenant, manager, property, payments, onClose, onWhatsapp }) {
   const period = formatPeriod({ from: payment.period_from, to: payment.period_to })
   const [sharing, setSharing] = useState(false)
+  // Credit carried forward: derive it from the tenant's approved payments up to
+  // and including this one; fall back to the stored value if no list is given.
+  const creditCarried = Array.isArray(payments) && payments.length
+    ? buildLedger({
+      payments: payments.filter((p) => p.status === 'approved'
+        && new Date(p.created_at || p.paid_date || 0) <= new Date(payment.created_at || payment.paid_date || 0)),
+      rent: Number(tenant?.rent || 0), dueDay: tenant?.due_day, startDate: tenant?.lease_start || tenant?.created_at,
+    }).creditAdvance
+    : Number(payment.credit_amount || 0)
   // Paper size for printing. 80mm / 58mm = thermal receipt-printer rolls used in
   // shops; A4 = a normal office printer. Remembered so it's a one-time choice.
   const [paper, setPaper] = useState(() => { try { return localStorage.getItem('rentflow_receipt_paper') || '80mm' } catch { return '80mm' } })
@@ -17,8 +30,8 @@ export default function ReceiptModal({ payment, tenant, manager, property, onClo
   const print = () => {
     try { localStorage.setItem('rentflow_receipt_paper', paper) } catch { /* ignore */ }
     const html = paper === 'a4'
-      ? receiptHtml({ payment, tenant, manager, property, period })
-      : receiptThermalHtml({ payment, tenant, manager, property, period, brand, widthMm: paper === '58mm' ? 58 : 80 })
+      ? receiptHtml({ payment, tenant, manager, property, period, credit: creditCarried })
+      : receiptThermalHtml({ payment, tenant, manager, property, period, brand, credit: creditCarried, widthMm: paper === '58mm' ? 58 : 80 })
     const w = window.open('', '_blank')
     if (!w) return
     w.document.write(html)
@@ -65,8 +78,8 @@ export default function ReceiptModal({ payment, tenant, manager, property, onClo
         <div className="r-line"><span>Billing period</span><b>{period}</b></div>
         <div className="r-line"><span>Method</span><b>{payment.method}</b></div>
         <div className="r-line"><span>Reference</span><b>{payment.reference || '—'}</b></div>
-        {payment.credit_amount > 0 && (
-          <div className="r-line"><span>Credit carried forward</span><b>{money(payment.credit_amount)}</b></div>
+        {creditCarried > 0 && (
+          <div className="r-line"><span>Credit carried forward</span><b>{money(creditCarried)}</b></div>
         )}
 
         <div className="r-line" style={{ borderBottom: 'none', marginTop: 8, alignItems: 'baseline' }}>
@@ -85,7 +98,8 @@ export default function ReceiptModal({ payment, tenant, manager, property, onClo
 // Thermal receipt layout for shop-style receipt printers (80mm / 58mm rolls).
 // Monospace, pure black, continuous-roll page size — what those printers expect.
 // The manager picks the printer in the browser's print dialog.
-function receiptThermalHtml({ payment, tenant, manager, property, period, brand, widthMm }) {
+function receiptThermalHtml({ payment, tenant, manager, property, period, brand, widthMm, credit }) {
+  const creditVal = credit != null ? credit : Number(payment.credit_amount || 0)
   const line = (k, v) => `<div class="ln"><span>${k}</span><b>${v}</b></div>`
   return `<!doctype html><html><head><meta charset="utf-8"><title>Receipt ${payment.receipt_no || ''}</title>
   <style>
@@ -110,7 +124,7 @@ function receiptThermalHtml({ payment, tenant, manager, property, period, brand,
   ${line('Period', period)}
   ${line('Method', payment.method || '—')}
   ${line('Ref', payment.reference || '—')}
-  ${payment.credit_amount > 0 ? line('Credit fwd', money(payment.credit_amount)) : ''}
+  ${creditVal > 0 ? line('Credit fwd', money(creditVal)) : ''}
   <hr/>
   <div class="total"><span>AMOUNT PAID</span><span>${money(payment.amount)}</span></div>
   <hr/>
@@ -119,7 +133,8 @@ function receiptThermalHtml({ payment, tenant, manager, property, period, brand,
 }
 
 // Standalone HTML for the print/download window.
-function receiptHtml({ payment, tenant, manager, property, period }) {
+function receiptHtml({ payment, tenant, manager, property, period, credit }) {
+  const creditVal = credit != null ? credit : Number(payment.credit_amount || 0)
   const row = (k, v) => `<tr><td style="padding:7px 0;color:#6b6258">${k}</td><td style="padding:7px 0;text-align:right;font-weight:600">${v}</td></tr>`
   return `<!doctype html><html><head><meta charset="utf-8"><title>Receipt ${payment.receipt_no || ''}</title>
   <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1714;max-width:520px;margin:40px auto;padding:0 24px}
@@ -139,7 +154,7 @@ function receiptHtml({ payment, tenant, manager, property, period }) {
     ${row('Billing period', period)}
     ${row('Method', payment.method)}
     ${row('Reference', payment.reference || '—')}
-    ${payment.credit_amount > 0 ? row('Credit carried forward', money(payment.credit_amount)) : ''}
+    ${creditVal > 0 ? row('Credit carried forward', money(creditVal)) : ''}
   </table><hr/>
   <table><tr><td style="font-weight:600">Amount paid</td><td style="text-align:right" class="total">${money(payment.amount)}</td></tr></table>
   <p style="margin-top:24px;color:#6b6258;font-size:.8rem;text-align:center">Issued by ${fullName(manager)} · Thank you for your payment.</p>
