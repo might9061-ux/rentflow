@@ -358,19 +358,11 @@ function GatewaySection({ wmId }) {
       <span className="hint">{meta.help}</span>
 
       {provider === 'pesepay' && (
-        <div style={{ marginTop: 6, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-          <label style={{ fontWeight: 600, fontSize: '0.9rem' }}>Or use split payouts (recommended)</label>
-          <p className="muted" style={{ fontSize: '0.8rem', margin: '2px 0 10px' }}>
-            Enter your Pesepay <b>merchant email</b> instead of keys. Rent is collected through RentLoja’s
-            gateway, paid straight to you, and the platform’s small service fee is taken automatically. When set,
-            this is used instead of your own keys above.
-          </p>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label>Pesepay merchant email</label>
-            <input className="input" type="email" value={benef} onChange={(e) => setBenef(e.target.value)}
-              autoComplete="off" name="pesepay-beneficiary-email" placeholder="you@example.com" />
-          </div>
-          {status.split && <span className="cur-chip on" style={{ marginTop: 8 }}><IconCheck size={13} /> Split payouts active</span>}
+        <div className="field" style={{ marginTop: 6, marginBottom: 0 }}>
+          <label>Pesepay email <span className="muted" style={{ fontWeight: 400 }}>(where your rent is paid)</span></label>
+          <input className="input" type="email" value={benef} onChange={(e) => setBenef(e.target.value)}
+            autoComplete="off" name="pesepay-payout-email" placeholder="you@example.com" />
+          <span className="hint">The email on your Pesepay account. Your tenants’ rent is paid into this account.</span>
         </div>
       )}
 
