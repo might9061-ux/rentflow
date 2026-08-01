@@ -79,6 +79,7 @@ export default function Properties() {
                     </div>
                     <div className="col" style={{ gap: 6, alignItems: 'flex-end' }}>
                       <span className={`pill ${occ.cls}`}><span className="dot" />{occ.label}</span>
+                      {p.shared && <span className="pill neutral">Shared</span>}
                       {p.is_advertised && <span className="pill green">For rent</span>}
                     </div>
                   </div>
@@ -133,6 +134,7 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
     deposit: property.deposit ?? '', available_from: property.available_from || '', utilities_included: property.utilities_included || [], max_occupants: property.max_occupants ?? '', levy_fee: property.levy_fee ?? '',
     description: property.description || '', rules: property.rules || '',
     caretaker_name: property.caretaker_name || '', caretaker_phone: property.caretaker_phone || '',
+    shared: property.shared || false,
     is_advertised: property.is_advertised || false,
     ad_rent: property.ad_rent != null && property.ad_rent !== '' ? String(Math.round(Number(property.ad_rent))) : '', ad_currency: property.ad_currency || 'USD',
     ad_contact_name: property.ad_contact_name || '', ad_contact_phone: property.ad_contact_phone || '',
@@ -201,6 +203,14 @@ export function PropertyModal({ property, userId, onClose, onSaved }) {
           value={form.unit_names} onChange={set('unit_names')}
           placeholder={dwellingNoun(form.type) === 'House' ? 'Main House\nGarden Cottage\nCottage B' : 'Shop 1\nOffice A\nFlat 2B'}
           hint={`One per line. Leave blank to just number them 1…${form.units || 'N'}. When filled, these become the ${dwellingNoun(form.type) === 'House' ? 'houses' : 'units'} tenants are assigned to, and set the count automatically.`} />
+
+        <label className="spread" style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 'var(--radius)', background: form.shared ? 'var(--accent-bg)' : 'var(--bg)', cursor: 'pointer', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>Shared accommodation</div>
+            <div className="muted" style={{ fontSize: '0.78rem' }}>Roommates can share the same {dwellingNoun(form.type) === 'House' ? 'house' : 'unit'} — you can add more than one tenant to it, each with their own rent.</div>
+          </div>
+          <span className="switch"><input type="checkbox" checked={form.shared} onChange={(e) => setForm((f) => ({ ...f, shared: e.target.checked }))} /><span className="track" /></span>
+        </label>
 
         {/* Photos */}
         <div className="field">

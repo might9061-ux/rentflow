@@ -45,11 +45,14 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
   const noun = dwellingNoun(selectedProp?.type)          // 'House' | 'Unit'
   const nounLower = noun.toLowerCase()
   const unitLabel = noun === 'House' ? 'House number' : 'Unit'
+  // Shared accommodation: roommates may share a unit, so occupied units stay
+  // selectable and adding a co-tenant is allowed.
+  const isShared = !!selectedProp?.shared
   // Units already occupied by OTHER tenants in the selected property.
   const takenUnits = new Set(
     tenants.filter((t) => t.property_id === form.property_id && t.id !== tenant?.id && t.unit).map((t) => String(t.unit)),
   )
-  const availableCount = slots.filter((s) => !takenUnits.has(s)).length
+  const availableCount = isShared ? slots.length : slots.filter((s) => !takenUnits.has(s)).length
   // When editing, keep the tenant's current dwelling selectable even if it now
   // falls outside the list (e.g. the count was lowered), so saving never wipes it.
   const unitOptions = tenant?.unit && !slots.includes(tenant.unit) ? [...slots, tenant.unit] : slots
@@ -81,7 +84,7 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
     e.preventDefault()
     if (!isValidEmail(form.email)) return toast.error('Invalid email', 'Enter a valid email address for the tenant.')
     if (!form.phone) return toast.error('Phone required', 'Add the tenant’s phone number.')
-    if (occupant) return toast.error(`${noun} already occupied`, `${form.unit} is taken by ${fullName(occupant)}. Choose a different ${nounLower}.`)
+    if (occupant && !isShared) return toast.error(`${noun} already occupied`, `${form.unit} is taken by ${fullName(occupant)}. Choose a different ${nounLower}.`)
     setBusy(true)
     try {
       const payload = {
@@ -129,11 +132,12 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
           </Select>
           {unitOptions.length > 0 ? (
             <Select label={unitLabel} value={unitOptions.includes(form.unit) ? form.unit : ''} onChange={set('unit')}
-              hint={slots.length > 0 ? `${availableCount} of ${slots.length} ${nounLower}${slots.length > 1 ? 's' : ''} free` : undefined}>
+              hint={isShared ? 'Shared property — roommates can share a ' + nounLower : (slots.length > 0 ? `${availableCount} of ${slots.length} ${nounLower}${slots.length > 1 ? 's' : ''} free` : undefined)}>
               <option value="">— Select a {nounLower} —</option>
               {unitOptions.map((s) => {
-                const taken = takenUnits.has(s) && s !== tenant?.unit
-                return <option key={s} value={s} disabled={taken}>{s}{taken ? ' — occupied' : ''}</option>
+                const occ = takenUnits.has(s) && s !== tenant?.unit
+                // In a shared property occupied units stay selectable (co-tenants).
+                return <option key={s} value={s} disabled={occ && !isShared}>{s}{occ ? (isShared ? ' — shared' : ' — occupied') : ''}</option>
               })}
             </Select>
           ) : (
@@ -142,7 +146,12 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
             </Field>
           )}
         </Row>
-        {occupant && (
+        {occupant && isShared && (
+          <div className="hint" style={{ color: 'var(--text-dim)', marginTop: -8, marginBottom: 12, fontWeight: 500 }}>
+            🤝 Shared {nounLower} — {form.unit} is also home to {fullName(occupant)}. This tenant is added as a co-tenant.
+          </div>
+        )}
+        {occupant && !isShared && (
           <div className="hint" style={{ color: 'var(--danger)', marginTop: -8, marginBottom: 12, fontWeight: 500 }}>
             ⚠ {form.unit} is already occupied by {fullName(occupant)} — choose a different {nounLower}.
           </div>
