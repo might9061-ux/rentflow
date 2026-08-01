@@ -114,21 +114,28 @@ router.get('/gateway/status/:id', h(async (req, res) => {
   if (!p.gateway_poll_url && !p.gateway_ref) return res.json({ state: 'pending', payment: p })
 
   // Split payments live on the PLATFORM app, so verify them with the platform
-  // keys; direct payments verify with the landlord's own keys.
-  let state = p.via_platform
-    ? await pesepay.pollPlatform(p.gateway_ref)
-    : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
+  // keys; direct payments verify with the landlord's own keys. A poll failure
+  // (e.g. Pesepay doesn't recognise an abandoned reference) must NOT stop the
+  // age-based expiry below, so treat it as "unconfirmed".
+  let state
+  try {
+    state = p.via_platform
+      ? await pesepay.pollPlatform(p.gateway_ref)
+      : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
+  } catch { state = 'unconfirmed' }
+
+  const stale = new Date(p.created_at).getTime() < Date.now() - STALE_PENDING_MS
   if (state === 'paid') await settle(p.id)
-  if (state === 'cancelled') {
-    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id)
-  }
-  // Still pending long after it was started → the tenant walked away (Back
-  // button). Mark it not completed so it stops sitting in the queue.
-  if (state === 'pending' && new Date(p.created_at).getTime() < Date.now() - STALE_PENDING_MS) {
-    await admin.from('payments')
-      .update({ status: 'rejected', rejected_reason: 'Payment not completed' })
-      .eq('id', p.id).eq('status', 'pending')
+  else if (state === 'cancelled') {
+    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id).eq('status', 'pending')
+  } else if (stale) {
+    // Unconfirmed well after it was started → the tenant walked away (Back
+    // button) or it never completed. Mark it not completed so it stops sitting
+    // in the queue — even if we couldn't reach the gateway to ask.
+    await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Payment not completed' }).eq('id', p.id).eq('status', 'pending')
     state = 'cancelled'
+  } else {
+    state = 'pending' // still within the grace window; keep waiting
   }
   const fresh = ok(await req.db.from('payments').select('*').eq('id', p.id).single())
   res.json({ state, payment: fresh })
@@ -143,15 +150,23 @@ router.post('/reconcile', h(async (req, res) => {
     .eq('status', 'pending').eq('paid_online', true)
   let changed = 0
   for (const p of rows || []) {
-    if (!p.gateway_poll_url && !p.gateway_ref) continue
+    const stale = new Date(p.created_at).getTime() < Date.now() - STALE_PENDING_MS
+    // Ask the gateway where it stands. A poll failure (unrecognised/abandoned
+    // reference, gateway down) must NOT block the age-based expiry below.
+    let state = 'unconfirmed'
+    if (p.gateway_poll_url || p.gateway_ref) {
+      try {
+        state = p.via_platform
+          ? await pesepay.pollPlatform(p.gateway_ref)
+          : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
+      } catch { state = 'unconfirmed' }
+    }
     try {
-      const state = p.via_platform
-        ? await pesepay.pollPlatform(p.gateway_ref)
-        : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
       if (state === 'paid') { await settle(p.id); changed++ }
       else if (state === 'cancelled') {
         await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id).eq('status', 'pending'); changed++
-      } else if (new Date(p.created_at).getTime() < Date.now() - STALE_PENDING_MS) {
+      } else if (stale) {
+        // Pending/unconfirmed well past the start → abandoned. Expire it.
         await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Payment not completed' }).eq('id', p.id).eq('status', 'pending'); changed++
       }
     } catch { /* one bad row shouldn't fail the whole sweep */ }
