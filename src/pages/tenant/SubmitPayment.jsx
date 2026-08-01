@@ -5,7 +5,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { db, DEMO_MODE } from '../../lib/db.js'
 import { money } from '../../lib/format.js'
 import { prettyPhone, maskPhone } from '../../lib/phone.js'
-import { currentPeriod, nextPeriod, formatPeriod, previewPayment } from '../../lib/billing.js'
+import { currentPeriod, formatPeriod, previewPayment } from '../../lib/billing.js'
+import { buildLedger } from '../../lib/ledger.js'
 import {
   chargeCard, initiateEcocash, pollEcocash, cancelEcocash,
   formatCardNumber, detectBrand,
@@ -27,9 +28,12 @@ export default function SubmitPayment() {
   const nav = useNavigate()
 
   const rent = Number(profile?.rent || 0)
-  const credit = Number(profile?.credit_balance || 0)
-  const currentPaid = profile?.status === 'paid'
-  const period = currentPaid ? nextPeriod(currentPeriod(profile.due_day), profile.due_day) : currentPeriod(profile.due_day)
+  // Credit + status are DERIVED from actual payments (same ledger the dashboard
+  // uses), never the stored credit_balance column — so the two screens agree.
+  const [led, setLed] = useState(null)
+  const credit = led ? led.creditAdvance : 0
+  const currentPaid = led ? led.currentStatus === 'paid' : false
+  const period = led ? led.nextDue : (profile ? currentPeriod(profile.due_day) : currentPeriod(1))
 
   // Which methods the manager has enabled (driven by their country).
   const [loadingCfg, setLoadingCfg] = useState(true)
@@ -44,7 +48,13 @@ export default function SubmitPayment() {
 
   useEffect(() => {
     (async () => {
-      const m = await db.getTenantManager(userId)
+      const [m, pays, me] = await Promise.all([
+        db.getTenantManager(userId), db.listTenantPayments(userId), db.getTenant(userId),
+      ])
+      // Derive credit/status from real payments (approved only) so this screen
+      // matches the dashboard instead of trusting a stale stored balance.
+      const t = me || profile
+      setLed(buildLedger({ payments: pays, rent: Number(t?.rent || 0), dueDay: t?.due_day, startDate: t?.lease_start || t?.created_at }))
       const opts = paymentMethodsFor(m)
       const acc = acceptedMethods(m)
       setOptions(opts); setAccepted(acc)
