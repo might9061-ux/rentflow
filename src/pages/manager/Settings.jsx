@@ -266,6 +266,7 @@ function GatewaySection({ wmId }) {
   const [provider, setProvider] = useState('pesepay')
   const [intId, setIntId] = useState('')
   const [intKey, setIntKey] = useState('')
+  const [benef, setBenef] = useState('') // Pesepay merchant email for split payouts
   const [live, setLive] = useState(false)
   const [busy, setBusy] = useState(false)
   // Browsers autofill saved logins into a text field followed by a password
@@ -279,7 +280,7 @@ function GatewaySection({ wmId }) {
     (async () => {
       try {
         const s = await db.getPaymentGateway(wmId)
-        setStatus(s); setProvider(s.provider || 'pesepay'); setLive(!!s.live)
+        setStatus(s); setProvider(s.provider || 'pesepay'); setLive(!!s.live); setBenef(s.beneficiary_email || '')
       } catch { /* leave defaults — section still lets them connect */ }
       setLoading(false)
     })()
@@ -299,11 +300,13 @@ function GatewaySection({ wmId }) {
         provider,
         integration_id: intId.trim() || undefined,
         integration_key: intKey.trim() || undefined,
+        beneficiary_email: benef.trim(),
         live,
       })
-      setStatus(s); setLive(!!s.live); setIntId(''); setIntKey('')
+      setStatus(s); setLive(!!s.live); setIntId(''); setIntKey(''); setBenef(s.beneficiary_email || '')
       toast.success(s.live ? 'Online payments are live' : 'Gateway saved',
-        s.connected ? 'Your merchant account is connected.' : 'Enter both keys to finish connecting.')
+        s.split ? 'Split payouts on — you receive rent, the platform takes its fee.'
+          : s.connected ? 'Your merchant account is connected.' : 'Add your keys or a Pesepay email to finish.')
     } catch (err) { toast.error('Could not save', err.message); setLive(status.live) }
     finally { setBusy(false) }
   }
@@ -312,7 +315,7 @@ function GatewaySection({ wmId }) {
     setBusy(true)
     try {
       const s = await db.disconnectPaymentGateway(wmId)
-      setStatus(s); setLive(false); setIntId(''); setIntKey('')
+      setStatus(s); setLive(false); setIntId(''); setIntKey(''); setBenef('')
       toast.success('Disconnected', 'Online payments are switched off.')
     } catch (err) { toast.error('Could not disconnect', err.message) }
     finally { setBusy(false) }
@@ -353,6 +356,23 @@ function GatewaySection({ wmId }) {
         </div>
       </div>
       <span className="hint">{meta.help}</span>
+
+      {provider === 'pesepay' && (
+        <div style={{ marginTop: 6, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+          <label style={{ fontWeight: 600, fontSize: '0.9rem' }}>Or use split payouts (recommended)</label>
+          <p className="muted" style={{ fontSize: '0.8rem', margin: '2px 0 10px' }}>
+            Enter your Pesepay <b>merchant email</b> instead of keys. Rent is collected through RentLoja’s
+            gateway, paid straight to you, and the platform’s small service fee is taken automatically. When set,
+            this is used instead of your own keys above.
+          </p>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Pesepay merchant email</label>
+            <input className="input" type="email" value={benef} onChange={(e) => setBenef(e.target.value)}
+              autoComplete="off" name="pesepay-beneficiary-email" placeholder="you@example.com" />
+          </div>
+          {status.split && <span className="cur-chip on" style={{ marginTop: 8 }}><IconCheck size={13} /> Split payouts active</span>}
+        </div>
+      )}
 
       <ToggleRow title="Accept live payments"
         desc={live ? 'Tenants can pay you online right now.' : 'Keep this off until you’ve tested with a small real payment.'}

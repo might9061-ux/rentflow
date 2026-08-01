@@ -132,11 +132,18 @@ function pesepayError(e, fallback) {
 
 // ── initiate ─────────────────────────────────────────────────────────────────
 
-// Rent: charge into the landlord's account.
+// Rent (direct): charge into the landlord's OWN account (their keys).
 export async function initiate({ managerId, reference, email, amount, method, phone, description }) {
   const creds = await credentialsFor(managerId)
   return initiateWith(creds, { reference, email, amount, method, phone, description,
     resultPath: '/pesepay/result', returnPath: '/tenant/history' })
+}
+
+// Rent (split): collect on the PLATFORM's split app; Pesepay settles the rent to
+// the landlord (beneficiary email) and the 0.5% service fee to the platform.
+export async function initiateSplit({ reference, email, amount, method, phone, description, beneficiaryEmail }) {
+  return initiateWith(platformCreds(), { reference, email, amount, method, phone, description,
+    beneficiaryEmail, resultPath: '/pesepay/result', returnPath: '/tenant/history' })
 }
 
 // Subscription: charge into the platform's account.
@@ -145,7 +152,7 @@ export async function initiatePlatform({ reference, email, amount, method, phone
     resultPath: '/pesepay-subscription/result', returnPath: '/manager/plan' })
 }
 
-async function initiateWith(creds, { reference, email, amount, method, phone, description, resultPath, returnPath }) {
+async function initiateWith(creds, { reference, email, amount, method, phone, description, resultPath, returnPath, beneficiaryEmail }) {
   if (!API_BASE) throw new Error('Online payments are not configured on the server (PUBLIC_API_URL missing).')
   const amt = Number(amount)
   if (!Number.isFinite(amt) || amt <= 0) throw new Error('Enter a valid amount.')
@@ -153,6 +160,11 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
   const currencyCode = 'USD'
   const resultUrl = `${API_BASE}${resultPath}` // server-to-server outcome
   const returnUrl = `${APP_BASE}${returnPath}`  // where the payer lands after
+  // Split: the master merchant's share (0.5%, configured in Pesepay) is added on
+  // top of the rent — landlord gets the full rent, platform gets the fee.
+  const splitFields = beneficiaryEmail
+    ? { paymentMetadata: { beneficiaryMerchantEmail: beneficiaryEmail }, splitAmountMode: 'ADD_ON' }
+    : {}
 
   const mobileCode = MOBILE_CODES[method]
   if (mobileCode) {
@@ -163,6 +175,7 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
         merchantReference: reference,
         reasonForPayment: description || 'Payment',
         resultUrl,
+        ...splitFields,
         paymentMethodCode: mobileCode,
         customer: { phoneNumber: phone, email: email || undefined },
         paymentMethodRequiredFields: { customerPhoneNumber: phone },
@@ -184,6 +197,7 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
       merchantReference: reference,
       reasonForPayment: description || 'Payment',
       resultUrl,
+      ...splitFields,
       returnUrl,
     }))
   } catch (e) { throw pesepayError(e, 'The payment gateway rejected this transaction.') }

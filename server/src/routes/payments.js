@@ -5,6 +5,7 @@ import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
 import { admin } from '../supabase.js'
 import { adapterFor } from '../lib/gateway.js'
+import * as pesepay from '../lib/pesepay.js'
 
 const router = Router()
 
@@ -49,33 +50,42 @@ router.post('/gateway/start', h(async (req, res) => {
     .select('manager_id, first_name, last_name, email').eq('id', req.user.id).single())
   const { amount, fee, method, phone, period_from, period_to } = req.body || {}
 
-  // The tenant is charged rent + the platform fee; the record keeps them apart
-  // (amount = rent, fee = platform fee) so receipts and finances read correctly.
   const rent = Number(amount) || 0
   const feeAmt = Number(fee) || 0
-  const charge = rent + feeAmt
-
   const reference = `RENT-${Date.now().toString(36).toUpperCase()}`
-  const gw = await adapterFor(t.manager_id)
-  const started = await gw.initiate({
-    managerId: t.manager_id,
-    reference,
-    email: t.email || req.user.email,
-    amount: charge,
-    method,
-    phone,
-    description: `Rent — ${[t.first_name, t.last_name].filter(Boolean).join(' ')}`,
-  })
+  const email = t.email || req.user.email
+  const description = `Rent — ${[t.first_name, t.last_name].filter(Boolean).join(' ')}`
+
+  // Split path: if the landlord has a Pesepay beneficiary email and the platform
+  // split app is configured, collect on the PLATFORM app. Pesepay adds the 0.5%
+  // on top (ADD_ON) and settles it to the platform + the rent to the landlord —
+  // so we charge the rent only and let Pesepay take the fee.
+  // Direct path: charge rent + our platform fee into the landlord's own account.
+  const { data: creds } = await admin.from('payment_credentials')
+    .select('beneficiary_email').eq('manager_id', t.manager_id).maybeSingle()
+  const useSplit = !!creds?.beneficiary_email && pesepay.platformConfigured()
+
+  let started
+  if (useSplit) {
+    started = await pesepay.initiateSplit({
+      reference, email, amount: rent, method, phone, description,
+      beneficiaryEmail: creds.beneficiary_email,
+    })
+  } else {
+    const gw = await adapterFor(t.manager_id)
+    started = await gw.initiate({ managerId: t.manager_id, reference, email, amount: rent + feeAmt, method, phone, description })
+  }
 
   const row = ok(await req.db.from('payments').insert({
     tenant_id: req.user.id, manager_id: t.manager_id,
+    // amount = rent, fee = platform fee, kept apart so receipts/finances read right.
     amount: rent, fee: feeAmt, method: method || 'card', payer_phone: phone || null,
     period_from, period_to,
     // Set the same fields a manual/online payment does, so the receipt and the
     // date-based finance views treat it like any other payment.
     paid_date: new Date().toISOString().slice(0, 10),
     reference: started.reference || reference,
-    paid_online: true, status: 'pending',
+    paid_online: true, status: 'pending', via_platform: useSplit,
     // Pesepay returns its own reference; fall back to ours (Paynow uses ours).
     gateway_ref: started.reference || reference, gateway_poll_url: started.pollUrl,
   }).select().single())
@@ -92,14 +102,17 @@ router.post('/gateway/start', h(async (req, res) => {
 // the tenant's device can only ASK, the gateway decides.
 router.get('/gateway/status/:id', h(async (req, res) => {
   const p = ok(await req.db.from('payments')
-    .select('id, manager_id, status, gateway_poll_url, gateway_ref').eq('id', req.params.id).single())
+    .select('id, manager_id, status, gateway_poll_url, gateway_ref, via_platform').eq('id', req.params.id).single())
 
   if (p.status === 'approved') return res.json({ state: 'paid', payment: p })
   // Paynow polls a pollUrl; Pesepay polls by reference. Need one of them.
   if (!p.gateway_poll_url && !p.gateway_ref) return res.json({ state: 'pending', payment: p })
 
-  const gw = await adapterFor(p.manager_id)
-  const state = await gw.poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
+  // Split payments live on the PLATFORM app, so verify them with the platform
+  // keys; direct payments verify with the landlord's own keys.
+  const state = p.via_platform
+    ? await pesepay.pollPlatform(p.gateway_ref)
+    : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
   if (state === 'paid') await settle(p.id)
   if (state === 'cancelled') {
     await admin.from('payments').update({ status: 'rejected', rejected_reason: 'Cancelled at the payment gateway' }).eq('id', p.id)
@@ -134,7 +147,7 @@ router.post('/log', h(async (req, res) => {
 // POST /api/payments/:id/approve
 router.post('/:id/approve', h(async (req, res) => {
   const p = ok(await req.db.from('payments')
-    .select('id, manager_id, status, paid_online, gateway_ref, gateway_poll_url').eq('id', req.params.id).single())
+    .select('id, manager_id, status, paid_online, gateway_ref, gateway_poll_url, via_platform').eq('id', req.params.id).single())
 
   // Online payments are confirmed by the gateway, never on the manager's word.
   // Re-check with the provider and approve only if it actually reads paid — so a
@@ -143,8 +156,9 @@ router.post('/:id/approve', h(async (req, res) => {
     if (!p.gateway_ref && !p.gateway_poll_url) {
       throw new Error('This is an online payment awaiting the gateway — it’s marked paid automatically once the gateway confirms it, not by hand.')
     }
-    const gw = await adapterFor(p.manager_id)
-    const state = await gw.poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
+    const state = p.via_platform
+      ? await pesepay.pollPlatform(p.gateway_ref)
+      : await (await adapterFor(p.manager_id)).poll({ managerId: p.manager_id, pollUrl: p.gateway_poll_url, reference: p.gateway_ref })
     if (state !== 'paid') {
       throw new Error('The payment gateway hasn’t confirmed this payment, so it can’t be approved. It updates automatically once the gateway confirms it.')
     }

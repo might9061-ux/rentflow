@@ -3,6 +3,7 @@
 import { Router } from 'express'
 import { admin, verifyPassword } from '../supabase.js'
 import { h, ok } from '../auth.js'
+import * as pesepay from '../lib/pesepay.js'
 
 const router = Router()
 
@@ -20,10 +21,13 @@ router.get('/me/manager', h(async (req, res) => {
   // plain boolean so the tenant portal can offer a real online payment. The
   // keys themselves are never exposed to the tenant.
   const { data: creds } = await admin.from('payment_credentials')
-    .select('provider, live, integration_id, integration_key').eq('manager_id', me.manager_id).maybeSingle()
+    .select('provider, live, integration_id, integration_key, beneficiary_email').eq('manager_id', me.manager_id).maybeSingle()
+  // Live if the landlord has flipped it on AND has a way to collect: their own
+  // keys (direct), or a beneficiary email + a configured platform split app.
+  const canCollect = (creds?.integration_id && creds?.integration_key) || (creds?.beneficiary_email && pesepay.platformConfigured())
   res.json({
     ...manager,
-    online_payments_live: !!(creds?.live && creds?.integration_id && creds?.integration_key),
+    online_payments_live: !!(creds?.live && canCollect),
     online_payments_provider: creds?.provider || null,
   })
 }))

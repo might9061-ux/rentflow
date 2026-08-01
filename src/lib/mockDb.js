@@ -1135,7 +1135,8 @@ export const mockApi = {
   async getPaymentGateway(managerId) {
     await delay(); const d = db()
     const row = (d.paymentGateways || {})[managerId]
-    return { provider: row?.provider || null, live: !!row?.live, connected: !!(row?.integration_id && row?.integration_key) }
+    return { provider: row?.provider || null, live: !!row?.live, connected: !!(row?.integration_id && row?.integration_key),
+      beneficiary_email: row?.beneficiary_email || '', split: !!row?.beneficiary_email }
   },
   async savePaymentGateway(managerId, patch) {
     await delay(); const d = db()
@@ -1143,11 +1144,14 @@ export const mockApi = {
     const row = { ...(d.paymentGateways[managerId] || {}), provider: patch.provider }
     if (patch.integration_id?.trim()) row.integration_id = patch.integration_id.trim()
     if (patch.integration_key?.trim()) row.integration_key = patch.integration_key.trim()
+    if (typeof patch.beneficiary_email === 'string') row.beneficiary_email = patch.beneficiary_email.trim() || null
     if (typeof patch.live === 'boolean') row.live = patch.live
-    if (row.live && !(row.integration_id && row.integration_key)) throw new Error('Enter both keys before switching payments live.')
+    const canCollect = (row.integration_id && row.integration_key) || row.beneficiary_email
+    if (row.live && !canCollect) throw new Error('Add your keys or a Pesepay merchant email before switching payments live.')
     d.paymentGateways[managerId] = row
     save(d)
-    return { provider: row.provider || null, live: !!row.live, connected: !!(row.integration_id && row.integration_key) }
+    return { provider: row.provider || null, live: !!row.live, connected: !!(row.integration_id && row.integration_key),
+      beneficiary_email: row.beneficiary_email || '', split: !!row.beneficiary_email }
   },
   async disconnectPaymentGateway(managerId) {
     await delay(); const d = db()

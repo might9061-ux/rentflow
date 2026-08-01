@@ -6,20 +6,25 @@
 // connected and switched live. All scoped to the workspace owner by RLS.
 import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
+import { platformConfigured } from '../lib/pesepay.js'
 
 const router = Router()
 const PROVIDERS = ['paynow', 'pesepay']
 
-// Shape returned to the client — status only, never the keys themselves.
+// Shape returned to the client — status only, never the keys themselves. The
+// beneficiary email isn't a secret (it's the owner's own Pesepay email), so it's
+// returned to prefill the field.
 const statusOf = (row) => ({
   provider: row?.provider || null,
   live: !!row?.live,
   connected: !!(row?.integration_id && row?.integration_key),
+  beneficiary_email: row?.beneficiary_email || '',
+  split: !!(row?.beneficiary_email && platformConfigured()),
 })
 
 async function currentRow(req, owner) {
   return ok(await req.db.from('payment_credentials')
-    .select('provider, live, integration_id, integration_key')
+    .select('provider, live, integration_id, integration_key, beneficiary_email')
     .eq('manager_id', owner).maybeSingle())
 }
 
@@ -34,20 +39,28 @@ router.get('/', h(async (req, res) => {
 // flip "live" on and off without re-typing their secrets.
 router.put('/', h(async (req, res) => {
   const owner = await ownerId(req)
-  const { provider, integration_id, integration_key, live } = req.body || {}
+  const { provider, integration_id, integration_key, live, beneficiary_email } = req.body || {}
   if (!PROVIDERS.includes(provider)) throw new Error('Choose a supported payment provider.')
 
   const patch = { manager_id: owner, provider, updated_at: new Date().toISOString() }
   if (typeof integration_id === 'string' && integration_id.trim()) patch.integration_id = integration_id.trim()
   if (typeof integration_key === 'string' && integration_key.trim()) patch.integration_key = integration_key.trim()
   if (typeof live === 'boolean') patch.live = live
+  // Beneficiary email (split payouts): empty string clears it, so the owner can
+  // switch back to their own keys.
+  if (typeof beneficiary_email === 'string') {
+    const em = beneficiary_email.trim()
+    if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) throw new Error('Enter a valid Pesepay merchant email.')
+    patch.beneficiary_email = em || null
+  }
 
-  // Don't let payments go live without both keys actually being present.
+  // Don't let payments go live without a way to actually collect: either the
+  // owner's own keys, or a beneficiary email + a configured platform split app.
   const existing = await currentRow(req, owner)
-  const willHaveId = patch.integration_id ?? existing?.integration_id
-  const willHaveKey = patch.integration_key ?? existing?.integration_key
-  if (patch.live === true && !(willHaveId && willHaveKey)) {
-    throw new Error('Enter both keys before switching payments live.')
+  const willHaveKeys = (patch.integration_id ?? existing?.integration_id) && (patch.integration_key ?? existing?.integration_key)
+  const willSplit = (patch.beneficiary_email ?? existing?.beneficiary_email) && platformConfigured()
+  if (patch.live === true && !willHaveKeys && !willSplit) {
+    throw new Error('Add your own keys, or a Pesepay merchant email (split), before switching payments live.')
   }
 
   ok(await req.db.from('payment_credentials').upsert(patch, { onConflict: 'manager_id' }))

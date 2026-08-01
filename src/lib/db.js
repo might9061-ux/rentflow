@@ -635,13 +635,15 @@ const sb = {
   // run here — but the owner can still store/inspect their credentials.
   async getPaymentGateway(managerId) {
     const row = ok(await supabase.from('payment_credentials')
-      .select('provider, live, integration_id, integration_key').eq('manager_id', managerId).maybeSingle())
-    return { provider: row?.provider || null, live: !!row?.live, connected: !!(row?.integration_id && row?.integration_key) }
+      .select('provider, live, integration_id, integration_key, beneficiary_email').eq('manager_id', managerId).maybeSingle())
+    return { provider: row?.provider || null, live: !!row?.live, connected: !!(row?.integration_id && row?.integration_key),
+      beneficiary_email: row?.beneficiary_email || '', split: !!row?.beneficiary_email }
   },
   async savePaymentGateway(managerId, patch) {
     const row = { manager_id: managerId, provider: patch.provider, updated_at: new Date().toISOString() }
     if (patch.integration_id?.trim()) row.integration_id = patch.integration_id.trim()
     if (patch.integration_key?.trim()) row.integration_key = patch.integration_key.trim()
+    if (typeof patch.beneficiary_email === 'string') row.beneficiary_email = patch.beneficiary_email.trim() || null
     if (typeof patch.live === 'boolean') row.live = patch.live
     ok(await supabase.from('payment_credentials').upsert(row, { onConflict: 'manager_id' }))
     return this.getPaymentGateway(managerId)

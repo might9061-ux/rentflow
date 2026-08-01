@@ -18,17 +18,23 @@ router.post('/result', async (req, res) => {
     if (!reference) return res.status(200).send('ok')
 
     const { data: payment } = await admin
-      .from('payments').select('id, manager_id, status')
+      .from('payments').select('id, manager_id, status, via_platform')
       .eq('gateway_ref', reference).maybeSingle()
     if (!payment) return res.status(200).send('ok')
 
-    const { data: creds } = await admin
-      .from('payment_credentials')
-      .select('provider, integration_id, integration_key')
-      .eq('manager_id', payment.manager_id).maybeSingle()
-    if (!creds?.integration_key) return res.status(200).send('ok')
-
-    const { state } = await pesepay.parseResult(body, creds)
+    // Split payments were collected on the platform app → verify with the
+    // platform keys; direct payments verify with the landlord's own keys.
+    let state
+    if (payment.via_platform) {
+      ({ state } = await pesepay.parseResultPlatform(body))
+    } else {
+      const { data: creds } = await admin
+        .from('payment_credentials')
+        .select('provider, integration_id, integration_key')
+        .eq('manager_id', payment.manager_id).maybeSingle()
+      if (!creds?.integration_key) return res.status(200).send('ok')
+      ;({ state } = await pesepay.parseResult(body, creds))
+    }
     if (state === 'paid') await settle(payment.id)
     else if (state === 'cancelled' && payment.status === 'pending') {
       await admin.from('payments')
