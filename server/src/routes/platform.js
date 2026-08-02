@@ -82,6 +82,28 @@ router.patch('/workspaces/:id/plan', h(async (req, res) => {
   res.json(updated)
 }))
 
+// PATCH /api/platform/workspaces/:id/status — the App owner activates or
+// DEACTIVATES a whole workspace (e.g. for non-payment). Reversible and loses NO
+// data: it only flips the owner's account_status, which blocks their sign-in.
+router.patch('/workspaces/:id/status', h(async (req, res) => {
+  const active = req.body?.active !== false
+  const status = active ? 'active' : 'suspended'
+  const { data: before } = await admin.from('managers').select('email, account_status, platform_admin').eq('id', req.params.id).maybeSingle()
+  if (before?.platform_admin) throw new Error('You can’t deactivate an App-owner account.')
+  const updated = ok(await admin.from('managers').update({ account_status: status }).eq('id', req.params.id).select('id, account_status').single())
+  await logAdmin(req, active ? 'account.reactivate' : 'account.deactivate', {
+    targetId: req.params.id, targetEmail: before?.email, details: { from: before?.account_status, to: status },
+  })
+  res.json(updated)
+}))
+
+// GET /api/platform/workspaces/:id/subscriptions — that workspace's subscription
+// payments (with references), for the App owner to review what they paid.
+router.get('/workspaces/:id/subscriptions', h(async (req, res) => {
+  res.json(ok(await admin.from('subscription_payments').select('*')
+    .eq('manager_id', req.params.id).order('created_at', { ascending: false })))
+}))
+
 // GET /api/platform/admins — who currently holds App-owner access.
 //
 // Worth surfacing: a stray platform_admin is the single most dangerous thing
@@ -138,7 +160,7 @@ router.post('/workspaces/:id/payment', h(async (req, res) => {
 
 router.get('/overview', h(async (req, res) => {
   const [owners, agents, subs, tenants, approved] = await Promise.all([
-    ok(await admin.from('managers').select('id,first_name,last_name,brand_name,email,country,plan_active,plan_capacity,plan_price,plan_cycle,plan_started_at,trial_ends_at,plan_canceled_at,created_at').eq('role', 'owner').neq('platform_admin', true)),
+    ok(await admin.from('managers').select('id,first_name,last_name,brand_name,email,country,account_status,plan_active,plan_capacity,plan_price,plan_cycle,plan_started_at,trial_ends_at,plan_canceled_at,created_at').eq('role', 'owner').neq('platform_admin', true)),
     ok(await admin.from('managers').select('id,owner_id').eq('role', 'staff')),
     ok(await admin.from('subscription_payments').select('*').order('created_at', { ascending: false })),
     ok(await admin.from('tenants').select('manager_id')),
@@ -150,6 +172,7 @@ router.get('/overview', h(async (req, res) => {
     const mgrPays = approved.filter((p) => p.manager_id === m.id)
     const volume = mgrPays.reduce((s, p) => s + Number(p.amount), 0)
     return { id: m.id, name: name(m), company: m.brand_name || name(m), email: m.email, country: m.country || 'ZW',
+      account_status: m.account_status || 'active',
       plan_active: !!m.plan_active, plan_capacity: Number(m.plan_capacity) || 0, plan_price: Number(m.plan_price) || 0,
       plan_cycle: m.plan_cycle || 'monthly', plan_started_at: m.plan_started_at, trial_ends_at: m.trial_ends_at, plan_canceled_at: m.plan_canceled_at,
       tenants: tenants.filter((t) => t.manager_id === m.id).length,

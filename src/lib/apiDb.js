@@ -216,6 +216,10 @@ export function createApiDb(sb) {
     // Turn a workspace's plan on/off. Since 0019 managers can't do this
     // themselves, so this is the only path — service-role, admin-gated.
     adminSetPlan: (workspaceId, patch) => req('PATCH', `/api/platform/workspaces/${workspaceId}/plan`, patch),
+    // App-owner only: deactivate/reactivate a whole workspace (reversible, no data loss).
+    adminSetWorkspaceStatus: (workspaceId, active) => req('PATCH', `/api/platform/workspaces/${workspaceId}/status`, { active }),
+    // A specific workspace's subscription payments (with references).
+    adminWorkspacePayments: (workspaceId) => req('GET', `/api/platform/workspaces/${workspaceId}/subscriptions`),
     // Record money actually received — what drives "Subs paid" and revenue.
     adminRecordPayment: (workspaceId, payment) => req('POST', `/api/platform/workspaces/${workspaceId}/payment`, payment),
     // Self-serve plan start. TEMPORARY until Paynow gates it behind a real charge.

@@ -562,7 +562,9 @@ export const mockApi = {
       const volume = mgrPays.reduce((s, p) => s + Number(p.amount), 0)
       return {
         id: m.id, name: name(m), company: m.brand_name || name(m), email: m.email, country: m.country || 'ZW',
+        account_status: m.account_status || 'active',
         plan_active: !!m.plan_active, plan_capacity: Number(m.plan_capacity) || 0, plan_price: Number(m.plan_price) || 0,
+        plan_cycle: m.plan_cycle || 'monthly', plan_started_at: m.plan_started_at, trial_ends_at: m.trial_ends_at, plan_canceled_at: m.plan_canceled_at,
         tenants: d.tenants.filter((t) => t.manager_id === m.id).length,
         agents: d.managers.filter((x) => x.role === 'staff' && x.owner_id === m.id).length,
         total_paid: ws.reduce((s, x) => s + Number(x.amount), 0),
@@ -624,6 +626,20 @@ export const mockApi = {
     if (m.plan_active && !m.plan_started_at) m.plan_started_at = new Date().toISOString()
     save(d)
     return clone(m)
+  },
+  // App-owner only: deactivate/reactivate a workspace (reversible, no data loss).
+  async adminSetWorkspaceStatus(workspaceId, active) {
+    await delay(60); const d = db()
+    const m = d.managers.find((x) => x.id === workspaceId)
+    if (!m) throw new Error('Workspace not found.')
+    if (m.platform_admin) throw new Error('You can’t deactivate an App-owner account.')
+    m.account_status = active === false ? 'suspended' : 'active'
+    save(d)
+    return { id: m.id, account_status: m.account_status }
+  },
+  async adminWorkspacePayments(workspaceId) {
+    await delay(); const d = db()
+    return clone((d.sub_payments || []).filter((s) => s.manager_id === workspaceId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
   },
   // Self-serve plan start (demo equivalent of POST /api/managers/me/plan).
   async startOwnPlan(capacity, opts) {

@@ -406,6 +406,12 @@ const sb = {
     }
     return ok(await supabase.from('managers').update(body).eq('id', workspaceId).select().single())
   },
+  async adminSetWorkspaceStatus(workspaceId, active) {
+    return ok(await supabase.from('managers').update({ account_status: active === false ? 'suspended' : 'active' }).eq('id', workspaceId).select('id, account_status').single())
+  },
+  async adminWorkspacePayments(workspaceId) {
+    return ok(await supabase.from('subscription_payments').select('*').eq('manager_id', workspaceId).order('created_at', { ascending: false }))
+  },
   // Self-serve plan start. Direct-to-Supabase mode can't bypass the 0019
   // trigger, so this only works through the API (which uses the service role).
   async startOwnPlan() {

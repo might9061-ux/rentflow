@@ -20,8 +20,23 @@ export default function WorkspaceModal({ workspace, onClose, onChanged }) {
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('EcoCash')
   const [reference, setReference] = useState('')
-  const reload = async () => setRows(await db.listSubscriptionPayments(workspace.id))
+  const reload = async () => setRows(await db.adminWorkspacePayments(workspace.id))
   useEffect(() => { reload() }, [workspace.id])
+
+  const deactivated = ws.account_status === 'suspended'
+  // App-owner only: deactivate / reactivate the whole workspace. Reversible and
+  // loses no data — it just blocks their sign-in until reactivated.
+  const toggleAccount = async (active) => {
+    if (!active && !window.confirm(`Deactivate ${ws.name}?\n\nThey won't be able to sign in until you reactivate them. All their data (tenants, payments, properties) is kept.`)) return
+    setBusy(true)
+    try {
+      const updated = await db.adminSetWorkspaceStatus(ws.id, active)
+      setWs((w) => ({ ...w, account_status: updated.account_status }))
+      toast.success(active ? 'Account reactivated' : 'Account deactivated',
+        active ? 'They can sign in again.' : 'They can no longer sign in. No data was lost.')
+      onChanged?.()
+    } catch (e) { toast.error('Could not update', e.message) } finally { setBusy(false) }
+  }
 
   const price = priceForCapacity(Number(capacity) || 0)
   const tier = tierForCapacity(Number(capacity) || 0)
@@ -76,7 +91,23 @@ export default function WorkspaceModal({ workspace, onClose, onChanged }) {
       <div className="row gap wrap" style={{ marginBottom: 14 }}>
         <span className="pill neutral"><IconBuilding size={12} /> {tierForCapacity(ws.plan_capacity).name} · ≤{ws.plan_capacity}</span>
         {ws.plan_active ? <span className="pill ok"><span className="dot" /> Active</span> : <span className="pill rejected">Inactive</span>}
+        {deactivated && <span className="pill rejected"><span className="dot" /> Account deactivated</span>}
         <span className="muted" style={{ fontSize: '0.82rem' }}>{ws.email} · joined {fmtDate(ws.joined_at)}</span>
+      </div>
+
+      {/* Account access — deactivate for non-payment (reversible, keeps all data). */}
+      <div className="card pad spread wrap" style={{ marginBottom: 16, gap: 10, alignItems: 'center', borderColor: deactivated ? 'var(--danger)' : 'var(--line)' }}>
+        <div>
+          <div style={{ fontWeight: 600 }}>Account access</div>
+          <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>
+            {deactivated
+              ? 'Deactivated — they can’t sign in. Their data is safe and restored on reactivation.'
+              : 'Active — deactivate to block sign-in (e.g. non-payment). No data is lost.'}
+          </div>
+        </div>
+        {deactivated
+          ? <button className="btn ok" disabled={busy} onClick={() => toggleAccount(true)}><IconCheck size={15} /> Reactivate account</button>
+          : <button className="btn ghost danger" disabled={busy} onClick={() => toggleAccount(false)}><IconX size={15} /> Deactivate account</button>}
       </div>
 
       {/* Plan controls */}
