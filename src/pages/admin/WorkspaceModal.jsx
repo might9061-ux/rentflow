@@ -24,16 +24,17 @@ export default function WorkspaceModal({ workspace, onClose, onChanged }) {
   useEffect(() => { reload() }, [workspace.id])
 
   const deactivated = ws.account_status === 'suspended'
+  const [confirmDeact, setConfirmDeact] = useState(false)
   // App-owner only: deactivate / reactivate the whole workspace. Reversible and
   // loses no data — it just blocks their sign-in until reactivated.
   const toggleAccount = async (active) => {
-    if (!active && !window.confirm(`Deactivate ${ws.name}?\n\nThey won't be able to sign in until you reactivate them. All their data (tenants, payments, properties) is kept.`)) return
     setBusy(true)
     try {
       const updated = await db.adminSetWorkspaceStatus(ws.id, active)
       setWs((w) => ({ ...w, account_status: updated.account_status }))
       toast.success(active ? 'Account reactivated' : 'Account deactivated',
         active ? 'They can sign in again.' : 'They can no longer sign in. No data was lost.')
+      setConfirmDeact(false)
       onChanged?.()
     } catch (e) { toast.error('Could not update', e.message) } finally { setBusy(false) }
   }
@@ -107,8 +108,21 @@ export default function WorkspaceModal({ workspace, onClose, onChanged }) {
         </div>
         {deactivated
           ? <button className="btn ok" disabled={busy} onClick={() => toggleAccount(true)}><IconCheck size={15} /> Reactivate account</button>
-          : <button className="btn ghost danger" disabled={busy} onClick={() => toggleAccount(false)}><IconX size={15} /> Deactivate account</button>}
+          : <button className="btn ghost danger" disabled={busy} onClick={() => setConfirmDeact(true)}><IconX size={15} /> Deactivate account</button>}
       </div>
+
+      {confirmDeact && (
+        <Modal title="Deactivate this account?" onClose={() => setConfirmDeact(false)}
+          footer={<>
+            <button className="btn ghost" onClick={() => setConfirmDeact(false)}>Cancel</button>
+            <button className="btn primary danger" disabled={busy} onClick={() => toggleAccount(false)}>{busy ? 'Deactivating…' : 'Yes, deactivate'}</button>
+          </>}>
+          <p className="muted" style={{ marginTop: 0 }}>
+            <b style={{ color: 'var(--text)' }}>{ws.name}</b> won’t be able to sign in until you reactivate them.
+            All their data — tenants, payments, properties and leases — is kept and restored on reactivation. Nothing is deleted.
+          </p>
+        </Modal>
+      )}
 
       {/* Plan controls */}
       <div className="card pad" style={{ marginBottom: 16 }}>
