@@ -167,8 +167,11 @@ router.get('/overview', h(async (req, res) => {
     ok(await admin.from('payments').select('manager_id,amount,fee,paid_online,approved_at,paid_date,created_at').eq('status', 'approved')),
   ])
   const transactionFees = approved.reduce((s, p) => s + feeFor(p), 0)
+  // Only APPROVED subscription installments count — pending/abandoned gateway
+  // attempts must never look like revenue or a payment.
+  const paidSubs = subs.filter((s) => (s.status || 'approved') === 'approved')
   const workspaces = owners.map((m) => {
-    const ws = subs.filter((s) => s.manager_id === m.id)
+    const ws = paidSubs.filter((s) => s.manager_id === m.id)
     const mgrPays = approved.filter((p) => p.manager_id === m.id)
     const volume = mgrPays.reduce((s, p) => s + Number(p.amount), 0)
     return { id: m.id, name: name(m), company: m.brand_name || name(m), email: m.email, country: m.country || 'ZW',
@@ -181,7 +184,7 @@ router.get('/overview', h(async (req, res) => {
       rent_volume: volume, fees: mgrPays.reduce((s, p) => s + feeFor(p), 0),
       last_payment_at: ws[0]?.created_at || null, joined_at: m.created_at }
   }).sort((a, b) => b.total_paid - a.total_paid)
-  const subscriptionRevenue = subs.reduce((s, x) => s + Number(x.amount), 0)
+  const subscriptionRevenue = paidSubs.reduce((s, x) => s + Number(x.amount), 0)
   const transactionVolume = approved.reduce((s, p) => s + Number(p.amount), 0)
   res.json({
     subscriptionRevenue, transactionVolume, transactionFees,
@@ -189,11 +192,11 @@ router.get('/overview', h(async (req, res) => {
     mrr: owners.filter((o) => o.plan_active).reduce((s, o) => s + (Number(o.plan_price) || 0), 0),
     activeSubs: owners.filter((o) => o.plan_active).length, totalWorkspaces: owners.length,
     users: { tenants: tenants.length, managers: owners.length, agents: agents.length },
-    subscriptions: subs.map((s) => ({ created_at: s.created_at, amount: Number(s.amount), manager_id: s.manager_id })),
+    subscriptions: paidSubs.map((s) => ({ created_at: s.created_at, amount: Number(s.amount), manager_id: s.manager_id })),
     // The overview's "Recent subscription payments" table — needs the workspace
     // name and what the payment was for, which the bare subscriptions list above
     // (used only for revenue sums) doesn't carry.
-    recentPayments: subs.slice(0, 20).map((s) => {
+    recentPayments: paidSubs.slice(0, 20).map((s) => {
       const o = owners.find((m) => m.id === s.manager_id)
       return {
         id: s.id,
@@ -227,8 +230,10 @@ router.get('/subscriptions', h(async (_req, res) => {
     ok(await admin.from('managers').select('id,first_name,last_name,brand_name,plan_active,plan_price').eq('role', 'owner').neq('platform_admin', true)),
     ok(await admin.from('subscription_payments').select('*').order('created_at', { ascending: false })),
   ])
-  const payments = subs.map((p) => { const o = owners.find((x) => x.id === p.manager_id); return { ...p, workspace: name(o), company: o?.brand_name || name(o) } })
-  res.json({ total: subs.reduce((s, x) => s + Number(x.amount), 0), count: subs.length,
+  // Only approved installments are real revenue; pending/abandoned attempts excluded.
+  const paidSubs = subs.filter((s) => (s.status || 'approved') === 'approved')
+  const payments = paidSubs.map((p) => { const o = owners.find((x) => x.id === p.manager_id); return { ...p, workspace: name(o), company: o?.brand_name || name(o) } })
+  res.json({ total: paidSubs.reduce((s, x) => s + Number(x.amount), 0), count: paidSubs.length,
     mrr: owners.filter((o) => o.plan_active).reduce((s, o) => s + (Number(o.plan_price) || 0), 0), payments })
 }))
 

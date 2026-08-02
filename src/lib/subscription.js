@@ -27,7 +27,10 @@ export function subscriptionStatus(manager, subPays = []) {
   const now = new Date()
   const cycle = manager.plan_cycle === 'yearly' ? 'yearly' : 'monthly'
   const onTrial = manager.trial_ends_at && new Date(manager.trial_ends_at) > now
-  const lastPaid = subPays[0]?.created_at || manager.plan_started_at
+  // Only APPROVED installments count — a pending/abandoned gateway attempt must
+  // never look like a payment.
+  const approved = (subPays || []).filter((p) => (p.status || 'approved') === 'approved')
+  const lastPaid = approved[0]?.created_at || manager.plan_started_at
   const dueDate = onTrial ? new Date(manager.trial_ends_at) : nextRenewal(lastPaid, cycle)
   const days = Math.ceil((dueDate - now) / 86400000)
   const price = installmentAmount(manager.plan_price, cycle)

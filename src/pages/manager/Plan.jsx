@@ -55,19 +55,22 @@ export default function Plan() {
 
   // Trial / cancellation state.
   const trialEndsAt = manager?.trial_ends_at ? new Date(manager.trial_ends_at) : null
-  const onTrial = active && trialEndsAt && trialEndsAt > new Date() && subPays.length === 0
+  const onTrial = active && trialEndsAt && trialEndsAt > new Date() && subPays.filter((p) => (p.status || 'approved') === 'approved').length === 0
   const hadTrial = !!manager?.trial_ends_at // one trial per manager
   const canceled = !!manager?.plan_canceled_at
   const trialDaysLeft = onTrial ? Math.max(0, Math.ceil((trialEndsAt - new Date()) / 86400000)) : 0
 
+  // Only APPROVED installments count as paid — a pending/abandoned gateway
+  // attempt must never look like a payment.
+  const paidSubs = subPays.filter((p) => (p.status || 'approved') === 'approved')
   // Has the manager already paid for THIS calendar month?
   const now = new Date()
-  const paidThisMonth = subPays.some((p) => {
+  const paidThisMonth = paidSubs.some((p) => {
     const d = new Date(p.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   })
   // When the next installment falls due — a month on from the last payment, or
   // from the plan start if none has been recorded yet.
-  const dueDate = onTrial ? trialEndsAt : nextDue(subPays[0]?.created_at || manager?.plan_started_at)
+  const dueDate = onTrial ? trialEndsAt : nextDue(paidSubs[0]?.created_at || manager?.plan_started_at)
   // Compare whole days, without mutating dueDate (setHours returns a timestamp
   // but changes the Date in place — fmtDate below still needs the original).
   const atMidnight = (d) => new Date(d).setHours(0, 0, 0, 0)

@@ -467,7 +467,7 @@ export const mockApi = {
     const p = {
       id: uid(), manager_id: managerId, amount: Number(data.amount) || 0,
       period: data.period || '', method: data.method || '', reference: data.reference || '',
-      created_at: new Date().toISOString(),
+      status: 'approved', created_at: new Date().toISOString(),
     }
     d.sub_payments.push(p); save(d); return clone(p)
   },
@@ -553,7 +553,8 @@ export const mockApi = {
     await delay(80); const d = db()
     const name = (m) => `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || '—'
     const owners = d.managers.filter((m) => m.role === 'owner' && !m.platform_admin)
-    const subs = d.sub_payments || []
+    // Only approved installments count — pending/abandoned gateway attempts don't.
+    const subs = (d.sub_payments || []).filter((s) => (s.status || 'approved') === 'approved')
     const approved = (d.payments || []).filter((p) => p.status === 'approved')
 
     const workspaces = owners.map((m) => {
