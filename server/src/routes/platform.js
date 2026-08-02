@@ -138,7 +138,7 @@ router.post('/workspaces/:id/payment', h(async (req, res) => {
 
 router.get('/overview', h(async (req, res) => {
   const [owners, agents, subs, tenants, approved] = await Promise.all([
-    ok(await admin.from('managers').select('id,first_name,last_name,brand_name,email,country,plan_active,plan_capacity,plan_price,created_at').eq('role', 'owner').neq('platform_admin', true)),
+    ok(await admin.from('managers').select('id,first_name,last_name,brand_name,email,country,plan_active,plan_capacity,plan_price,plan_cycle,plan_started_at,trial_ends_at,plan_canceled_at,created_at').eq('role', 'owner').neq('platform_admin', true)),
     ok(await admin.from('managers').select('id,owner_id').eq('role', 'staff')),
     ok(await admin.from('subscription_payments').select('*').order('created_at', { ascending: false })),
     ok(await admin.from('tenants').select('manager_id')),
@@ -151,6 +151,7 @@ router.get('/overview', h(async (req, res) => {
     const volume = mgrPays.reduce((s, p) => s + Number(p.amount), 0)
     return { id: m.id, name: name(m), company: m.brand_name || name(m), email: m.email, country: m.country || 'ZW',
       plan_active: !!m.plan_active, plan_capacity: Number(m.plan_capacity) || 0, plan_price: Number(m.plan_price) || 0,
+      plan_cycle: m.plan_cycle || 'monthly', plan_started_at: m.plan_started_at, trial_ends_at: m.trial_ends_at, plan_canceled_at: m.plan_canceled_at,
       tenants: tenants.filter((t) => t.manager_id === m.id).length,
       agents: agents.filter((a) => a.owner_id === m.id).length,
       total_paid: ws.reduce((s, x) => s + Number(x.amount), 0), payments: ws.length,
