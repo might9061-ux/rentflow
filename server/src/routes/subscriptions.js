@@ -37,18 +37,19 @@ router.post('/gateway/start', h(async (req, res) => {
   if (capacity < (count || 0)) throw new Error(`You already have ${count} tenants — choose at least that many.`)
 
   const { method, phone } = req.body || {}
+  const cycle = req.body?.cycle === 'yearly' ? 'yearly' : 'monthly'
   const tier = tierFor(capacity)
-  const amount = tier.price
+  const amount = cycle === 'yearly' ? tier.price * 12 : tier.price
 
   const reference = `SUB-${Date.now().toString(36).toUpperCase()}`
   const m = ok(await admin.from('managers').select('email, first_name, last_name').eq('id', owner).single())
   const started = await pesepay.initiatePlatform({
     reference, email: m.email, amount, method, phone,
-    description: `RentLoja ${tier.name} plan — up to ${capacity} tenants`,
+    description: `RentLoja ${tier.name} plan (${cycle}) — up to ${capacity} tenants`,
   })
 
   const row = ok(await admin.from('subscription_payments').insert({
-    manager_id: owner, amount, capacity, period: monthYear(),
+    manager_id: owner, amount, capacity, plan_cycle: cycle, period: monthYear(),
     method: method || 'card', status: 'pending',
     gateway_ref: started.reference || reference, gateway_poll_url: started.pollUrl,
   }).select().single())
@@ -81,7 +82,7 @@ export async function settleSubscription(id) {
   const { data: row } = await admin.from('subscription_payments').select('*').eq('id', id).maybeSingle()
   if (!row || row.status === 'approved') return
   await admin.from('subscription_payments').update({ status: 'approved' }).eq('id', id)
-  await activatePaidPlan(row.manager_id, Number(row.capacity) || 1)
+  await activatePaidPlan(row.manager_id, Number(row.capacity) || 1, row.plan_cycle)
 }
 
 export default router

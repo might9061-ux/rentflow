@@ -6,6 +6,7 @@ import { money, fullName, fmtDate } from '../../lib/format.js'
 import { StatCard, StatusPill, Spinner, EmptyState, PeriodTag } from '../../components/ui.jsx'
 import { DonutChart } from '../../components/Charts.jsx'
 import { tenantCredit } from '../../lib/ledger.js'
+import { subscriptionStatus } from '../../lib/subscription.js'
 import {
   IconWallet, IconClock, IconBuilding, IconCheckCircle, IconArrowRight,
 } from '../../components/icons.jsx'
@@ -36,10 +37,12 @@ export default function ManagerDashboard() {
   const [frame, setFrame] = useState('all')
 
   const load = useCallback(async () => {
-    const [props, tenants, payments, openRepairs, dueReminders] = await Promise.all([
+    const [props, tenants, payments, openRepairs, dueReminders, wm, subPays] = await Promise.all([
       db.listProperties(userId), db.listTenants(userId), db.listPayments(userId),
       db.maintenanceOpenCount(userId).catch(() => 0),
       db.dueRemindersCount(userId).catch(() => 0),
+      db.getWorkspaceManager(userId).catch(() => null),
+      db.listSubscriptionPayments(userId).catch(() => []),
     ])
     const approved = payments.filter((p) => p.status === 'approved')
     const pending = payments.filter((p) => p.status === 'pending')
@@ -56,6 +59,7 @@ export default function ManagerDashboard() {
     setData({
       props, tenants, payments, approved, pending, collected, outstanding,
       occupancy, occupied, totalUnits, overdue: overdue.length, openRepairs, dueReminders,
+      sub: subscriptionStatus(wm, subPays),
     })
     setLoading(false)
   }, [userId])
@@ -75,6 +79,21 @@ export default function ManagerDashboard() {
         <h1>Good day, {profile?.first_name}</h1>
         <p>Here’s how your portfolio is doing today.</p>
       </div>
+
+      {/* Automatic reminder when the manager's own subscription is due/overdue. */}
+      {data.sub && (data.sub.state === 'overdue' || data.sub.state === 'due-soon') && (
+        <Link to="/manager/plan" className="banner gold" style={{ marginBottom: 18, textDecoration: 'none', display: 'flex' }}>
+          <div className="b-ico"><IconWallet size={18} /></div>
+          <div className="spread" style={{ flex: 1, alignItems: 'center', gap: 10 }}>
+            <div style={{ fontSize: '0.9rem' }}>
+              <b>{data.sub.state === 'overdue' ? 'Subscription overdue' : 'Subscription due soon'}</b> — your {money(data.sub.price)} installment is {data.sub.state === 'overdue'
+                ? `${Math.abs(data.sub.days)} day${Math.abs(data.sub.days) === 1 ? '' : 's'} overdue`
+                : (data.sub.days <= 0 ? 'due today' : `due in ${data.sub.days} day${data.sub.days === 1 ? '' : 's'}`)}.
+            </div>
+            <span className="btn primary sm" style={{ whiteSpace: 'nowrap' }}>Pay now <IconArrowRight size={14} /></span>
+          </div>
+        </Link>
+      )}
 
       <AttentionBar data={data} nav={nav} />
 

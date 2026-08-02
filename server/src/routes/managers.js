@@ -29,9 +29,9 @@ router.get('/workspace', h(async (req, res) => {
 // database enforces this too (migration 0019) since the anon key is public and
 // callers can reach PostgREST directly — this is defence in depth, and it fails
 // loudly here so a buggy client doesn't silently "succeed".
-const PROTECTED_FIELDS = ['platform_admin', 'plan_active', 'plan_capacity', 'plan_price', 'plan_started_at', 'trial_ends_at', 'plan_canceled_at']
+const PROTECTED_FIELDS = ['platform_admin', 'plan_active', 'plan_capacity', 'plan_price', 'plan_started_at', 'trial_ends_at', 'plan_canceled_at', 'plan_cycle']
 
-const PLAN_SELECT = 'id, plan_active, plan_capacity, plan_price, plan_started_at, trial_ends_at, plan_canceled_at'
+const PLAN_SELECT = 'id, plan_active, plan_capacity, plan_price, plan_started_at, trial_ends_at, plan_canceled_at, plan_cycle'
 const DAY = 86400000
 
 // PATCH /api/managers/me — update settings on the caller's own profile.
@@ -80,6 +80,7 @@ router.post('/me/plan', h(async (req, res) => {
   const { data: cur } = await admin.from('managers').select('plan_started_at, plan_active, trial_ends_at').eq('id', owner).maybeSingle()
   const patch = {
     plan_active: true, plan_capacity: capacity, plan_price: tier.price, onboarded: true,
+    plan_cycle: req.body?.cycle === 'yearly' ? 'yearly' : 'monthly',
     plan_started_at: cur?.plan_started_at || new Date().toISOString(),
     plan_canceled_at: null, // (re)activating clears any pending cancellation
   }

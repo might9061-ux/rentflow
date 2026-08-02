@@ -7,6 +7,7 @@ import { money, fmtDate, monthYear } from '../../lib/format.js'
 import {
   priceForCapacity, PLAN_PRESETS, PLAN_TIERS, tierForCapacity, MIN_CAPACITY, MAX_CAPACITY,
 } from '../../lib/pricing.js'
+import { installmentAmount, YEARLY_MONTHS } from '../../lib/subscription.js'
 import { Spinner } from '../../components/ui.jsx'
 import { IconTag, IconCheck, IconUsers, IconWarn, IconWallet, IconReceipt } from '../../components/icons.jsx'
 import PlanCheckout from './PlanCheckout.jsx'
@@ -29,6 +30,7 @@ export default function Plan() {
   const [busy, setBusy] = useState(false)
   const [checkout, setCheckout] = useState(null) // { mode, capacity, price, tierName }
   const [subPays, setSubPays] = useState([])
+  const [cycle, setCycle] = useState('monthly') // 'monthly' | 'yearly'
 
   const load = async () => {
     const [m, tenants, pays] = await Promise.all([db.getManager(userId), db.listTenants(userId), db.listSubscriptionPayments(userId)])
@@ -36,13 +38,15 @@ export default function Plan() {
     setTenantCount(tenants.length)
     setSubPays(pays)
     setCapacity(m?.plan_capacity || Math.max(10, Math.ceil((tenants.length || 1) / 5) * 5))
+    setCycle(m?.plan_cycle === 'yearly' ? 'yearly' : 'monthly')
     setLoading(false)
   }
   useEffect(() => { load() }, [userId])
 
   if (loading) return <div className="page center" style={{ minHeight: 300 }}><Spinner /></div>
 
-  const price = priceForCapacity(capacity)
+  const price = priceForCapacity(capacity)       // monthly tier price
+  const chargeNow = installmentAmount(price, cycle) // what's charged per installment (yearly = ×12)
   const tier = tierForCapacity(capacity)
   const active = manager?.plan_active
   const onboarding = manager?.onboarded === false
@@ -86,8 +90,8 @@ export default function Plan() {
     if (!active) {
       // Fresh start: offer the 7-day free trial once; after that, activate & pay.
       setCheckout(hadTrial
-        ? { mode: 'activate', capacity, price, charge: price, credit: 0, tierName: tier.name }
-        : { mode: 'trial', capacity, price, tierName: tier.name })
+        ? { mode: 'activate', capacity, price: chargeNow, charge: chargeNow, credit: 0, tierName: tier.name, cycle }
+        : { mode: 'trial', capacity, price: chargeNow, tierName: tier.name, cycle })
       return
     }
     if (isDowngrade) {
@@ -104,14 +108,15 @@ export default function Plan() {
       return
     }
     if (isUpgrade) {
-      setCheckout({ mode: 'upgrade', capacity, price, charge: upgradeDue, credit: cur, tierName: tier.name })
+      setCheckout({ mode: 'upgrade', capacity, price, charge: upgradeDue, credit: cur, tierName: tier.name, cycle })
       return
     }
-    setCheckout({ mode: 'activate', capacity, price, charge: price, credit: 0, tierName: tier.name })
+    setCheckout({ mode: 'activate', capacity, price: chargeNow, charge: chargeNow, credit: 0, tierName: tier.name, cycle })
   }
   const payInstallment = () => setCheckout({
-    mode: 'installment', capacity: manager.plan_capacity, price: manager.plan_price,
-    tierName: tierForCapacity(manager.plan_capacity).name,
+    mode: 'installment', capacity: manager.plan_capacity,
+    price: installmentAmount(manager.plan_price, cycle),
+    tierName: tierForCapacity(manager.plan_capacity).name, cycle,
   })
 
   // Called by the checkout once the (placeholder) payment goes through.
@@ -123,7 +128,7 @@ export default function Plan() {
   const handlePaid = async ({ card, reference, trial }) => {
     // Free trial: save the card, start the plan on trial, charge nothing now.
     if (trial || checkout.mode === 'trial') {
-      await db.startOwnPlan(checkout.capacity, { trial: true })
+      await db.startOwnPlan(checkout.capacity, { trial: true, cycle: checkout.cycle })
       await db.updateManagerSettings(userId, { billing_card: card })
       await refresh()
       const end = new Date(Date.now() + 7 * 86400000)
@@ -134,7 +139,10 @@ export default function Plan() {
       return
     }
     if (checkout.mode === 'activate' || checkout.mode === 'upgrade') {
-      await db.startOwnPlan(checkout.capacity)
+      await db.startOwnPlan(checkout.capacity, { cycle: checkout.cycle })
+    } else if (checkout.mode === 'installment' && checkout.cycle && checkout.cycle !== manager.plan_cycle) {
+      // Paying an installment on a different cycle switches the plan to it.
+      await db.startOwnPlan(checkout.capacity, { cycle: checkout.cycle })
     }
     await db.updateManagerSettings(userId, { billing_card: card })
 
@@ -237,9 +245,15 @@ export default function Plan() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div className="eyebrow" style={{ color: 'var(--gold)' }}>{tier.name}{Number.isFinite(tier.upTo) ? ` · up to ${tier.upTo}` : ' · 100+'}</div>
-            <div className="mono" style={{ fontFamily: 'var(--serif)', fontSize: '2.6rem', fontWeight: 600, lineHeight: 1, color: 'var(--gold)' }}>{money(price)}</div>
-            <div className="muted" style={{ fontSize: '0.8rem' }}>per month</div>
+            <div className="mono" style={{ fontFamily: 'var(--serif)', fontSize: '2.6rem', fontWeight: 600, lineHeight: 1, color: 'var(--gold)' }}>{money(chargeNow)}</div>
+            <div className="muted" style={{ fontSize: '0.8rem' }}>{cycle === 'yearly' ? `per year · ${money(price)}/mo` : 'per month'}</div>
           </div>
+        </div>
+
+        {/* Billing cycle */}
+        <div className="seg" style={{ marginTop: 16, maxWidth: 320 }}>
+          <button type="button" className={cycle === 'monthly' ? 'on' : ''} onClick={() => setCycle('monthly')}>Monthly</button>
+          <button type="button" className={cycle === 'yearly' ? 'on' : ''} onClick={() => setCycle('yearly')}>Yearly · pay {money(installmentAmount(price, 'yearly'))}</button>
         </div>
 
         {tooSmall && (
@@ -259,11 +273,11 @@ export default function Plan() {
         )}
 
         <button className="btn primary block lg" style={{ marginTop: 16 }} disabled={tooSmall || busy || samePlan} onClick={changePlan}>
-          {!active ? (hadTrial ? `Activate & pay ${money(price)}/month` : 'Start 7-day free trial')
+          {!active ? (hadTrial ? `Activate & pay ${money(chargeNow)}/${cycle === 'yearly' ? 'year' : 'month'}` : 'Start 7-day free trial')
             : samePlan ? 'Your current plan'
             : isUpgrade ? `Upgrade now — pay ${money(upgradeDue)}`
             : isDowngrade ? `Switch to ${tier.name} (no charge now)`
-            : `Update & pay ${money(price)}/month`}
+            : `Update & pay ${money(chargeNow)}/${cycle === 'yearly' ? 'year' : 'month'}`}
         </button>
       </div>
 

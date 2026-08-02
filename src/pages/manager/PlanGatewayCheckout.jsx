@@ -12,7 +12,7 @@ import { IconWallet, IconPhone, IconArrowRight } from '../../components/icons.js
 //   • Card    → hosted checkout redirect (no card data touches us)
 //   • EcoCash → PIN push to the phone, then poll until confirmed
 // On success the plan is already activated server-side, so onDone just refreshes.
-export default function PlanGatewayCheckout({ capacity, price, tierName, onClose, onDone }) {
+export default function PlanGatewayCheckout({ capacity, price, tierName, cycle, onClose, onDone }) {
   const toast = useToast()
   const [method, setMethod] = useState('card') // 'card' | 'ecocash'
   const [phone, setPhone] = useState('')
@@ -22,7 +22,7 @@ export default function PlanGatewayCheckout({ capacity, price, tierName, onClose
   const payCard = async () => {
     setStage('pushing')
     try {
-      const { redirectUrl } = await db.startSubscriptionPayment({ capacity, method: 'card' })
+      const { redirectUrl } = await db.startSubscriptionPayment({ capacity, method: 'card', cycle })
       if (!redirectUrl) throw new Error('The gateway did not return a checkout link. Try EcoCash instead.')
       window.location.href = redirectUrl
     } catch (err) { toast.error('Could not start payment', err.message); setStage('form') }
@@ -33,7 +33,7 @@ export default function PlanGatewayCheckout({ capacity, price, tierName, onClose
     stop.current = false
     setStage('pushing')
     try {
-      const { payment } = await db.startSubscriptionPayment({ capacity, method: 'ecocash', phone })
+      const { payment } = await db.startSubscriptionPayment({ capacity, method: 'ecocash', phone, cycle })
       setStage('awaiting')
       for (let i = 0; i < 40; i++) {
         if (stop.current) return

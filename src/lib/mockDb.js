@@ -641,6 +641,7 @@ export const mockApi = {
     m.plan_price = (TIERS.find(([upTo]) => cap <= upTo) || TIERS[TIERS.length - 1])[1]
     m.plan_active = true
     m.onboarded = true
+    m.plan_cycle = opts?.cycle === 'yearly' ? 'yearly' : 'monthly'
     m.plan_canceled_at = null // (re)activating clears any pending cancellation
     if (!m.plan_started_at) m.plan_started_at = new Date().toISOString()
     // A 7-day free trial is only granted on a fresh, first-time start.
