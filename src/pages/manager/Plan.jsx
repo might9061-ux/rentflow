@@ -335,8 +335,8 @@ export default function Plan() {
                 <span className="eyebrow" style={{ color: 'var(--gold)' }}>{p.name}</span>
                 {on && <span style={{ color: 'var(--gold)' }}><IconCheck size={16} /></span>}
               </div>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: '1.8rem', fontWeight: 600, marginTop: 6 }}>{money(p.price)}</div>
-              <div className="muted" style={{ fontSize: '0.8rem' }}>per month</div>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: '1.8rem', fontWeight: 600, marginTop: 6 }}>{money(installmentAmount(p.price, cycle))}</div>
+              <div className="muted" style={{ fontSize: '0.8rem' }}>{cycle === 'yearly' ? 'per year' : 'per month'}</div>
               <div className="row gap muted" style={{ fontSize: '0.82rem', marginTop: 8 }}><IconUsers size={14} /> {p.capLabel} tenants</div>
             </button>
           )
@@ -346,7 +346,7 @@ export default function Plan() {
       <h3 style={{ margin: '22px 0 12px' }}>Pricing tiers</h3>
       <div className="table-wrap">
         <table className="data">
-          <thead><tr><th>Tier</th><th>Tenants</th><th>Monthly</th></tr></thead>
+          <thead><tr><th>Tier</th><th>Tenants</th><th>Monthly</th><th>Yearly</th></tr></thead>
           <tbody>
             {PLAN_TIERS.map((t, i) => {
               const from = i === 0 ? 1 : PLAN_TIERS[i - 1].upTo + 1
@@ -355,14 +355,15 @@ export default function Plan() {
                 <tr key={t.name} style={tier.name === t.name ? { background: 'var(--gold-bg)' } : undefined}>
                   <td style={{ fontWeight: 600 }}>{t.name}</td>
                   <td>{range}</td>
-                  <td className="mono" style={{ fontWeight: 600 }}>{money(t.price)}</td>
+                  <td className="mono" style={{ fontWeight: 600 }}>{money(t.price)}<span className="muted" style={{ fontWeight: 400 }}>/mo</span></td>
+                  <td className="mono" style={{ fontWeight: 600 }}>{money(installmentAmount(t.price, 'yearly'))}<span className="muted" style={{ fontWeight: 400 }}>/yr</span></td>
                 </tr>
               )
             })}
           </tbody>
         </table>
       </div>
-      <p className="hint" style={{ marginTop: 12 }}>Billed monthly. This is a demo; no real charge is made.</p>
+      <p className="hint" style={{ marginTop: 12 }}>Billed monthly or yearly ({YEARLY_MONTHS}× the monthly price). This is a demo; no real charge is made.</p>
 
       {checkout && (
         manager?.subscriptions_gateway_live && checkout.mode !== 'trial'
