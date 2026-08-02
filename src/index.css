@@ -4,28 +4,31 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Brand palette */
-  --bg:            #0a0908;
-  --bg-raised:     #131110;
-  --bg-card:       #17141200;
-  --surface:       #1a1714;
-  --surface-2:     #221e1a;
-  --line:          #2c2722;
-  --line-soft:     #221e1a;
+  /* Brand palette — "Blueprint": cool slate + azure, technical/architectural. */
+  --bg:            #0d131c;
+  --bg-raised:     #121a25;
+  --bg-card:       #16202c00;
+  --surface:       #16202c;
+  --surface-2:     #1c2836;
+  --line:          #27384b;
+  --line-soft:     #1c2836;
 
-  --text:          #f4efe7;
-  --text-dim:      #b3aa9c;
-  --text-faint:    #7d756a;
+  --text:          #e8eef6;
+  --text-dim:      #a6b4c4;
+  --text-faint:    #728499;
 
-  --gold:          #c8a84b;
-  --gold-soft:     #d9bf73;
-  --gold-bg:       rgba(200, 168, 75, 0.12);
-  --gold-line:     rgba(200, 168, 75, 0.32);
+  /* Accent (azure). Kept under the --gold-* names so the whole app recolours. */
+  --gold:          #4a8bee;
+  --gold-soft:     #74a6f3;
+  --gold-bg:       rgba(74, 139, 238, 0.14);
+  --gold-line:     rgba(74, 139, 238, 0.34);
 
-  --green:         #5aad7e;
-  --green-soft:    #7cc89a;
-  --green-bg:      rgba(90, 173, 126, 0.12);
-  --green-line:    rgba(90, 173, 126, 0.32);
+  --green:         #37b98a;
+  --green-soft:    #55d0a3;
+  --green-bg:      rgba(55, 185, 138, 0.13);
+  --green-line:    rgba(55, 185, 138, 0.32);
+
+  --grid:          rgba(120, 165, 225, 0.06);
 
   /* Semantic */
   --accent:        var(--gold);
@@ -42,47 +45,51 @@
   --ok:            #5aad7e;
   --ok-bg:         rgba(90, 173, 126, 0.13);
 
-  --radius:        14px;
-  --radius-sm:     9px;
-  --radius-lg:     22px;
+  --radius:        8px;
+  --radius-sm:     5px;
+  --radius-lg:     12px;
   --shadow:        0 18px 50px -22px rgba(0, 0, 0, 0.85);
   --shadow-soft:   0 8px 28px -18px rgba(0, 0, 0, 0.8);
 
-  --serif: 'Cormorant Garamond', Georgia, serif;
+  /* Blueprint uses a technical sans for headings and a monospace for labels/data. */
+  --serif: 'Outfit', system-ui, -apple-system, sans-serif;
   --sans:  'Outfit', system-ui, -apple-system, sans-serif;
+  --mono:  ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
 }
 
 /* Light theme — applied via <html data-theme="light"> */
 [data-theme="light"] {
-  --bg:            #f3f1ea;
-  --bg-raised:     #faf8f3;
+  --bg:            #eef2f7;
+  --bg-raised:     #f6f9fc;
   --surface:       #ffffff;
-  --surface-2:     #f0ede5;
-  --line:          #e3ded2;
-  --line-soft:     #ece8df;
+  --surface-2:     #eef2f7;
+  --line:          #d5e0ec;
+  --line-soft:     #e4ebf2;
 
-  --text:          #1d1a16;
-  --text-dim:      #5b554d;
-  --text-faint:    #8c8478;
+  --text:          #152234;
+  --text-dim:      #56677b;
+  --text-faint:    #8494a6;
 
-  --gold:          #a9842f;
-  --gold-soft:     #c0962f;
-  --gold-bg:       rgba(169, 132, 47, 0.13);
-  --gold-line:     rgba(169, 132, 47, 0.34);
+  --gold:          #1d6fe0;
+  --gold-soft:     #3f88ea;
+  --gold-bg:       rgba(29, 111, 224, 0.10);
+  --gold-line:     rgba(29, 111, 224, 0.30);
 
-  --green:         #2f8a5b;
-  --green-soft:    #3a9c68;
-  --green-bg:      rgba(47, 138, 91, 0.13);
-  --green-line:    rgba(47, 138, 91, 0.32);
+  --green:         #0f9d6e;
+  --green-soft:    #12b07c;
+  --green-bg:      rgba(15, 157, 110, 0.11);
+  --green-line:    rgba(15, 157, 110, 0.30);
 
-  --shadow:        0 18px 50px -24px rgba(40, 30, 10, 0.22);
-  --shadow-soft:   0 10px 28px -18px rgba(40, 30, 10, 0.13);
-  --topbar-bg:     rgba(243, 241, 234, 0.85);
+  --grid:          rgba(29, 111, 224, 0.07);
+
+  --shadow:        0 18px 50px -24px rgba(20, 40, 80, 0.20);
+  --shadow-soft:   0 10px 28px -18px rgba(20, 40, 80, 0.12);
+  --topbar-bg:     rgba(238, 242, 247, 0.85);
 }
 [data-theme="light"] body {
   background-image:
-    radial-gradient(900px 500px at 12% -8%, rgba(169, 132, 47, 0.06), transparent 60%),
-    radial-gradient(820px 480px at 100% 0%, rgba(47, 138, 91, 0.05), transparent 55%);
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
 }
 [data-theme="light"] .nav-link.active { color: var(--accent); }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #d8d2c4; }
@@ -116,13 +123,15 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Blueprint drafting grid. */
   background-image:
-    radial-gradient(900px 500px at 12% -8%, rgba(200, 168, 75, 0.05), transparent 60%),
-    radial-gradient(820px 480px at 100% 0%, rgba(90, 173, 126, 0.04), transparent 55%);
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 26px 26px;
   background-attachment: fixed;
 }
 
-h1, h2, h3, h4 { font-family: var(--serif); font-weight: 600; line-height: 1.1; letter-spacing: 0.2px; }
+h1, h2, h3, h4 { font-family: var(--sans); font-weight: 700; line-height: 1.12; letter-spacing: -0.02em; }
 h1 { font-size: 2.4rem; }
 h2 { font-size: 1.7rem; }
 h3 { font-size: 1.25rem; }
@@ -151,8 +160,8 @@ input, select, textarea { font-family: inherit; }
 .mono { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
 .nowrap { white-space: nowrap; }
 .eyebrow {
-  text-transform: uppercase; letter-spacing: 2.5px; font-size: 0.68rem;
-  font-weight: 600; color: var(--accent); font-family: var(--sans);
+  text-transform: uppercase; letter-spacing: 2px; font-size: 0.66rem;
+  font-weight: 700; color: var(--accent); font-family: var(--mono);
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
