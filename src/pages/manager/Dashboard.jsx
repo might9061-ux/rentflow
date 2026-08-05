@@ -168,7 +168,7 @@ export default function ManagerDashboard() {
                 <div key={p.id} className="list-row clickable" style={{ padding: '12px' }} onClick={() => nav('/manager/payments')}>
                   <div className="spread">
                     <div style={{ fontWeight: 600 }}>{tenantName(p.tenant_id)}</div>
-                    <span className="mono" style={{ fontWeight: 600, color: 'var(--gold)' }}>{money(p.amount)}</span>
+                    <span className="mono" style={{ fontWeight: 600, color: 'var(--green)' }}>{money(p.amount)}</span>
                   </div>
                   <div style={{ marginTop: 5 }}><PeriodTag from={p.period_from} to={p.period_to} /></div>
                 </div>

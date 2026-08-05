@@ -219,7 +219,7 @@ export default function Payments() {
                       <td className="nowrap">{fmtDate(p.approved_at || p.paid_date)}</td>
                       <td>{fullName(t)}</td>
                       <td><PeriodTag from={p.period_from} to={p.period_to} /></td>
-                      <td className="mono" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
+                      <td className="mono" style={{ fontWeight: 600, color: 'var(--green)' }}>{money(p.amount)}</td>
                       <td>
                         <div className="row gap">{p.method}
                           {p.paid_online && <span className="pill green" title="Paid online via gateway"><span className="dot" />Online</span>}
