@@ -29,6 +29,14 @@ const APP_BASE = (process.env.PUBLIC_APP_URL || 'https://www.rentloja.com').repl
 // Pesepay payment-method codes (Zimbabwe).
 const MOBILE_CODES = { ecocash: 'PZW211', innbucks: 'PZW212' }
 
+// Seamless (mobile-money) transaction statuses that mean the charge is already
+// dead — Pesepay accepted the request but will NEVER push a PIN. We must fail
+// fast on these instead of polling to a silent 2-minute timeout.
+const SEAMLESS_DEAD = new Set([
+  'FAILED', 'ERROR', 'DECLINED', 'CANCELLED', 'CLOSED', 'CLOSED_PERIOD_ELAPSED',
+  'AUTHORIZATION_FAILED', 'INSUFFICIENT_FUNDS', 'SERVICE_UNAVAILABLE', 'TERMINATED', 'REVERSED',
+])
+
 export function gatewayConfigured() { return !!API_BASE }
 
 // ── credentials ──────────────────────────────────────────────────────────────
@@ -168,6 +176,9 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
 
   const mobileCode = MOBILE_CODES[method]
   if (mobileCode) {
+    if (!phone || !/^0(7[7-8])\d{7}$/.test(String(phone).replace(/\s+/g, ''))) {
+      throw new Error('Enter a valid EcoCash number, e.g. 0771234567.')
+    }
     let res
     try {
       res = await onEitherHost(creds, (client) => client.makeSeamlessPayment({
@@ -181,6 +192,26 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
         paymentMethodRequiredFields: { customerPhoneNumber: phone },
       }))
     } catch (e) { throw pesepayError(e, 'The payment gateway rejected this transaction.') }
+
+    // makeSeamlessPayment returns a Transaction that ALREADY carries a status.
+    // If it's born dead, no PIN will ever be pushed — surface the real reason
+    // now (and log it) instead of silently polling to a timeout.
+    const st = String(res?.transactionStatus || '').toUpperCase()
+    const why = res?.paymentMethodDetails?.paymentMethodMessage || res?.transactionStatusDescription || ''
+    console.log(`[pesepay] seamless ${mobileCode} status=${st || 'NONE'} ref=${res?.referenceNumber || reference} msg=${String(why).slice(0, 200)}`)
+    if (SEAMLESS_DEAD.has(st)) {
+      // Also log which mobile methods the account actually offers for this
+      // currency — the usual culprit is EcoCash not being enabled for USD.
+      try {
+        const methods = await onEitherHost(creds, (client) => client.getPaymentMethodsByCurrency(currencyCode))
+        console.error(`[pesepay] EcoCash rejected. Active ${currencyCode} methods: ` +
+          (Array.isArray(methods) ? methods.map((m) => `${m.code}(${m.name},active=${m.active})`).join(', ') : JSON.stringify(methods)))
+      } catch (e2) { console.error('[pesepay] could not list active methods:', e2?.message) }
+      throw new Error(
+        `EcoCash couldn’t be started${why ? ` — ${why}` : ''}. ` +
+        'This usually means this Pesepay account isn’t enabled for EcoCash (seamless) in ' + currencyCode +
+        '. Card should still work, or contact Pesepay to enable EcoCash.')
+    }
     return {
       pollUrl: res?.pollUrl || null,
       redirectUrl: null,
@@ -239,6 +270,9 @@ function normalise(status) {
   if (status?.paid === true) return 'paid'
   const s = String(status?.transactionStatus || status?.status || '').toUpperCase()
   if (s === 'SUCCESS' || s === 'PAID') return 'paid'
-  if (['CANCELLED', 'FAILED', 'CLOSED', 'ERROR', 'TIMEOUT', 'DECLINED'].includes(s)) return 'cancelled'
+  // Any terminal non-success status → cancelled, so the UI fails fast instead of
+  // sitting on "pending" until it times out. (INITIATED/PENDING/PROCESSING keep
+  // polling — that's the window where the payer is entering their PIN.)
+  if (SEAMLESS_DEAD.has(s) || s === 'TIMEOUT') return 'cancelled'
   return 'pending'
 }
