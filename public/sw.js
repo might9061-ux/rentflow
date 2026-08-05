@@ -1,7 +1,7 @@
 // Minimal service worker so RentLoja is installable, works offline-ish, and can
 // raise pop-up notifications.
 // Same-origin only — never touches the API / Supabase / fonts (cross-origin).
-const CACHE = 'rentloja-v5'
+const CACHE = 'rentloja-v6'
 
 self.addEventListener('install', () => self.skipWaiting())
 
