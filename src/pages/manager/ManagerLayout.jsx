@@ -16,6 +16,7 @@ import {
   IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconTag, IconSparkle, IconPalette, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash, IconSearch, IconMail,
 } from '../../components/icons.jsx'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
+import Logo from '../../components/Logo.jsx'
 
 const NAV = [
   { to: '/manager', end: true, label: 'Dashboard', icon: IconGrid },
@@ -138,7 +139,7 @@ export default function ManagerLayout() {
         <div className="brand">
           {profile?.brand_logo
             ? <img className="mark-img" src={profile.brand_logo} alt="logo" />
-            : <div className="mark">{brandMark}</div>}
+            : <div className="mark">{profile?.brand_name ? brandMark : <Logo size={22} />}</div>}
           <div>
             <div className="b-name">{brandName}</div>
             <div className="b-role">{isOwner ? 'Manager' : 'Agent'}</div>
@@ -210,7 +211,7 @@ export default function ManagerLayout() {
             <div className="topbar-brand mobile-only">
               {profile?.brand_logo
                 ? <img className="tb-logo" src={profile.brand_logo} alt="logo" />
-                : <span className="tb-mark">{brandMark}</span>}
+                : <span className="tb-mark">{profile?.brand_name ? brandMark : <Logo size={15} />}</span>}
               <span className="tb-name">{brandName}</span>
             </div>
           </div>

@@ -8,6 +8,7 @@ import { canBrand, brandVars } from '../../lib/brand.js'
 import { Input } from '../../components/Field.jsx'
 import { Spinner } from '../../components/ui.jsx'
 import { IconPalette, IconTag, IconArrowRight, IconUsers, IconTrash } from '../../components/icons.jsx'
+import Logo from '../../components/Logo.jsx'
 
 const PRESET_COLORS = ['#1d6fe0', '#5aad7e', '#6f8fd6', '#c56b8f', '#cf7a48', '#8a7bd8', '#3fae9e']
 
@@ -94,7 +95,7 @@ export default function Branding() {
             <div className="row gap" style={{ marginTop: 12, marginBottom: 16 }}>
               {form.brand_logo
                 ? <img className="mark-img" src={form.brand_logo} alt="logo" />
-                : <div className="mark" style={{ background: 'var(--accent-bg)', borderColor: 'var(--accent-line)', color: 'var(--accent)', width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', border: '1px solid', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: '1.4rem' }}>{displayName.slice(0, 2).toUpperCase()}</div>}
+                : <div className="mark" style={{ background: 'var(--accent-bg)', borderColor: 'var(--accent-line)', color: 'var(--accent)', width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', border: '1px solid', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: '1.4rem' }}>{form.brand_name.trim() ? displayName.slice(0, 2).toUpperCase() : <Logo size={24} />}</div>}
               <div>
                 <div style={{ fontFamily: 'var(--serif)', fontSize: '1.5rem', fontWeight: 600, lineHeight: 1 }}>{displayName}</div>
                 <div className="eyebrow" style={{ color: 'var(--accent)' }}>Your workspace</div>

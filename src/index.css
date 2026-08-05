@@ -92,8 +92,8 @@
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
 }
 [data-theme="light"] .nav-link.active { color: var(--accent); }
-[data-theme="light"] ::-webkit-scrollbar-thumb { background: #d8d2c4; }
-[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #c7c0b0; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c3d0de; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #aebfcf; }
 [data-theme="light"] .tag-period b, [data-theme="light"] .stat-value { color: var(--text); }
 
 /* Tenant theme — applied by adding .theme-tenant to a wrapper */
@@ -144,8 +144,8 @@ input, select, textarea { font-family: inherit; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 11px; height: 11px; }
-::-webkit-scrollbar-thumb { background: #2a251f; border-radius: 99px; border: 3px solid var(--bg); }
-::-webkit-scrollbar-thumb:hover { background: #39322a; }
+::-webkit-scrollbar-thumb { background: #2a3a4d; border-radius: 99px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: #35485d; }
 
 /* ── Layout helpers ──────────────────────────────────────────────────────── */
 .row { display: flex; align-items: center; }
@@ -171,12 +171,12 @@ input, select, textarea { font-family: inherit; }
   padding: 10px 16px; border-radius: var(--radius-sm); font-size: 0.92rem;
   font-weight: 500; transition: all 0.16s ease; white-space: nowrap;
 }
-.btn:hover { border-color: #3a332b; background: #28231e; }
+.btn:hover { border-color: var(--gold-line); background: var(--surface); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn.primary {
   background: linear-gradient(180deg, var(--accent-soft), var(--accent));
-  color: #14110b; border-color: transparent; font-weight: 600;
+  color: #0b1018; border-color: transparent; font-weight: 600;
   box-shadow: 0 8px 22px -12px var(--accent);
 }
 .btn.primary:hover { filter: brightness(1.06); }
@@ -340,7 +340,7 @@ table.data tbody tr.clickable-row { cursor: pointer; }
   width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center;
   justify-content: center; font-size: 1.1rem; line-height: 1;
 }
-.x-btn:hover { color: var(--text); border-color: #3a332b; }
+.x-btn:hover { color: var(--text); border-color: var(--gold-line); }
 
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop  { from { opacity: 0; transform: translateY(10px) scale(0.99); } }
@@ -518,7 +518,7 @@ table.data tbody tr.clickable-row { cursor: pointer; }
 .photo-thumb { position: relative; aspect-ratio: 4/3; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
 .photo-thumb.cover { border-color: var(--accent-line); }
 .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.photo-thumb .cover-tag { position: absolute; top: 6px; left: 6px; font-size: 0.66rem; font-weight: 700; background: var(--accent); color: #14110b; padding: 2px 7px; border-radius: 99px; }
+.photo-thumb .cover-tag { position: absolute; top: 6px; left: 6px; font-size: 0.66rem; font-weight: 700; background: var(--accent); color: #0b1018; padding: 2px 7px; border-radius: 99px; }
 .photo-thumb .photo-actions { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; }
 .photo-thumb .photo-actions button { width: 24px; height: 24px; border-radius: 6px; border: none; background: rgba(5,4,3,0.72); color: #fff; font-size: 0.8rem; cursor: pointer; }
 .photo-add { aspect-ratio: 4/3; border: 1.5px dashed var(--line); border-radius: 10px; background: var(--bg); color: var(--text-dim);
@@ -621,7 +621,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   color: var(--text); font-size: 0.9rem; font-family: inherit; resize: none; max-height: 120px; line-height: 1.5; }
 .msg-input textarea:focus { outline: none; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-bg); }
 .msg-input button { width: 40px; height: 40px; flex-shrink: 0; border-radius: 99px; border: none;
-  background: linear-gradient(180deg, var(--accent-soft), var(--accent)); color: #14110b; display: grid; place-items: center; }
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent)); color: #0b1018; display: grid; place-items: center; }
 .msg-input button:disabled { opacity: .5; }
 
 /* Session dividers, deleted tombstones and the per-message menu. */

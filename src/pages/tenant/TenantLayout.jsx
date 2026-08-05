@@ -10,6 +10,7 @@ import QuickUnlockSetup from '../../components/QuickUnlockSetup.jsx'
 import ProfileModal from '../../components/ProfileModal.jsx'
 import { hasQuickUnlock, isMobileDevice } from '../../lib/quickUnlock.js'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
+import Logo from '../../components/Logo.jsx'
 import { setActiveCurrency } from '../../lib/format.js'
 import { currencyByCode, marketFor } from '../../lib/markets.js'
 import TenantVerify from './TenantVerify.jsx'
@@ -83,7 +84,7 @@ export default function TenantLayout() {
         <div className="brand">
           {brandMgr?.brand_logo
             ? <img className="mark-img" src={brandMgr.brand_logo} alt="logo" />
-            : <div className="mark">{brandMark}</div>}
+            : <div className="mark">{brandMgr?.brand_name ? brandMark : <Logo size={22} />}</div>}
           <div>
             <div className="b-name">{brandName}</div>
             <div className="b-role">Tenant</div>
@@ -147,7 +148,7 @@ export default function TenantLayout() {
             <div className="topbar-brand mobile-only">
               {brandMgr?.brand_logo
                 ? <img className="tb-logo" src={brandMgr.brand_logo} alt="logo" />
-                : <span className="tb-mark">{brandMark}</span>}
+                : <span className="tb-mark">{brandMgr?.brand_name ? brandMark : <Logo size={15} />}</span>}
               <span className="tb-name">{brandName}</span>
             </div>
           </div>

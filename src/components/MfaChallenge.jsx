@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import * as mfa from '../lib/mfa.js'
 import { IconShield, IconLogout } from './icons.jsx'
+import Logo from './Logo.jsx'
 
 // Shown when the account has two-factor on but this session is still at AAL1
 // (password verified, code not yet). Full-screen: there is nothing useful to
@@ -23,7 +24,7 @@ export default function MfaChallenge({ onVerified }) {
   return (
     <div className="mfa-gate">
       <div className="mfa-gate-inner">
-        <div className="brand-mark" style={{ margin: '0 auto 20px' }}>RL</div>
+        <div className="brand-mark" style={{ margin: '0 auto 20px' }}><Logo size={30} /></div>
         <h2 style={{ marginBottom: 6 }}>Enter your code</h2>
         <p className="muted" style={{ marginBottom: 22, fontSize: '0.9rem' }}>
           Open your authenticator app and enter the 6 digits for RentLoja.

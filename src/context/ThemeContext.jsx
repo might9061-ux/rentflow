@@ -27,7 +27,7 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f3f1ea' : '#0a0908')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#eef2f7' : '#0d131c')
     try { localStorage.setItem(KEY, theme) } catch { /* ignore */ }
   }, [theme])
 

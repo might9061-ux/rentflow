@@ -64,7 +64,7 @@ export default function InstallApp() {
           background: var(--gold-bg); border: 1px solid var(--gold-line); color: var(--gold);
           font-size: 0.85rem; font-weight: 600; transition: all 0.16s;
         }
-        .install-btn:hover { background: var(--gold); color: #0a0908; border-color: var(--gold); }
+        .install-btn:hover { background: var(--gold); color: #0b1018; border-color: var(--gold); }
         .install-help {
           position: relative; margin-top: 12px; text-align: left; font-size: 0.82rem;
           color: var(--text-dim); background: var(--bg-raised); border: 1px solid var(--gold-line);

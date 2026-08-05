@@ -8,6 +8,7 @@ import {
 import { Spinner } from '../components/ui.jsx'
 import QuickUnlockCard from '../components/QuickUnlockCard.jsx'
 import InstallApp from '../components/InstallApp.jsx'
+import Logo from '../components/Logo.jsx'
 
 const FEATURES = [
   { icon: IconBuilding, title: 'Properties & tenants', sub: 'Set up your buildings, name each unit, and assign tenants — with occupancy and rent at a glance.' },
@@ -85,7 +86,7 @@ export default function RolePicker() {
       {/* Top bar */}
       <header className="lp-nav">
         <div className="lp-nav-in">
-          <a className="lp-brand" href="#top"><span className="brand-mark sm">RL</span> RentLoja</a>
+          <a className="lp-brand" href="#top"><span className="brand-mark sm"><Logo size={19} /></span> RentLoja</a>
           <nav className="lp-nav-r">
             <button className="lp-link" onClick={() => enterDemo('manager')}>Try the demo</button>
             <button className="lp-link" onClick={() => nav('/rent')}>Browse rentals</button>

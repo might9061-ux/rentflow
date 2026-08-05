@@ -6,6 +6,7 @@ import { isUnlocked, markUnlocked, markLocked } from '../lib/lockState.js'
 import { readBrand, brandDisplay } from '../lib/brand.js'
 import { initials } from '../lib/format.js'
 import { IconShield, IconArrowRight, IconLogout } from './icons.jsx'
+import Logo from './Logo.jsx'
 
 // Banking-app style lock screen (Monzo/Revolut model).
 //
@@ -78,7 +79,7 @@ export default function AppLock() {
       <div className="applock-inner">
         {brand.logo
           ? <img className="applock-logo" src={brand.logo} alt={brand.name} />
-          : <div className="brand-mark" style={{ margin: '0 auto 22px' }}>{brand.mark}</div>}
+          : <div className="brand-mark" style={{ margin: '0 auto 22px' }}>{brand.custom ? brand.mark : <Logo size={30} />}</div>}
         {name && <div className="avatar applock-av">{initials(...name.split(' '))}</div>}
         <h2 style={{ marginBottom: 4 }}>{name ? `Welcome back, ${name.split(' ')[0]}` : 'Welcome back'}</h2>
         <p className="muted" style={{ marginBottom: 26, fontSize: '0.9rem' }}>
