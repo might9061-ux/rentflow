@@ -259,7 +259,7 @@ export default function TenantDetail() {
                 <tr key={p.id}>
                   <td className="nowrap">{fmtDate(p.paid_date)}</td>
                   <td><PeriodTag from={p.period_from} to={p.period_to} /></td>
-                  <td className="mono" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
+                  <td className="mono" style={{ fontWeight: 600, color: p.status === 'approved' ? 'var(--green)' : undefined }}>{money(p.amount)}</td>
                   <td>{p.method}</td>
                   <td><StatusPill status={p.status} /></td>
                   <td className="mono muted">{p.receipt_no || '—'}</td>

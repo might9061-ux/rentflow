@@ -127,7 +127,7 @@ export default function Finances() {
               {rows.map((r) => (
                 <tr key={r.prop.id} className="clickable-row" onClick={() => setDrill(r.prop)}>
                   <td style={{ fontWeight: 600 }}>{r.prop.name}</td>
-                  <td className="mono" style={{ textAlign: 'right' }}>{money(r.collected)}</td>
+                  <td className="mono" style={{ textAlign: 'right', color: r.collected > 0 ? 'var(--green)' : undefined }}>{money(r.collected)}</td>
                   <td className="mono" style={{ textAlign: 'right', color: 'var(--danger)' }}>{r.expenses > 0 ? `−${money(r.expenses)}` : money(0)}</td>
                   <td className="mono" style={{ textAlign: 'right', fontWeight: 700, color: r.net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{money(r.net)}</td>
                   <td className="no-print muted" style={{ textAlign: 'right' }}><IconArrowRight size={14} /></td>
@@ -146,7 +146,7 @@ export default function Finances() {
             <tfoot>
               <tr style={{ borderTop: '2px solid var(--line)' }}>
                 <td style={{ fontWeight: 700 }}>Total</td>
-                <td className="mono" style={{ textAlign: 'right', fontWeight: 700 }}>{money(totalCollected)}</td>
+                <td className="mono" style={{ textAlign: 'right', fontWeight: 700, color: totalCollected > 0 ? 'var(--green)' : undefined }}>{money(totalCollected)}</td>
                 <td className="mono" style={{ textAlign: 'right', fontWeight: 700, color: 'var(--danger)' }}>−{money(totalExpenses)}</td>
                 <td className="mono" style={{ textAlign: 'right', fontWeight: 800, color: net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{money(net)}</td>
                 <td className="no-print"></td>
@@ -319,7 +319,7 @@ function CardDetailModal({ kind, periodLabel, rows, totals, payments, expenses, 
                 {rows.map((r) => (
                   <tr key={r.prop.id}>
                     <td style={{ fontWeight: 600 }}>{r.prop.name}</td>
-                    <td className="mono" style={{ textAlign: 'right' }}>{money(r.collected)}</td>
+                    <td className="mono" style={{ textAlign: 'right', color: r.collected > 0 ? 'var(--green)' : undefined }}>{money(r.collected)}</td>
                     <td className="mono" style={{ textAlign: 'right', color: 'var(--danger)' }}>{r.expenses > 0 ? `−${money(r.expenses)}` : money(0)}</td>
                     <td className="mono" style={{ textAlign: 'right', fontWeight: 700, color: r.net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{money(r.net)}</td>
                   </tr>
