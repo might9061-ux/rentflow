@@ -62,30 +62,36 @@ export default function SubmitPayment() {
       const live = !!m?.online_payments_live
       setLiveGateway(live)
       setPayDetails(m?.payment_details || {})
-      // Online methods (card / EcoCash) are only offered when the manager's
-      // gateway is actually live — or in the demo, which simulates it. Otherwise
-      // don't show a fake checkout; tenants use the manual "upload proof" options.
-      const onlineOffered = live || DEMO_MODE
-      const sCard = onlineOffered && acc.includes('card')
-      const expr = onlineOffered && opts.find((o) => o.kind === 'online' && o.key !== 'card' && acc.includes(o.key))
+      // A LIVE gateway hands off to Pesepay's hosted page (Card, EcoCash,
+      // InnBucks, ZimSwitch, Omari) as one "Pay online" option. The demo instead
+      // simulates card / EcoCash in-app. When neither applies, only the manual
+      // "upload proof" options show (no fake checkout).
+      const exprOpt = opts.find((o) => o.kind === 'online' && o.key !== 'card' && acc.includes(o.key))
+      const anyOnline = acc.includes('card') || !!exprOpt
       const sManual = opts.some((o) => o.kind === 'manual' && acc.includes(o.key))
-      setMethod(sCard ? 'card' : expr ? 'express' : sManual ? 'manual' : null)
+      if (live && anyOnline) setMethod('online')
+      else if (DEMO_MODE && acc.includes('card')) setMethod('card')
+      else if (DEMO_MODE && exprOpt) setMethod('express')
+      else setMethod(sManual ? 'manual' : null)
       setLoadingCfg(false)
     })()
   }, [userId])
 
-  // Only offer online methods when the gateway is live (or in the demo).
+  // A live gateway → one "Pay online" tile (Pesepay's hosted page, which offers
+  // Card, EcoCash, InnBucks, ZimSwitch & Omari). The demo → simulated card /
+  // EcoCash tiles. Manual "upload proof" shows whenever a manual method is on.
   const onlineOffered = liveGateway || DEMO_MODE
-  const showCard = onlineOffered && accepted.includes('card')
   const expressOpt = onlineOffered ? options.find((o) => o.kind === 'online' && o.key !== 'card' && accepted.includes(o.key)) : null
-  const showExpress = !!expressOpt
+  const showOnline = liveGateway && (accepted.includes('card') || !!expressOpt)
+  const showCard = !liveGateway && DEMO_MODE && accepted.includes('card')
+  const showExpress = !liveGateway && DEMO_MODE && !!expressOpt
   const manualMethods = options.filter((o) => o.kind === 'manual' && accepted.includes(o.key)).map((o) => o.key)
   const showManual = manualMethods.length > 0
   const amt = Number(amount) || 0
-  // The platform fee only applies to payments made through the app (card /
-  // EcoCash express). Uploading proof of a cash/bank/etc. payment happened
-  // outside the app, so no fee is added.
-  const isOnline = method === 'card' || method === 'express'
+  // The platform fee only applies to payments made through the app (the hosted
+  // gateway / simulated card / EcoCash express). Uploading proof of a
+  // cash/bank/etc. payment happened outside the app, so no fee is added.
+  const isOnline = method === 'online' || method === 'card' || method === 'express'
   const fee = isOnline ? platformFee(amt) : 0
   const total = amt + fee             // what the tenant actually pays
   const preview = amt > 0 ? previewPayment({ rent, creditBalance: credit, amount: amt, currentPaid }) : null
@@ -126,7 +132,8 @@ export default function SubmitPayment() {
 
       {/* Amount */}
       <div className="card pad" style={{ marginBottom: 16 }}>
-        <Input label="Rent amount" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required
+        <Input label="Rent amount" type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} required
+          onWheel={(e) => e.currentTarget.blur()}
           hint={`Tip: pay more than ${money(rent)} to build credit for next month.`} />
         {amt > 0 && (
           <div className="fee-box">
@@ -161,7 +168,9 @@ export default function SubmitPayment() {
         </EmptyState></div>
       ) : (
         <>
-          <div className="method-grid" style={{ gridTemplateColumns: `repeat(${[showCard, showExpress, showManual].filter(Boolean).length || 1}, 1fr)` }}>
+          <div className="method-grid" style={{ gridTemplateColumns: `repeat(${[showOnline, showCard, showExpress, showManual].filter(Boolean).length || 1}, 1fr)` }}>
+            {showOnline && <MethodTile active={method === 'online'} onClick={() => setMethod('online')}
+              icon={<IconWallet size={20} />} title="Pay online" sub="Card, EcoCash, InnBucks & more" />}
             {showCard && <MethodTile active={method === 'card'} onClick={() => setMethod('card')}
               icon={<IconWallet size={20} />} title="Card" sub="Visa / Mastercard" />}
             {showExpress && <MethodTile active={method === 'express'} onClick={() => setMethod('express')}
@@ -170,6 +179,7 @@ export default function SubmitPayment() {
               icon={<IconReceipt size={20} />} title="Upload proof" sub={manualMethods.slice(0, 3).join(', ')} />}
           </div>
 
+          {method === 'online' && <HostedForm amt={amt} fee={fee} charge={total} period={period} />}
           {method === 'card' && <CardForm live={liveGateway} amt={amt} fee={fee} charge={total} period={period} nav={nav} onPaid={finishOnline} />}
           {method === 'express' && <ExpressForm live={liveGateway} methodKey={expressOpt.key} amt={amt} fee={fee} charge={total} period={period} nav={nav}
             label={expressOpt.label.replace(' express', '')} defaultPhone={profile?.phone} onPaid={finishOnline} />}
@@ -203,6 +213,39 @@ function MethodTile({ active, onClick, icon, title, sub }) {
       <span className="m-title">{title}</span>
       <span className="m-sub">{sub}</span>
     </button>
+  )
+}
+
+// ── Live gateway → Pesepay hosted page ──────────────────────────────────────
+// Hands off to Pesepay's hosted checkout, which offers Card, EcoCash, InnBucks,
+// ZimSwitch and Omari — the payer picks their method there. (The in-app EcoCash
+// PIN-push isn't reliably enabled on every account, but the hosted page always
+// works.) The server created the pending payment; its result webhook settles it
+// and the payer lands back on their payment history.
+function HostedForm({ amt, fee, charge, period }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const start = async () => {
+    if (amt <= 0) return toast.error('Enter an amount first')
+    setBusy(true)
+    try {
+      const { redirectUrl } = await db.startGatewayPayment({
+        amount: amt, fee, method: 'card', period_from: period.from, period_to: period.to,
+      })
+      if (!redirectUrl) throw new Error('The gateway did not return a checkout link. Please try again.')
+      window.location.href = redirectUrl
+    } catch (err) { toast.error('Could not start payment', err.message); setBusy(false) }
+  }
+  return (
+    <div className="card pad">
+      <div className="banner" style={{ marginBottom: 12 }}>
+        <div className="b-ico"><IconWallet size={18} /></div>
+        <div style={{ fontSize: '.9rem' }}>You’ll be taken to Pesepay’s secure page to pay by <b>card, EcoCash, InnBucks, ZimSwitch or Omari</b>. RentLoja never sees your card or PIN.</div>
+      </div>
+      <button className="btn primary block lg" disabled={busy} onClick={start}>
+        {busy ? <><Spinner /> Opening secure checkout…</> : <>Pay {money(charge)} <IconArrowRight size={16} /></>}
+      </button>
+    </div>
   )
 }
 

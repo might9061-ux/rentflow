@@ -43,6 +43,30 @@ export default function Plan() {
   }
   useEffect(() => { load() }, [userId])
 
+  // Coming back from Pesepay's hosted page: confirm the pending subscription
+  // payment and reflect activation. The result webhook usually settles it
+  // already, but poll a few times so the UI updates promptly either way.
+  useEffect(() => {
+    let cancelled = false
+    let pendingId = null
+    try { pendingId = localStorage.getItem('rentflow_pending_sub') } catch { /* ignore */ }
+    if (!pendingId) return
+    const clear = () => { try { localStorage.removeItem('rentflow_pending_sub') } catch { /* ignore */ } }
+    ;(async () => {
+      for (let i = 0; i < 8 && !cancelled; i++) {
+        try {
+          const { state } = await db.subscriptionPaymentStatus(pendingId)
+          if (state === 'paid') { clear(); toast.success('Payment received', 'Your plan is now active.'); await refresh(); await load(); return }
+          if (state === 'cancelled') { clear(); toast.error('Payment not completed', 'It was cancelled or didn’t go through. You can try again.'); await load(); return }
+        } catch { /* keep trying */ }
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+      clear() // gave up waiting; the webhook may still settle it in the background
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   if (loading) return <div className="page center" style={{ minHeight: 300 }}><Spinner /></div>
 
   const price = priceForCapacity(capacity)       // monthly tier price
