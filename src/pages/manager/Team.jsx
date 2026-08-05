@@ -50,6 +50,7 @@ export default function Team() {
   const coveredCount = new Set(team.flatMap((s) => s.assigned_property_ids || [])).size
 
   const resend = async (s) => {
+    if (!window.confirm(`Generate a NEW temporary password for ${fullName(s)}?\n\nThis replaces their current password — the old one will stop working, and you'll need to send them the new one.`)) return
     const { tempPassword } = await db.resendStaffCredentials(s.id)
     toast.success('New password generated')
     setCreds({ staff: s, tempPassword })

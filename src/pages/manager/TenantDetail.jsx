@@ -61,6 +61,7 @@ export default function TenantDetail() {
   const deletedAt = tenant.deleted_at
 
   const resend = async () => {
+    if (!window.confirm(`Generate a NEW temporary password for ${fullName(tenant)}?\n\nThis replaces their current password — the old one will stop working, and you'll need to send them the new one.`)) return
     const { tempPassword } = await db.resendCredentials(tenant.id)
     toast.success('New credentials generated')
     setCreds({ tenant, tempPassword })

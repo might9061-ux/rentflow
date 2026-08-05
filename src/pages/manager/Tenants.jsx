@@ -49,6 +49,7 @@ export default function Tenants() {
   const propName = (id) => properties.find((p) => p.id === id)?.name || '—'
 
   const resend = async (t) => {
+    if (!window.confirm(`Generate a NEW temporary password for ${fullName(t)}?\n\nThis replaces their current password — the old one will stop working, and you'll need to send them the new one.`)) return
     const { tempPassword } = await db.resendCredentials(t.id)
     toast.success('New credentials generated')
     setCreds({ tenant: t, tempPassword })
