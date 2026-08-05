@@ -93,7 +93,7 @@ export default function TenantDetail() {
 
   const brandOpts = {
     brandName: profile?.brand_name || 'RentLoja',
-    brandColor: profile?.brand_color || '#c8a84b',
+    brandColor: profile?.brand_color || '#1d6fe0',
     workspace: profile?.brand_name || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
   }
   // Resend a receipt to the tenant over WhatsApp (matches the Payments page).

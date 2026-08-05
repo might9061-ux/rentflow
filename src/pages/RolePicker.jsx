@@ -151,7 +151,7 @@ export default function RolePicker() {
                     <circle cx="60" cy="60" r="50" fill="none" stroke="var(--line)" strokeWidth="13" />
                     <circle cx="60" cy="60" r="50" fill="none" stroke="var(--green)" strokeWidth="13" strokeLinecap="round"
                       strokeDasharray="287 314" transform="rotate(-90 60 60)" />
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#d98b5f" strokeWidth="13" strokeLinecap="round"
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--warn)" strokeWidth="13" strokeLinecap="round"
                       strokeDasharray="27 314" strokeDashoffset="-289" transform="rotate(-90 60 60)" />
                   </svg>
                   <div className="lp-donut-c"><div className="lp-donut-v">$18,450</div><div className="lp-donut-l">Collected</div></div>
@@ -402,7 +402,7 @@ export default function RolePicker() {
           border: 1px solid var(--green-line); transition: all 0.18s; box-shadow: var(--shadow-soft); cursor: pointer;
         }
         .role-card:hover { transform: translateY(-2px); border-color: var(--green); box-shadow: 0 22px 48px -24px var(--green); }
-        .role-card.gold { background: linear-gradient(135deg, rgba(200,168,75,0.14), rgba(200,168,75,0.04)); border-color: var(--gold-line); }
+        .role-card.gold { background: linear-gradient(135deg, var(--gold-bg), transparent); border-color: var(--gold-line); }
         .role-card.gold:hover { border-color: var(--gold); box-shadow: 0 22px 48px -24px var(--gold); }
         .role-card .role-ico {
           width: 54px; height: 54px; border-radius: 15px; display: grid; place-items: center;

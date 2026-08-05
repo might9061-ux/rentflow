@@ -9,7 +9,7 @@ import { Input } from '../../components/Field.jsx'
 import { Spinner } from '../../components/ui.jsx'
 import { IconPalette, IconTag, IconArrowRight, IconUsers, IconTrash } from '../../components/icons.jsx'
 
-const PRESET_COLORS = ['#c8a84b', '#5aad7e', '#6f8fd6', '#c56b8f', '#cf7a48', '#8a7bd8', '#3fae9e']
+const PRESET_COLORS = ['#1d6fe0', '#5aad7e', '#6f8fd6', '#c56b8f', '#cf7a48', '#8a7bd8', '#3fae9e']
 
 export default function Branding() {
   const { userId, refresh } = useAuth()
@@ -23,7 +23,7 @@ export default function Branding() {
   const load = async () => {
     const m = await db.getManager(userId)
     setManager(m)
-    setForm({ brand_name: m?.brand_name || '', brand_color: m?.brand_color || '#c8a84b', brand_logo: m?.brand_logo || null })
+    setForm({ brand_name: m?.brand_name || '', brand_color: m?.brand_color || '#1d6fe0', brand_logo: m?.brand_logo || null })
     setLoading(false)
   }
   useEffect(() => { load() }, [userId])
@@ -58,7 +58,7 @@ export default function Branding() {
     try {
       await db.updateManagerSettings(userId, { brand_name: null, brand_color: null, brand_logo: null })
       await refresh()
-      setForm({ brand_name: '', brand_color: '#c8a84b', brand_logo: null })
+      setForm({ brand_name: '', brand_color: '#1d6fe0', brand_logo: null })
       toast.info('Reset to default', 'The standard RentLoja design is back.')
       load()
     } catch (err) { toast.error('Could not reset', err.message) } finally { setBusy(false) }
