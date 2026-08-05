@@ -49,7 +49,9 @@ export default function Tenants() {
   const propName = (id) => properties.find((p) => p.id === id)?.name || '—'
 
   const resend = async (t) => {
-    if (!window.confirm(`Generate a NEW temporary password for ${fullName(t)}?\n\nThis replaces their current password — the old one will stop working, and you'll need to send them the new one.`)) return
+    // Only warn once they've set their own password — before that it's just the
+    // initial temp-password handover, with no real password to disrupt.
+    if (!t.first_login && !window.confirm(`Reset ${fullName(t)}'s password?\n\nThey've already set their own — this replaces it with a new temporary one, so their current password stops working and you'll need to send them the new one.`)) return
     const { tempPassword } = await db.resendCredentials(t.id)
     toast.success('New credentials generated')
     setCreds({ tenant: t, tempPassword })
@@ -145,7 +147,7 @@ export default function Tenants() {
                       <div className="row gap" style={{ justifyContent: 'flex-end' }}>
                         <button className="btn sm ghost" title="Payment history" onClick={(e) => { e.stopPropagation(); nav(`/manager/tenants/${t.id}`) }}><IconReceipt size={14} /></button>
                         <button className="btn sm ghost" title="Edit" onClick={(e) => { e.stopPropagation(); setEditing(t) }}><IconEdit size={14} /></button>
-                        {t.first_login && <button className="btn sm ghost" title="Resend credentials" onClick={(e) => { e.stopPropagation(); resend(t) }}><IconKey size={14} /></button>}
+                        <button className="btn sm ghost" title={t.first_login ? 'Resend credentials' : 'Reset password'} onClick={(e) => { e.stopPropagation(); resend(t) }}><IconKey size={14} /></button>
                       </div>
                     </td>
                   </tr>

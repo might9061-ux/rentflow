@@ -61,7 +61,9 @@ export default function TenantDetail() {
   const deletedAt = tenant.deleted_at
 
   const resend = async () => {
-    if (!window.confirm(`Generate a NEW temporary password for ${fullName(tenant)}?\n\nThis replaces their current password — the old one will stop working, and you'll need to send them the new one.`)) return
+    // Only warn once they've set their own password — before that it's just the
+    // initial temp-password handover, with no real password to disrupt.
+    if (!tenant.first_login && !window.confirm(`Reset ${fullName(tenant)}'s password?\n\nThey've already set their own — this replaces it with a new temporary one, so their current password stops working and you'll need to send them the new one.`)) return
     const { tempPassword } = await db.resendCredentials(tenant.id)
     toast.success('New credentials generated')
     setCreds({ tenant, tempPassword })
@@ -160,16 +162,15 @@ export default function TenantDetail() {
                 </>
               )}
             </div>
-            {/* Only while the tenant is still on the password you issued. Once
-                they have chosen their own, there is no temp password to share —
-                showing one would hand out a credential that no longer works, and
-                issuing a fresh one would lock them out of the password they know.
-                A tenant who forgets theirs uses "Forgot password?" themselves. */}
+            {/* Reset the login to a fresh temporary password. Before they've set
+                their own it's a silent re-issue of the initial credentials; once
+                active, resend() confirms first, since it replaces the password they
+                chose (they'll set a new one on next sign-in). */}
             {/* Deleted tenants are read-only "past residents": only the statement /
                 receipts remain. Everything else is hidden. */}
             {!deletedAt && (<>
-              {!vacatedAt && tenant.first_login && (
-                <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
+              {!vacatedAt && (
+                <button className="btn ghost" onClick={resend}><IconKey size={15} /> {tenant.first_login ? 'Resend credentials' : 'Reset password'}</button>
               )}
               {!vacatedAt && <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>}
               <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>

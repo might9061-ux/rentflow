@@ -50,7 +50,9 @@ export default function Team() {
   const coveredCount = new Set(team.flatMap((s) => s.assigned_property_ids || [])).size
 
   const resend = async (s) => {
-    if (!window.confirm(`Generate a NEW temporary password for ${fullName(s)}?\n\nThis replaces their current password — the old one will stop working, and you'll need to send them the new one.`)) return
+    // Only warn once they've set their own password — before that it's just the
+    // initial temp-password handover, with no real password to disrupt.
+    if (!s.first_login && !window.confirm(`Reset ${fullName(s)}'s password?\n\nThey've already set their own — this replaces it with a new temporary one, so their current password stops working and you'll need to send them the new one.`)) return
     const { tempPassword } = await db.resendStaffCredentials(s.id)
     toast.success('New password generated')
     setCreds({ staff: s, tempPassword })
@@ -122,12 +124,10 @@ export default function Team() {
                   <td>
                     <div className="row gap" style={{ justifyContent: 'flex-end' }}>
                       <button className="btn sm ghost" title="Edit access" onClick={() => setEditing(s)}><IconEdit size={14} /></button>
-                      {/* Only while the agent is still on the password you issued.
-                          Once they've set their own, there's no temp key to reset —
-                          a verified agent who forgets theirs uses "Forgot password". */}
-                      {s.first_login && (
-                        <button className="btn sm ghost" title="Reset password" onClick={() => resend(s)}><IconKey size={14} /></button>
-                      )}
+                      {/* Reset the login to a fresh temporary password. Before they've
+                          set their own it's a silent re-issue; once active, resend()
+                          asks first, since it replaces a password they chose. */}
+                      <button className="btn sm ghost" title={s.first_login ? 'Resend temp password' : 'Reset password'} onClick={() => resend(s)}><IconKey size={14} /></button>
                       <button className="btn sm ghost danger" title="Remove" onClick={() => remove(s)}><IconTrash size={14} /></button>
                     </div>
                   </td>
