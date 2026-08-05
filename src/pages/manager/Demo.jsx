@@ -120,7 +120,7 @@ function ManagerDemo() {
         <div className="card pad">
           <h3 style={{ marginBottom: 14 }}>Rent collection</h3>
           <DonutChart centerValue={money(18450)} centerLabel="Collected"
-            segments={[{ label: 'Collected', value: 18450, color: 'var(--green)' }, { label: 'Outstanding', value: 1750, color: '#d98b5f' }]} />
+            segments={[{ label: 'Collected', value: 18450, color: 'var(--green)' }, { label: 'Outstanding', value: 1750, color: 'var(--warn)' }]} />
         </div>
         <div className="card">
           <div className="spread" style={{ padding: '16px 18px 10px' }}><h3>Tenants</h3><span className="pill neutral"><IconUsers size={13} /> {DEMO_TENANTS.length}</span></div>

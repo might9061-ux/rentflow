@@ -25,7 +25,7 @@ export default function ReceiptModal({ payment, tenant, manager, property, payme
   // Paper size for printing. 80mm / 58mm = thermal receipt-printer rolls used in
   // shops; A4 = a normal office printer. Remembered so it's a one-time choice.
   const [paper, setPaper] = useState(() => { try { return localStorage.getItem('rentflow_receipt_paper') || '80mm' } catch { return '80mm' } })
-  const brand = { brandName: manager?.brand_name || 'RentLoja', brandColor: manager?.brand_color || '#c8a84b' }
+  const brand = { brandName: manager?.brand_name || 'RentLoja', brandColor: manager?.brand_color || '#1d6fe0' }
 
   const print = () => {
     try { localStorage.setItem('rentflow_receipt_paper', paper) } catch { /* ignore */ }

@@ -46,7 +46,7 @@ export function downloadStatementCsv(tenant, payments) {
 }
 
 // ── Printable statement (opens a clean page → browser "Save as PDF") ─────────
-export function printStatement(tenant, payments, { brandName = 'RentLoja', brandColor = '#c8a84b', workspace } = {}) {
+export function printStatement(tenant, payments, { brandName = 'RentLoja', brandColor = '#1d6fe0', workspace } = {}) {
   const rows = paymentRows(payments)
   const total = rows.reduce((s, r) => s + r.amount, 0)
   const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))

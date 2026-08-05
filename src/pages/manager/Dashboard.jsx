@@ -121,7 +121,7 @@ export default function ManagerDashboard() {
           centerValue={money(collected)} centerLabel="Collected"
           segments={[
             { label: 'Collected', value: collected, color: 'var(--green)' },
-            { label: 'Outstanding', value: data.outstanding, color: '#d98b5f' },
+            { label: 'Outstanding', value: data.outstanding, color: 'var(--warn)' },
           ]} />
       </div>
 

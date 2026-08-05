@@ -7,6 +7,7 @@ import {
   IconChart, IconBuilding, IconTag, IconWallet, IconUsers, IconLogout,
   IconArrowRight, IconShield, IconSettings, IconMenu,
 } from '../../components/icons.jsx'
+import Logo from '../../components/Logo.jsx'
 
 // `period: true` marks the pages whose figures are filtered by the time-frame.
 // The picker is hidden everywhere else — on Users, Activity and Settings it
@@ -44,7 +45,7 @@ export default function AdminLayout() {
     <div className="shell">
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="brand">
-          <div className="mark">RL</div>
+          <div className="mark"><Logo size={22} /></div>
           <div>
             <div className="b-name">RentLoja</div>
             <div className="b-role">App owner</div>
@@ -83,7 +84,7 @@ export default function AdminLayout() {
               </button>
             )}
             <div className="topbar-brand mobile-only">
-              <span className="tb-mark">RL</span>
+              <span className="tb-mark"><Logo size={15} /></span>
               <span className="tb-name">RentLoja</span>
             </div>
           </div>

@@ -19,7 +19,7 @@ const scaleFor = (id) => (TEXT_SIZES.find((s) => s.id === id) || TEXT_SIZES[1]).
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(() => {
-    try { return localStorage.getItem(KEY) || 'dark' } catch { return 'dark' }
+    try { return localStorage.getItem(KEY) || 'light' } catch { return 'light' }
   })
   const [textSize, setTextSizeState] = useState(() => {
     try { return localStorage.getItem(SIZE_KEY) || 'default' } catch { return 'default' }
@@ -27,7 +27,7 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f3f1ea' : '#0a0908')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#eef2f7' : '#0d131c')
     try { localStorage.setItem(KEY, theme) } catch { /* ignore */ }
   }, [theme])
 

@@ -8,8 +8,9 @@ import { canBrand, brandVars } from '../../lib/brand.js'
 import { Input } from '../../components/Field.jsx'
 import { Spinner } from '../../components/ui.jsx'
 import { IconPalette, IconTag, IconArrowRight, IconUsers, IconTrash } from '../../components/icons.jsx'
+import Logo from '../../components/Logo.jsx'
 
-const PRESET_COLORS = ['#c8a84b', '#5aad7e', '#6f8fd6', '#c56b8f', '#cf7a48', '#8a7bd8', '#3fae9e']
+const PRESET_COLORS = ['#1d6fe0', '#5aad7e', '#6f8fd6', '#c56b8f', '#cf7a48', '#8a7bd8', '#3fae9e']
 
 export default function Branding() {
   const { userId, refresh } = useAuth()
@@ -23,7 +24,7 @@ export default function Branding() {
   const load = async () => {
     const m = await db.getManager(userId)
     setManager(m)
-    setForm({ brand_name: m?.brand_name || '', brand_color: m?.brand_color || '#c8a84b', brand_logo: m?.brand_logo || null })
+    setForm({ brand_name: m?.brand_name || '', brand_color: m?.brand_color || '#1d6fe0', brand_logo: m?.brand_logo || null })
     setLoading(false)
   }
   useEffect(() => { load() }, [userId])
@@ -58,7 +59,7 @@ export default function Branding() {
     try {
       await db.updateManagerSettings(userId, { brand_name: null, brand_color: null, brand_logo: null })
       await refresh()
-      setForm({ brand_name: '', brand_color: '#c8a84b', brand_logo: null })
+      setForm({ brand_name: '', brand_color: '#1d6fe0', brand_logo: null })
       toast.info('Reset to default', 'The standard RentLoja design is back.')
       load()
     } catch (err) { toast.error('Could not reset', err.message) } finally { setBusy(false) }
@@ -94,7 +95,7 @@ export default function Branding() {
             <div className="row gap" style={{ marginTop: 12, marginBottom: 16 }}>
               {form.brand_logo
                 ? <img className="mark-img" src={form.brand_logo} alt="logo" />
-                : <div className="mark" style={{ background: 'var(--accent-bg)', borderColor: 'var(--accent-line)', color: 'var(--accent)', width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', border: '1px solid', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: '1.4rem' }}>{displayName.slice(0, 2).toUpperCase()}</div>}
+                : <div className="mark" style={{ background: 'var(--accent-bg)', borderColor: 'var(--accent-line)', color: 'var(--accent)', width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', border: '1px solid', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: '1.4rem' }}>{form.brand_name.trim() ? displayName.slice(0, 2).toUpperCase() : <Logo size={24} />}</div>}
               <div>
                 <div style={{ fontFamily: 'var(--serif)', fontSize: '1.5rem', fontWeight: 600, lineHeight: 1 }}>{displayName}</div>
                 <div className="eyebrow" style={{ color: 'var(--accent)' }}>Your workspace</div>

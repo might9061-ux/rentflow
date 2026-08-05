@@ -25,7 +25,7 @@ function rows(payment, tenant, property) {
   return out
 }
 
-export function renderReceiptCanvas({ payment, tenant, manager, property, brandName = 'RentLoja', brandColor = '#c8a84b' }) {
+export function renderReceiptCanvas({ payment, tenant, manager, property, brandName = 'RentLoja', brandColor = '#1d6fe0' }) {
   const list = rows(payment, tenant, property)
   const rowH = 44
   const headH = 150

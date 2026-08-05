@@ -125,11 +125,11 @@ export default function Settings() {
       <Section title="Appearance" subtitle="Choose a dark or light background for the app.">
         <div className="row gap wrap">
           <button type="button" className={`theme-pick ${theme === 'dark' ? 'on' : ''}`} onClick={() => setTheme('dark')}>
-            <span className="tp-swatch" style={{ background: '#0a0908', borderColor: '#2c2722' }} />
+            <span className="tp-swatch" style={{ background: '#0d131c', borderColor: '#27384b' }} />
             <span className="row gap"><IconMoon size={15} /> Dark</span>
           </button>
           <button type="button" className={`theme-pick ${theme === 'light' ? 'on' : ''}`} onClick={() => setTheme('light')}>
-            <span className="tp-swatch" style={{ background: '#f3f1ea', borderColor: '#e3ded2' }} />
+            <span className="tp-swatch" style={{ background: '#eef2f7', borderColor: '#d5e0ec' }} />
             <span className="row gap"><IconSun size={15} /> Light</span>
           </button>
         </div>
