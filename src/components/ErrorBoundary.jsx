@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import * as Sentry from '@sentry/react'
 
 // Catches unexpected render errors so the app shows a recoverable message
 // instead of a blank screen.
@@ -13,7 +14,9 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    // In production this is where you'd report to Sentry/Logflare etc.
+    // Report the render crash to Sentry (no-op until VITE_SENTRY_DSN is set),
+    // with the React component stack for context.
+    Sentry.captureException(error, { extra: { componentStack: info?.componentStack } })
     console.error('RentLoja caught an error:', error, info)
   }
 

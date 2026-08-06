@@ -4,6 +4,7 @@
 //   req.user  — the authenticated user (id, email, ...)
 //   req.token — the raw access token
 //   req.db    — a Supabase client scoped to this user (RLS applies)
+import * as Sentry from '@sentry/node'
 import { admin, forUser } from './supabase.js'
 
 // Verifying a token with Supabase is a network round-trip. Active users fire
@@ -108,6 +109,10 @@ export function h(fn) {
         : /not found/i.test(msg) ? 404
         : /forbidden|not your|permission/i.test(msg) ? 403
         : 400
+      // Report likely bugs to Sentry, but not the expected client-side outcomes
+      // (auth / not-found / forbidden), which are normal control flow — no-op
+      // until SENTRY_DSN is set.
+      if (![401, 403, 404].includes(code)) Sentry.captureException(e)
       if (!res.headersSent) res.status(code).json({ error: msg })
     })
   }

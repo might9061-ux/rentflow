@@ -1,7 +1,19 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import * as Sentry from '@sentry/react'
 import { Analytics } from '@vercel/analytics/react'
+
+// Error monitoring — only when a DSN is configured (VITE_SENTRY_DSN in Vercel),
+// so it stays off locally and until you switch it on. Errors only, no PII.
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.MODE,
+    sendDefaultPii: false,
+    tracesSampleRate: 0,
+  })
+}
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
