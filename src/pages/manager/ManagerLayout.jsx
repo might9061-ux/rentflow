@@ -17,7 +17,7 @@ import {
 } from '../../components/icons.jsx'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
 import Logo from '../../components/Logo.jsx'
-import { usePoll } from '../../lib/usePoll.js'
+import { usePoll, POLL_MS } from '../../lib/usePoll.js'
 
 const NAV = [
   { to: '/manager', end: true, label: 'Dashboard', icon: IconGrid },
@@ -81,10 +81,10 @@ export default function ManagerLayout() {
   }, [userId])
 
   useEffect(() => { loadPending() }, [loadPending, loc.pathname])
-  // Live updates: refresh the badges every 30s while the tab is open (and the
-  // instant it regains focus), so new payments/messages/reminders show up
-  // without a manual refresh.
-  usePoll(loadPending, 30000, [loadPending])
+  // Live updates: refresh the badges on an interval while the tab is open (and
+  // the instant it regains focus), so new payments/messages/reminders show up
+  // without a manual refresh. Interval is POLL_MS (see usePoll.js).
+  usePoll(loadPending, POLL_MS, [loadPending])
 
   // Keep the lock screen able to show this workspace's brand with no network.
   useEffect(() => {
