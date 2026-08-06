@@ -1,4 +1,5 @@
-import 'dotenv/config'
+import './instrument.js' // MUST be first — loads env + starts Sentry
+import * as Sentry from '@sentry/node'
 import express from 'express'
 import cors from 'cors'
 import morgan from 'morgan'
@@ -98,6 +99,9 @@ app.use('/api/login-events', loginEvents)
 app.use('/api/assistant', assistant)
 app.use('/api/push', push)
 app.use('/api/messages', messages)
+
+// Report any error that reaches Express to Sentry (no-op until SENTRY_DSN is set).
+Sentry.setupExpressErrorHandler(app)
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }))
 
