@@ -54,7 +54,11 @@ export default function SubmitPayment() {
       // Derive credit/status from real payments (approved only) so this screen
       // matches the dashboard instead of trusting a stale stored balance.
       const t = me || profile
-      setLed(buildLedger({ payments: pays, rent: Number(t?.rent || 0), dueDay: t?.due_day, startDate: t?.lease_start || t?.created_at }))
+      const l = buildLedger({ payments: pays, rent: Number(t?.rent || 0), dueDay: t?.due_day, startDate: t?.lease_start || t?.created_at })
+      setLed(l)
+      // Default the amount to the balance still owed (what the dashboard's
+      // "Pay $X" implies). They can switch to the full month or any other amount.
+      setAmount(String(l.totalOwed > 0 ? l.totalOwed : (Number(t?.rent) || '')))
       const opts = paymentMethodsFor(m)
       const acc = acceptedMethods(m)
       setOptions(opts); setAccepted(acc)
@@ -88,13 +92,20 @@ export default function SubmitPayment() {
   const manualMethods = options.filter((o) => o.kind === 'manual' && accepted.includes(o.key)).map((o) => o.key)
   const showManual = manualMethods.length > 0
   const amt = Number(amount) || 0
-  // The platform fee only applies to payments made through the app (the hosted
-  // gateway / simulated card / EcoCash express). Uploading proof of a
-  // cash/bank/etc. payment happened outside the app, so no fee is added.
-  const isOnline = method === 'online' || method === 'card' || method === 'express'
-  const fee = isOnline ? platformFee(amt) : 0
+  // The platform fee is collected via a Pesepay split, which is temporarily
+  // disabled, so nothing extra is added right now — the tenant pays exactly the
+  // rent amount, direct to the landlord.
+  const fee = 0
   const total = amt + fee             // what the tenant actually pays
-  const preview = amt > 0 ? previewPayment({ rent, creditBalance: credit, amount: amt, currentPaid }) : null
+  // Balance still owed this period (matches the dashboard's headline). The
+  // preview is based on THIS, not the full rent — so paying the balance reads as
+  // "covered" instead of wrongly showing the whole month as remaining.
+  const owedNow = led ? led.totalOwed : rent
+  const preview = amt > 0 ? {
+    coversCurrent: amt >= owedNow - 0.001,
+    remaining: Math.max(0, owedNow - amt),
+    newCredit: Math.max(0, amt - owedNow),
+  } : null
 
   const finishOnline = async (data) => {
     // Online payments are recorded as PENDING and still need the manager to
@@ -134,7 +145,13 @@ export default function SubmitPayment() {
       <div className="card pad" style={{ marginBottom: 16 }}>
         <Input label="Rent amount" type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} required
           onWheel={(e) => e.currentTarget.blur()}
-          hint={`Tip: pay more than ${money(rent)} to build credit for next month.`} />
+          hint="Pay the balance, the full month, or type any amount." />
+        <div className="row gap wrap" style={{ marginTop: 4, marginBottom: 4 }}>
+          {owedNow > 0.001 && (
+            <button type="button" className="btn sm ghost" onClick={() => setAmount(String(owedNow))}>Pay balance {money(owedNow)}</button>
+          )}
+          <button type="button" className="btn sm ghost" onClick={() => setAmount(String(rent))}>Full month {money(rent)}</button>
+        </div>
         {amt > 0 && (
           <div className="fee-box">
             <div className="spread"><span className="muted">Rent</span><span className="mono">{money(amt)}</span></div>
@@ -149,8 +166,8 @@ export default function SubmitPayment() {
             <div className="b-ico"><IconSparkle size={18} /></div>
             <div>
               {preview.coversCurrent
-                ? <div style={{ fontWeight: 600 }}>Covers the {formatPeriod(period)} rent in full.</div>
-                : <div style={{ fontWeight: 600 }}>Partial — {money(rent - (credit + amt))} would remain for this period.</div>}
+                ? <div style={{ fontWeight: 600 }}>{owedNow <= 0.001 ? 'This period is already covered — this is paid ahead as credit.' : `Covers the ${formatPeriod(period)} balance in full.`}</div>
+                : <div style={{ fontWeight: 600 }}>Partial — {money(preview.remaining)} would remain for this period.</div>}
               {preview.newCredit > 0 && (
                 <div className="muted" style={{ fontSize: '0.84rem' }}>{money(preview.newCredit)} extra → carried forward as credit.</div>
               )}
