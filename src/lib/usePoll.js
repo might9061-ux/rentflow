@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 // How often live badges / the notification bell refresh, in ms. ONE knob for the
 // whole app — lower it for snappier updates (e.g. 5000 = every 5s), raise it to
 // cut server load. Below ~5s, prefer Supabase Realtime instead of polling.
-export const POLL_MS = 10000
+export const POLL_MS = 5000
 
 // Re-run `fn` on an interval while the tab is VISIBLE, and immediately whenever
 // the tab regains focus — so badges, the notification bell and unread counts
