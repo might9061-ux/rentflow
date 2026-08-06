@@ -71,7 +71,7 @@ export function sendNewDeviceEmail(to, { name, label, location, ip, when, suppor
         <p style="color:#0f172a">
           <b>Not you?</b> Change your password straight away, then tell us:
           <a href="mailto:${support}?subject=${encodeURIComponent('Unrecognised sign-in on my RentLoja account')}"
-             style="color:#c8a84b">${support}</a>
+             style="color:#1d6fe0">${support}</a>
         </p>
         <p style="color:#94a3b8;font-size:12px;margin-top:22px">
           Location is approximate — it comes from the internet connection used, so it may show a
