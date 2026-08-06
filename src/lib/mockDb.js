@@ -549,6 +549,15 @@ export const mockApi = {
   },
 
   // ── platform admin (RentLoja owner) — all subscriptions & revenue ───────────
+  async adminCosts() {
+    await delay(20)
+    try { return JSON.parse(localStorage.getItem('rentflow_admin_costs') || '{}') } catch { return {} }
+  },
+  async adminSaveCosts(payload) {
+    await delay(20)
+    try { localStorage.setItem('rentflow_admin_costs', JSON.stringify(payload || {})) } catch { /* ignore */ }
+    return { saved: true }
+  },
   async adminOverview() {
     await delay(80); const d = db()
     const name = (m) => `${m?.first_name || ''} ${m?.last_name || ''}`.trim() || '—'

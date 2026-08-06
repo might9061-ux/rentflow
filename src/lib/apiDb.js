@@ -207,6 +207,9 @@ export function createApiDb(sb) {
     adminTransactions: () => req('GET', '/api/platform/transactions'),
     adminAudit: () => req('GET', '/api/platform/audit'),
     adminAdmins: () => req('GET', '/api/platform/admins'),
+    // Cost tracker (bills + assumptions) — synced across the owner's devices.
+    adminCosts: () => req('GET', '/api/platform/costs'),
+    adminSaveCosts: (payload) => req('PUT', '/api/platform/costs', payload),
     // Role-scoped password reset: only sends if the email is registered on the
     // side (manager/tenant) the request came from. Returns { available }.
     requestPasswordReset: (email, role) => req('POST', '/api/auth/request-reset', { email, role }),
