@@ -22,6 +22,49 @@
     <meta property="og:url" content="https://www.rentloja.com/" />
     <meta property="og:title" content="RentLoja" />
     <meta property="og:description" content="RentLoja — premium property rental management for Africa" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RentLoja" />
+    <meta name="twitter:description" content="RentLoja — property rental management for Africa: collect rent, track payments, manage tenants." />
+
+    <!-- Structured data: tells search engines and AI assistants what RentLoja is,
+         in a machine-readable form so they can describe it accurately. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.rentloja.com/#org",
+          "name": "RentLoja",
+          "url": "https://www.rentloja.com/",
+          "logo": "https://www.rentloja.com/icon-512.png",
+          "description": "RentLoja is property rental management software for Africa — landlords and property managers collect rent, track payments, manage tenants and agents, and issue receipts."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.rentloja.com/#website",
+          "url": "https://www.rentloja.com/",
+          "name": "RentLoja",
+          "publisher": { "@id": "https://www.rentloja.com/#org" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "RentLoja",
+          "url": "https://www.rentloja.com/",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web, Android, iOS (PWA)",
+          "description": "Property rental management for landlords and property managers in Africa: collect rent online (card, EcoCash, InnBucks and more via Pesepay) or record manual payments, track who owes and who's paid ahead, manage tenants and agents, and generate receipts and statements.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "description": "7-day free trial, no charge today"
+          },
+          "publisher": { "@id": "https://www.rentloja.com/#org" }
+        }
+      ]
+    }
+    </script>
 
     <!-- Installable app (PWA) -->
     <link rel="manifest" href="/manifest.webmanifest" />
