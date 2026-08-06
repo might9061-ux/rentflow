@@ -425,6 +425,10 @@ function ManualForm({ amt, fee, charge, userId, period, refresh, nav, methods, d
   const toast = useToast()
   const [method, setMethod] = useState(methods[0])
   const payTo = (details[method] || '').trim()
+  // Cash is handed over in person, so there's no reference or receipt for the
+  // tenant to upload — the manager records it on their side. Just show where to
+  // pay and how much to bring.
+  const isCash = /cash/i.test(method)
   const [reference, setReference] = useState('')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [proof, setProof] = useState(null) // { url, type, name }
@@ -477,40 +481,49 @@ function ManualForm({ amt, fee, charge, userId, period, refresh, nav, methods, d
         <p className="hint" style={{ marginBottom: 14 }}>Ask your manager where to send this {method} payment.</p>
       )}
 
-      <Input label="Transaction reference" value={reference} onChange={(e) => setReference(e.target.value)}
-        placeholder="e.g. confirmation code / deposit slip no." />
-      <Input label="Date paid" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-
-      <div className="field">
-        <label>Receipt / screenshot <span className="muted">(reference number visible)</span></label>
-        <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={onFile} style={{ display: 'none' }} />
-        {proof ? (
-          <div className="proof-preview">
-            {proof.type === 'image'
-              ? <img src={proof.url} alt="proof" />
-              : <div className="proof-file"><IconReceipt size={20} /> {proof.name}</div>}
-            <div className="row gap">
-              <button type="button" className="btn sm ghost" onClick={() => fileRef.current?.click()}>Replace</button>
-              <button type="button" className="btn sm ghost danger" onClick={() => setProof(null)}>Remove</button>
-            </div>
+      {isCash ? (
+        <div className="banner" style={{ marginTop: 4 }}>
+          <div className="b-ico"><IconWallet size={18} /></div>
+          <div style={{ fontSize: '0.88rem' }}>
+            Pay <b>{money(charge)}</b> in cash at the address above. Your manager records the payment and issues your receipt — you don’t need to submit anything here.
           </div>
-        ) : (
-          <button type="button" className="dropzone" onClick={() => fileRef.current?.click()}>
-            <IconReceipt size={22} />
-            <span>Click to upload a receipt or screenshot</span>
-            <span className="muted" style={{ fontSize: '0.76rem' }}>PNG, JPG or PDF</span>
-          </button>
-        )}
-      </div>
+        </div>
+      ) : (<>
+        <Input label="Transaction reference" value={reference} onChange={(e) => setReference(e.target.value)}
+          placeholder="e.g. confirmation code / deposit slip no." />
+        <Input label="Date paid" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
 
-      <div className="banner gold" style={{ marginTop: 4 }}>
-        <div className="b-ico"><IconWarn size={18} /></div>
-        <div style={{ fontSize: '0.86rem' }}>Manual payments need manager approval. Make sure the reference number is clearly visible in your upload.</div>
-      </div>
+        <div className="field">
+          <label>Receipt / screenshot <span className="muted">(reference number visible)</span></label>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={onFile} style={{ display: 'none' }} />
+          {proof ? (
+            <div className="proof-preview">
+              {proof.type === 'image'
+                ? <img src={proof.url} alt="proof" />
+                : <div className="proof-file"><IconReceipt size={20} /> {proof.name}</div>}
+              <div className="row gap">
+                <button type="button" className="btn sm ghost" onClick={() => fileRef.current?.click()}>Replace</button>
+                <button type="button" className="btn sm ghost danger" onClick={() => setProof(null)}>Remove</button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="dropzone" onClick={() => fileRef.current?.click()}>
+              <IconReceipt size={22} />
+              <span>Click to upload a receipt or screenshot</span>
+              <span className="muted" style={{ fontSize: '0.76rem' }}>PNG, JPG or PDF</span>
+            </button>
+          )}
+        </div>
 
-      <button className="btn primary block lg" disabled={busy} style={{ marginTop: 8 }}>
-        {busy ? 'Submitting…' : <>Submit for approval <IconArrowRight size={16} /></>}
-      </button>
+        <div className="banner gold" style={{ marginTop: 4 }}>
+          <div className="b-ico"><IconWarn size={18} /></div>
+          <div style={{ fontSize: '0.86rem' }}>Manual payments need manager approval. Make sure the reference number is clearly visible in your upload.</div>
+        </div>
+
+        <button className="btn primary block lg" disabled={busy} style={{ marginTop: 8 }}>
+          {busy ? 'Submitting…' : <>Submit for approval <IconArrowRight size={16} /></>}
+        </button>
+      </>)}
 
       <style>{`
         .dropzone { width:100%; display:flex; flex-direction:column; align-items:center; gap:6px; padding:26px;
