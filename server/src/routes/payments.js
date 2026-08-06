@@ -56,17 +56,13 @@ router.post('/gateway/start', h(async (req, res) => {
   const email = t.email || req.user.email
   const description = `Rent — ${[t.first_name, t.last_name].filter(Boolean).join(' ')}`
 
-  // Split path: if the landlord has a Pesepay beneficiary email and the platform
-  // split app is configured, collect on the PLATFORM app. Pesepay adds the 0.5%
-  // on top (ADD_ON) and settles it to the platform + the rent to the landlord —
-  // so we charge the rent only and let Pesepay take the fee.
-  // Direct path: charge rent + our platform fee into the landlord's own account.
+  // Rent is charged DIRECTLY into the landlord's own Pesepay account. We do NOT
+  // add or route any platform fee here: Pesepay confirmed (Aug 2026) they take
+  // their own gateway fee on their side, and that split/fee arrangement is
+  // configured on the Pesepay platform, not via our API. So no in-app split.
+  // (The `initiateSplit` branch below is kept inert in case that ever changes.)
   const { data: creds } = await admin.from('payment_credentials')
     .select('beneficiary_email').eq('manager_id', t.manager_id).maybeSingle()
-  // Split payments are TEMPORARILY OFF — Pesepay rejected the split beneficiary
-  // merchant email ("not accepted"). Until that's confirmed with Pesepay, rent
-  // is charged directly into the landlord's own account. To re-enable, restore:
-  //   const useSplit = !!creds?.beneficiary_email && pesepay.platformConfigured()
   const useSplit = false
 
   let started
