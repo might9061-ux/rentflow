@@ -12,6 +12,7 @@ import { hasQuickUnlock, isMobileDevice } from '../../lib/quickUnlock.js'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
 import Logo from '../../components/Logo.jsx'
 import { setActiveCurrency } from '../../lib/format.js'
+import { usePoll } from '../../lib/usePoll.js'
 import { currencyByCode, marketFor } from '../../lib/markets.js'
 import TenantVerify from './TenantVerify.jsx'
 import {
@@ -45,6 +46,9 @@ export default function TenantLayout() {
     if (!userId) return
     db.messagesUnread(userId).then(setUnreadMsgs).catch(() => {})
   }, [userId, loc.pathname])
+  // Live updates: keep the unread-messages badge current every 30s (and on tab
+  // focus) without a manual refresh.
+  usePoll(() => { if (userId) db.messagesUnread(userId).then(setUnreadMsgs).catch(() => {}) }, 30000, [userId])
 
   const firstNav = useRef(true)
   useEffect(() => {
@@ -187,6 +191,9 @@ function NotifBell({ tenantId }) {
   }, [tenantId])
 
   useEffect(() => { load() }, [load])
+  // Live updates: new notifications appear in the bell every 30s (and on tab
+  // focus) without a refresh.
+  usePoll(load, 30000, [load])
   useEffect(() => {
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', onDoc)
