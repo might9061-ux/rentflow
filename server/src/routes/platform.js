@@ -256,4 +256,20 @@ router.get('/transactions', h(async (_req, res) => {
     count: payments.length, byWorkspace, payments })
 }))
 
+// ── Cost tracker (App owner) ────────────────────────────────────────────────
+// The owner's running-cost list + calc assumptions, stored as one JSON blob so
+// it syncs across their devices. Gated to platform admins by this router's
+// middleware; stored via the service-role client.
+router.get('/costs', h(async (req, res) => {
+  const { data } = await admin.from('platform_settings').select('value').eq('key', 'costs').maybeSingle()
+  res.json(data?.value || {})
+}))
+
+router.put('/costs', h(async (req, res) => {
+  const value = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {}
+  ok(await admin.from('platform_settings')
+    .upsert({ key: 'costs', value, updated_at: new Date().toISOString() }, { onConflict: 'key' }))
+  res.json({ saved: true })
+}))
+
 export default router
