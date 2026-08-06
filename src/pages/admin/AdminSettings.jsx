@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import * as Sentry from '@sentry/react'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { fmtDate } from '../../lib/format.js'
 import * as mfa from '../../lib/mfa.js'
@@ -15,6 +17,7 @@ const API_URL = import.meta.env.VITE_API_URL?.trim() || ''
 // account settings at all, so two-factor was unreachable from here.
 export default function AdminSettings() {
   const { profile } = useAuth()
+  const toast = useToast()
   const [showMfa, setShowMfa] = useState(false)
   const [showPw, setShowPw] = useState(false)
   const [mfaOn, setMfaOn] = useState(null)
@@ -39,6 +42,15 @@ export default function AdminSettings() {
 
   const extraAdmins = (admins || []).filter((a) => a.email !== profile?.email)
   const suspicious = (admins || []).filter((a) => a.suspicious)
+
+  // Is Sentry actually switched on in THIS build? getClient() only returns a
+  // client once Sentry.init ran (which only happens when VITE_SENTRY_DSN is set).
+  const sentryOn = !!(Sentry.getClient && Sentry.getClient())
+  const sendTestError = () => {
+    if (!sentryOn) return toast.info('Error monitoring is off', 'Set VITE_SENTRY_DSN in Vercel and redeploy to switch it on.')
+    Sentry.captureException(new Error(`Test event from App Owner — ${new Date().toISOString()}`))
+    toast.success('Sent to Sentry', 'Open Issues and refresh — it appears within ~30 seconds.')
+  }
 
   return (
     <>
@@ -168,6 +180,21 @@ export default function AdminSettings() {
           <span className={`pill ${api.state === 'up' ? 'ok' : api.state === 'checking' ? 'neutral' : 'rejected'}`}>
             {api.state === 'up' ? 'Online' : api.state === 'checking' ? '…' : 'Offline'}
           </span>
+        </div>
+
+        <div className="set-row">
+          <div className="row gap">
+            <span className={`set-ico ${sentryOn ? 'good' : 'warn'}`}><IconShield size={16} /></span>
+            <div>
+              <div style={{ fontWeight: 600 }}>Error monitoring</div>
+              <div className="muted set-hint">
+                {sentryOn
+                  ? 'On — crashes are reported to Sentry. Send a test to confirm it lands.'
+                  : 'Off — set VITE_SENTRY_DSN in Vercel (and SENTRY_DSN in Render), then redeploy.'}
+              </div>
+            </div>
+          </div>
+          <button className="btn ghost sm" onClick={sendTestError}>Send test event</button>
         </div>
 
         <div className="set-row">
