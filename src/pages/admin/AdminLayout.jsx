@@ -5,7 +5,7 @@ import { db } from '../../lib/db.js'
 import { PERIODS } from '../../lib/period.js'
 import {
   IconChart, IconBuilding, IconTag, IconWallet, IconUsers, IconLogout,
-  IconArrowRight, IconShield, IconSettings, IconMenu,
+  IconArrowRight, IconShield, IconSettings, IconMenu, IconCash,
 } from '../../components/icons.jsx'
 import Logo from '../../components/Logo.jsx'
 
@@ -17,6 +17,7 @@ const NAV = [
   { to: '/admin/workspaces', label: 'Workspaces', icon: IconBuilding, period: true },
   { to: '/admin/subscriptions', label: 'Subscriptions', icon: IconTag, period: true },
   { to: '/admin/fees', label: 'Transaction fees', icon: IconWallet, period: true },
+  { to: '/admin/costs', label: 'Costs & pricing', icon: IconCash },
   { to: '/admin/users', label: 'Users', icon: IconUsers },
   { to: '/admin/audit', label: 'Activity', icon: IconShield },
   { to: '/admin/settings', label: 'Settings', icon: IconSettings },
