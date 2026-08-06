@@ -53,6 +53,7 @@ const AdminOverview = lazy(() => import('./pages/admin/AdminOverview.jsx'))
 const AdminWorkspaces = lazy(() => import('./pages/admin/AdminWorkspaces.jsx'))
 const AdminSubscriptions = lazy(() => import('./pages/admin/AdminSubscriptions.jsx'))
 const AdminFees = lazy(() => import('./pages/admin/AdminFees.jsx'))
+const AdminCosts = lazy(() => import('./pages/admin/AdminCosts.jsx'))
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers.jsx'))
 const AdminAudit = lazy(() => import('./pages/admin/AdminAudit.jsx'))
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings.jsx'))
@@ -155,6 +156,7 @@ export default function App() {
         <Route path="workspaces" element={<AdminWorkspaces />} />
         <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="fees" element={<AdminFees />} />
+        <Route path="costs" element={<AdminCosts />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="settings" element={<AdminSettings />} />
