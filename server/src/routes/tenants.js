@@ -53,7 +53,23 @@ router.get('/:id', h(async (req, res) => {
 }))
 
 router.patch('/:id', h(async (req, res) => {
-  res.json(ok(await req.db.from('tenants').update(req.body || {}).eq('id', req.params.id).select().single()))
+  const body = { ...(req.body || {}) }
+  // Ownership check via the RLS-scoped client — throws if this isn't the caller's
+  // tenant, which also gates the service-role auth update below.
+  ok(await req.db.from('tenants').select('id').eq('id', req.params.id).single())
+
+  // Keep the LOGIN email in sync with the record. Editing a tenant's email used
+  // to change only the tenants row, leaving their Supabase Auth login on the old
+  // address — so they could no longer sign in. Push it to Auth too. Idempotent,
+  // so simply re-saving a tenant also repairs one that was already broken.
+  if (body.email) {
+    const email = String(body.email).trim().toLowerCase()
+    body.email = email
+    const upd = await admin.auth.admin.updateUserById(req.params.id, { email, email_confirm: true })
+    if (upd.error) throw new Error(`Could not update the login email: ${upd.error.message}`)
+  }
+
+  res.json(ok(await req.db.from('tenants').update(body).eq('id', req.params.id).select().single()))
 }))
 
 router.delete('/:id', h(async (req, res) => {
