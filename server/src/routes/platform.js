@@ -63,8 +63,16 @@ router.patch('/workspaces/:id/plan', h(async (req, res) => {
     .select('email, plan_active, plan_capacity, plan_price, plan_started_at')
     .eq('id', req.params.id).maybeSingle()
 
-  // Stamp the start date the first time a workspace is switched on.
-  if (patch.plan_active && !before?.plan_started_at) patch.plan_started_at = new Date().toISOString()
+  // Activating from the admin side must do everything a real gateway payment
+  // does (see activatePaidPlan) — otherwise the manager is left stuck: without
+  // `onboarded` they're forced back onto the onboarding/plan screen, and a
+  // stale trial/cancel flag makes their Plan page still read as unpaid.
+  if (patch.plan_active) {
+    patch.onboarded = true
+    patch.plan_canceled_at = null
+    patch.trial_ends_at = null // a paid activation ends any running trial
+    if (!before?.plan_started_at) patch.plan_started_at = new Date().toISOString()
+  }
 
   const updated = ok(await admin.from('managers').update(patch).eq('id', req.params.id).select(
     'id, first_name, last_name, brand_name, plan_active, plan_capacity, plan_price, plan_started_at',
