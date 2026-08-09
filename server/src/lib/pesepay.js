@@ -168,10 +168,16 @@ async function initiateWith(creds, { reference, email, amount, method, phone, de
   const currencyCode = 'USD'
   const resultUrl = `${API_BASE}${resultPath}` // server-to-server outcome
   const returnUrl = `${APP_BASE}${returnPath}`  // where the payer lands after
-  // Split: the master merchant's share (0.5%, configured in Pesepay) is added on
-  // top of the rent — landlord gets the full rent, platform gets the fee.
+  // Split: the master merchant's share (configured in Pesepay) is added ON TOP of
+  // the rent — landlord (beneficiary) receives the FULL rent, platform gets the
+  // fee, tenant pays rent + fee. splitAmountMode is required with a beneficiary
+  // email; Pesepay's docs are ambiguous on its placement, so send it both inside
+  // paymentMetadata and at the top level so ADD_ON is always honoured.
   const splitFields = beneficiaryEmail
-    ? { paymentMetadata: { beneficiaryMerchantEmail: beneficiaryEmail }, splitAmountMode: 'ADD_ON' }
+    ? {
+      paymentMetadata: { beneficiaryMerchantEmail: beneficiaryEmail, splitAmountMode: 'ADD_ON' },
+      splitAmountMode: 'ADD_ON',
+    }
     : {}
 
   const mobileCode = MOBILE_CODES[method]

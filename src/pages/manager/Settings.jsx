@@ -305,8 +305,9 @@ function GatewaySection({ wmId }) {
       })
       setStatus(s); setLive(!!s.live); setIntId(''); setIntKey(''); setBenef(s.beneficiary_email || '')
       toast.success(s.live ? 'Online payments are live' : 'Gateway saved',
-        s.connected ? 'Your merchant account is connected — rent is paid straight to you.'
-          : 'Add your Pesepay integration key and encryption key to accept online payments.')
+        s.split ? 'Split payouts on — you receive rent, the platform takes its fee.'
+          : s.connected ? 'Your merchant account is connected.'
+            : 'Add your keys, or your Pesepay merchant email, to finish.')
     } catch (err) { toast.error('Could not save', err.message); setLive(status.live) }
     finally { setBusy(false) }
   }
@@ -359,10 +360,10 @@ function GatewaySection({ wmId }) {
 
       {provider === 'pesepay' && (
         <div className="field" style={{ marginTop: 6, marginBottom: 0 }}>
-          <label>Pesepay email <span className="muted" style={{ fontWeight: 400 }}>(optional)</span></label>
+          <label>Pesepay email <span className="muted" style={{ fontWeight: 400 }}>(where your rent is paid)</span></label>
           <input className="input" type="email" value={benef} onChange={(e) => setBenef(e.target.value)}
             autoComplete="off" name="pesepay-payout-email" placeholder="you@example.com" />
-          <span className="hint">Optional, for your records. Rent is paid into the Pesepay account your <b>keys</b> belong to — the two keys above are what actually connect you.</span>
+          <span className="hint">The email on your Pesepay account. If you’ve accepted the RentLoja split agreement on Pesepay, just this email is enough — rent is paid into this account and the platform fee is taken automatically. (No keys needed.)</span>
         </div>
       )}
 

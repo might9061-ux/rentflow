@@ -6,6 +6,7 @@
 // connected and switched live. All scoped to the workspace owner by RLS.
 import { Router } from 'express'
 import { h, ok, ownerId } from '../auth.js'
+import { platformConfigured } from '../lib/pesepay.js'
 
 const router = Router()
 const PROVIDERS = ['paynow', 'pesepay']
@@ -18,9 +19,9 @@ const statusOf = (row) => ({
   live: !!row?.live,
   connected: !!(row?.integration_id && row?.integration_key),
   beneficiary_email: row?.beneficiary_email || '',
-  // Split payouts are disabled (Pesepay handles fees on their side) — rent is
-  // collected DIRECTLY via the owner's own keys, so there is no in-app split.
-  split: false,
+  // Split payouts: the landlord connected via their Pesepay merchant email and
+  // the platform split app is configured. Pesepay routes rent to them + its fee.
+  split: !!(row?.beneficiary_email && platformConfigured()),
 })
 
 async function currentRow(req, owner) {
@@ -63,13 +64,14 @@ router.put('/', h(async (req, res) => {
     patch.beneficiary_email = em || null
   }
 
-  // Don't let payments go live without a way to actually collect. Split is off,
-  // so that means the owner's own Pesepay integration + encryption keys — an
-  // email alone can't take a payment.
+  // Don't let payments go live without a way to actually collect: either the
+  // owner's own keys, or a Pesepay merchant email + a configured platform split
+  // app (the landlord having accepted the split agreement on Pesepay's side).
   const existing = await currentRow(req, owner)
   const willHaveKeys = (patch.integration_id ?? existing?.integration_id) && (patch.integration_key ?? existing?.integration_key)
-  if (patch.live === true && !willHaveKeys) {
-    throw new Error('Add your Pesepay integration key and encryption key before switching payments live.')
+  const willSplit = (patch.beneficiary_email ?? existing?.beneficiary_email) && platformConfigured()
+  if (patch.live === true && !willHaveKeys && !willSplit) {
+    throw new Error('Add your own keys, or your Pesepay merchant email (split), before switching payments live.')
   }
 
   ok(await req.db.from('payment_credentials').upsert(patch, { onConflict: 'manager_id' }))
