@@ -135,7 +135,22 @@ router.get('/team', h(async (req, res) => {
 
 // PATCH /api/managers/team/:id — update a staff member (e.g. property assignments).
 router.patch('/team/:id', h(async (req, res) => {
-  res.json(ok(await req.db.from('managers').update(req.body || {}).eq('id', req.params.id).select().single()))
+  const body = { ...(req.body || {}) }
+  // Ownership check via the RLS-scoped client — throws if this staff member
+  // isn't under the caller, which also gates the service-role auth update below.
+  ok(await req.db.from('managers').select('id').eq('id', req.params.id).single())
+
+  // Keep the LOGIN email in sync with the record — editing an agent's email
+  // must also move their Supabase Auth login, or they can no longer sign in.
+  // Idempotent, so re-saving an agent repairs one already broken this way.
+  if (body.email) {
+    const email = String(body.email).trim().toLowerCase()
+    body.email = email
+    const upd = await admin.auth.admin.updateUserById(req.params.id, { email, email_confirm: true })
+    if (upd.error) throw new Error(`Could not update the login email: ${upd.error.message}`)
+  }
+
+  res.json(ok(await req.db.from('managers').update(body).eq('id', req.params.id).select().single()))
 }))
 
 // DELETE /api/managers/team/:id — remove a staff member's profile row.
