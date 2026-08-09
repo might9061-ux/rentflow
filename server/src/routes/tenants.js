@@ -30,12 +30,10 @@ router.get('/me/manager', h(async (req, res) => {
     ({ data: creds } = await admin.from('payment_credentials')
       .select('provider, live, integration_id, integration_key').eq('manager_id', me.manager_id).maybeSingle())
   }
-  // Split is OFF (Pesepay handles fees on their side), so rent is collected
-  // DIRECTLY into the landlord's own Pesepay account — which needs their own
-  // integration + encryption keys. A beneficiary email alone can't take a
-  // payment, so it must NOT count as "live" (that showed tenants a "Pay online"
-  // button that then failed to start).
-  const canCollect = !!(creds?.integration_id && creds?.integration_key)
+  // Live if the landlord has flipped it on AND has a way to collect: their own
+  // keys (direct), or a Pesepay merchant email + a configured platform split app
+  // (split — the landlord has accepted the split agreement on Pesepay's side).
+  const canCollect = (creds?.integration_id && creds?.integration_key) || (creds?.beneficiary_email && pesepay.platformConfigured())
   res.json({
     ...manager,
     online_payments_live: !!(creds?.live && canCollect),
