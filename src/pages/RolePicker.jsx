@@ -23,6 +23,7 @@ const FAQS = [
   { q: 'How much does it cost?', a: 'Plans are billed monthly and priced by how many tenants you manage, starting from $10/month. You’ll see the exact tier on the Plan & billing page after signing up.' },
   { q: 'Is it free for tenants?', a: 'Yes. Tenants pay and track their rent at no cost — their property manager runs the account.' },
   { q: 'How do tenants pay rent?', a: 'By card or EcoCash for an instant receipt, or by uploading proof of a cash/bank payment for the manager to approve.' },
+  { q: 'Are there any fees to pay rent online?', a: 'A small 0.5% fee is added at checkout by our payment provider (Pesepay) — the tenant always sees the exact total before confirming, and the manager receives the full rent. Paying by cash or bank transfer has no fee. To collect online, a manager connects their Pesepay account and accepts RentLoja’s split request; Pesepay also charges a flat $5 to withdraw funds.' },
   { q: 'Do I need to install anything?', a: 'No — RentLoja runs in any browser. You can also install it as an app on your phone for quick access.' },
   { q: 'Can I cancel any time?', a: 'Yes. Cancel from Plan & billing; your access continues until the end of the period you’ve paid for. Fees already paid are non-refundable.' },
   { q: 'Is my data secure?', a: 'Data is encrypted in transit and each manager only ever sees their own tenants. See our Privacy Policy for details.' },
