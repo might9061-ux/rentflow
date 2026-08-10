@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { useTheme } from '../../context/ThemeContext.jsx'
 import { db } from '../../lib/db.js'
 import { paymentMethodsFor, acceptedMethods } from '../../lib/methods.js'
 import { CURRENCIES, marketFor, currencyOptions } from '../../lib/markets.js'
+import { canBrand } from '../../lib/brand.js'
+import { tierForCapacity } from '../../lib/pricing.js'
+import { money, fmtDate } from '../../lib/format.js'
 import { Spinner } from '../../components/ui.jsx'
+import Logo from '../../components/Logo.jsx'
 import PushToggle from '../../components/PushToggle.jsx'
-import { IconWallet, IconPhone, IconReceipt, IconSun, IconMoon, IconCheck } from '../../components/icons.jsx'
+import { IconWallet, IconPhone, IconReceipt, IconSun, IconMoon, IconCheck, IconTag, IconPalette } from '../../components/icons.jsx'
 
 const onlineIcon = (k) => (k === 'card' ? IconWallet : IconPhone)
 
@@ -16,6 +21,7 @@ export default function Settings() {
   const toast = useToast()
   const { theme, setTheme } = useTheme()
   const [loading, setLoading] = useState(true)
+  const [manager, setManager] = useState(null)
   const [wmId, setWmId] = useState(null)
   const [country, setCountry] = useState('ZW')
   const [currency, setCurrency] = useState('USD')          // primary (display) currency
@@ -34,6 +40,7 @@ export default function Settings() {
   useEffect(() => {
     (async () => {
       const m = await db.getWorkspaceManager(userId)
+      setManager(m)
       setWmId(m?.id || userId)
       setCountry(m?.country || 'ZW')
       const prim = m?.currency || marketFor(m?.country).currency
@@ -121,6 +128,9 @@ export default function Settings() {
       </div>
 
       <PushToggle blurb="Get alerted on this device when a payment comes in or a tenant sends a message — even when RentLoja is closed." />
+
+      <PlanSummary manager={manager} />
+      <BrandingSummary manager={manager} />
 
       <Section title="Appearance" subtitle="Choose a dark or light background for the app.">
         <div className="row gap wrap">
@@ -244,6 +254,93 @@ export default function Settings() {
         <button className="btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
       </div>
     </div>
+  )
+}
+
+// Icon tile used by the account-level summary cards.
+function IconTile({ children }) {
+  return (
+    <span style={{ width: 40, height: 40, borderRadius: 11, display: 'grid', placeItems: 'center',
+      background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)', flexShrink: 0 }}>
+      {children}
+    </span>
+  )
+}
+
+// A compact read-out of the owner's subscription, with a link to the full
+// Plan & billing page for capacity changes, installments and cancellation.
+function PlanSummary({ manager }) {
+  if (!manager) return null
+  const active = !!manager.plan_active
+  const onTrial = active && manager.trial_ends_at && new Date(manager.trial_ends_at) > new Date()
+  const canceled = active && !!manager.plan_canceled_at
+  const tier = manager.plan_capacity ? tierForCapacity(manager.plan_capacity) : null
+
+  let pill, headline, detail
+  if (!active) {
+    pill = <span className="pill neutral">No plan</span>
+    headline = 'No active plan'
+    detail = 'Pick a capacity to get started.'
+  } else {
+    headline = `${tier ? `${tier.name} · ` : ''}${manager.plan_capacity} tenants · ${money(manager.plan_price)}/mo`
+    if (canceled) { pill = <span className="pill due">Cancelled</span>; detail = 'Access continues until your period ends, then it won’t renew.' }
+    else if (onTrial) { pill = <span className="pill pending">Free trial</span>; detail = `Trial ends ${fmtDate(manager.trial_ends_at)}.` }
+    else { pill = <span className="pill ok">Active</span>; detail = manager.plan_started_at ? `Active since ${fmtDate(manager.plan_started_at)}.` : 'Active.' }
+  }
+
+  return (
+    <Section title="Plan & billing" subtitle="Your subscription, tenant capacity and next payment.">
+      <div className="spread wrap" style={{ gap: 12, alignItems: 'center' }}>
+        <div className="row gap">
+          <IconTile><IconTag size={18} /></IconTile>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{headline}</div>
+            <div className="muted" style={{ fontSize: '0.8rem' }}>{detail}</div>
+          </div>
+        </div>
+        <div className="row gap" style={{ alignItems: 'center' }}>
+          {pill}
+          <Link to="/manager/plan" className="btn primary sm"><IconTag size={14} /> Manage plan</Link>
+        </div>
+      </div>
+    </Section>
+  )
+}
+
+// A compact read-out of the workspace branding, with a link to the full
+// Branding page. Custom branding is a Growth feature (10+ tenants).
+function BrandingSummary({ manager }) {
+  if (!manager) return null
+  const eligible = canBrand(manager)
+  const name = (manager.brand_name || '').trim()
+  const hasCustom = !!(name || manager.brand_logo || manager.brand_color)
+
+  return (
+    <Section title="Branding" subtitle="Your logo, name and colour across the app and your tenants’ portal.">
+      {!eligible ? (
+        <div className="spread wrap" style={{ gap: 12, alignItems: 'center' }}>
+          <div className="muted" style={{ fontSize: '0.82rem' }}>Custom branding is a Growth feature — available on plans with 10 or more tenants.</div>
+          <Link to="/manager/plan" className="btn primary sm"><IconTag size={14} /> Upgrade</Link>
+        </div>
+      ) : (
+        <div className="spread wrap" style={{ gap: 12, alignItems: 'center' }}>
+          <div className="row gap">
+            {manager.brand_logo
+              ? <img src={manager.brand_logo} alt="logo" style={{ width: 40, height: 40, borderRadius: 11, objectFit: 'cover', border: '1px solid var(--line)' }} />
+              : <IconTile><Logo size={20} /></IconTile>}
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{name || 'RentLoja'} {!hasCustom && <span className="muted" style={{ fontWeight: 400 }}>· default</span>}</div>
+              <div className="row gap muted" style={{ fontSize: '0.8rem', alignItems: 'center' }}>
+                {manager.brand_color
+                  ? <span className="row" style={{ gap: 6, alignItems: 'center' }}><span style={{ width: 12, height: 12, borderRadius: 99, background: manager.brand_color, border: '1px solid var(--line)' }} />{manager.brand_color}</span>
+                  : 'Standard RentLoja design'}
+              </div>
+            </div>
+          </div>
+          <Link to="/manager/branding" className="btn primary sm"><IconPalette size={14} /> Manage branding</Link>
+        </div>
+      )}
+    </Section>
   )
 }
 
