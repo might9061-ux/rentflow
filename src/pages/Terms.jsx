@@ -81,11 +81,28 @@ export default function Terms() {
           access data that isn’t yours, no uploading of unlawful content, and no use that harms the service or
           other users.</p>
 
-        <h3>8. Payments to and from tenants</h3>
+        <h3>8. Online payments &amp; fees</h3>
         <p>
-          RentLoja records rent payments and, where enabled, helps process online payments through third‑party
-          providers. We are not a party to the tenancy agreement between a manager and a tenant and are not
-          responsible for the underlying rent obligations, disputes, or the conduct of managers or tenants.
+          RentLoja records rent payments and, where enabled, helps process online payments through our third‑party
+          payment provider, <b>Pesepay</b>. We are not a party to the tenancy agreement between a manager and a
+          tenant and are not responsible for the underlying rent obligations, disputes, or the conduct of managers
+          or tenants.
+        </p>
+        <p>
+          To collect rent online, a property manager must connect their own Pesepay account and <b>accept RentLoja’s
+          split‑payment request in Pesepay</b>. Accepting it authorises a RentLoja <b>service fee of 0.5%</b> on each
+          online rent payment. This 0.5% is <b>added on top</b> of the rent at checkout and paid by the tenant — the
+          tenant sees the exact total on Pesepay’s secure page before confirming — and the manager receives the
+          full rent amount.
+        </p>
+        <p>
+          Pesepay’s own charges are separate from RentLoja’s fee and are set and collected by Pesepay under Pesepay’s
+          terms. In particular, Pesepay charges a <b>flat US$5 fee to withdraw funds</b> from a Pesepay account and
+          applies a minimum settlement threshold before funds are paid out.
+        </p>
+        <p>
+          <b>Manual payments</b> you record in RentLoja (cash, bank transfer, EcoCash direct and similar) are made
+          outside the app and carry <b>no RentLoja fee</b>.
         </p>
 
         <h3>9. Service availability</h3>
