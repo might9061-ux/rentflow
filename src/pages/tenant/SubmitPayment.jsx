@@ -195,7 +195,8 @@ export default function SubmitPayment() {
               icon={<IconReceipt size={20} />} title="Upload proof" sub={manualMethods.slice(0, 3).join(', ')} />}
           </div>
 
-          {method === 'online' && <HostedForm amt={amt} fee={fee} charge={total} period={period} />}
+          {method === 'online' && <HostedForm amt={amt} fee={fee} charge={total} period={period}
+            onUnavailable={() => { setLiveGateway(false); setMethod(manualMethods.length ? 'manual' : null) }} />}
           {method === 'card' && <CardForm live={liveGateway} amt={amt} fee={fee} charge={total} period={period} nav={nav} onPaid={finishOnline} />}
           {method === 'express' && <ExpressForm live={liveGateway} methodKey={expressOpt.key} amt={amt} fee={fee} charge={total} period={period} nav={nav}
             label={expressOpt.label.replace(' express', '')} defaultPhone={profile?.phone} onPaid={finishOnline} />}
@@ -238,7 +239,7 @@ function MethodTile({ active, onClick, icon, title, sub }) {
 // PIN-push isn't reliably enabled on every account, but the hosted page always
 // works.) The server created the pending payment; its result webhook settles it
 // and the payer lands back on their payment history.
-function HostedForm({ amt, fee, charge, period }) {
+function HostedForm({ amt, fee, charge, period, onUnavailable }) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
   const start = async () => {
@@ -250,7 +251,13 @@ function HostedForm({ amt, fee, charge, period }) {
       })
       if (!redirectUrl) throw new Error('The gateway did not return a checkout link. Please try again.')
       window.location.href = redirectUrl
-    } catch (err) { toast.error('Could not start payment', err.message); setBusy(false) }
+    } catch (err) {
+      toast.error('Could not start payment', err.message)
+      setBusy(false)
+      // The landlord's online setup isn't usable (the server just switched it off)
+      // — drop the Pay-online option so they use a manual method instead.
+      if (/available for this landlord/i.test(String(err?.message || ''))) onUnavailable?.()
+    }
   }
   return (
     <div className="card pad">

@@ -6,6 +6,7 @@ import { h, ok, ownerId } from '../auth.js'
 import { admin } from '../supabase.js'
 import { adapterFor } from '../lib/gateway.js'
 import * as pesepay from '../lib/pesepay.js'
+import { pushSafe } from '../push.js'
 
 const router = Router()
 
@@ -65,14 +66,31 @@ router.post('/gateway/start', h(async (req, res) => {
   const useSplit = !!(creds?.beneficiary_email && pesepay.platformConfigured())
 
   let started
-  if (useSplit) {
-    started = await pesepay.initiateSplit({
-      reference, email, amount: rent, method, phone, description,
-      beneficiaryEmail: creds.beneficiary_email,
-    })
-  } else {
-    const gw = await adapterFor(t.manager_id)
-    started = await gw.initiate({ managerId: t.manager_id, reference, email, amount: rent + feeAmt, method, phone, description })
+  try {
+    if (useSplit) {
+      started = await pesepay.initiateSplit({
+        reference, email, amount: rent, method, phone, description,
+        beneficiaryEmail: creds.beneficiary_email,
+      })
+    } else {
+      const gw = await adapterFor(t.manager_id)
+      started = await gw.initiate({ managerId: t.manager_id, reference, email, amount: rent + feeAmt, method, phone, description })
+    }
+  } catch (e) {
+    // The landlord's split beneficiary isn't registered/accepted on Pesepay yet
+    // (they haven't accepted the RentLoja split agreement). Their online setup
+    // isn't actually usable — switch online payments OFF so tenants stop seeing a
+    // "Pay online" button that just errors, and tell the landlord how to finish.
+    if (/beneficiary\s*merchant\s*email\s*is\s*not\s*accepted|split\s*beneficiary/i.test(String(e?.message || ''))) {
+      await admin.from('payment_credentials').update({ live: false }).eq('manager_id', t.manager_id)
+      pushSafe(t.manager_id, {
+        title: 'Finish setting up online payments',
+        body: 'Online rent payments are paused — accept the RentLoja split agreement in your Pesepay dashboard, then switch payments live again in Settings → Connect online payments.',
+        url: '/manager/settings', tag: 'gateway-setup',
+      })
+      throw new Error('Online payments aren’t available for this landlord yet. Please use one of the other payment methods below.')
+    }
+    throw e
   }
 
   const row = ok(await req.db.from('payments').insert({
