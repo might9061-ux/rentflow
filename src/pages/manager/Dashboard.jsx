@@ -47,14 +47,18 @@ export default function ManagerDashboard() {
     const approved = payments.filter((p) => p.status === 'approved')
     const pending = payments.filter((p) => p.status === 'pending')
     const collected = approved.reduce((s, p) => s + Number(p.amount), 0)
-    const activeUnpaid = tenants.filter((t) => t.status !== 'paid' && t.account_status === 'active')
+    // Everything owed is read from the ledger, never the stored status — so a
+    // status that drifted from the payment rows can't hide or invent a debt.
+    const ledgers = tenants
+      .filter((t) => t.account_status === 'active')
+      .map((t) => ({ t, led: tenantLedger(t, payments) }))
     // Amount owed = the ledger's real balance per tenant (overdue + what's left
     // this month), so a PARTIAL payment reduces it. Using rent − advance-credit
     // ignored partial payments and overstated the outstanding total.
-    const outstanding = activeUnpaid.reduce((s, t) => s + tenantLedger(t, payments).totalOwed, 0)
-    // Only tenants genuinely LATE (status 'overdue'), not those merely in an
-    // unpaid current month ('due') — calling the latter "overdue" would be wrong.
-    const overdue = activeUnpaid.filter((t) => t.status === 'overdue')
+    const outstanding = ledgers.reduce((s, x) => s + x.led.totalOwed, 0)
+    // Only tenants genuinely LATE (a past month isn't fully covered), not those
+    // merely in an unpaid current month ('due') — that isn't "overdue" yet.
+    const overdue = ledgers.filter((x) => x.led.currentStatus === 'overdue')
     const totalUnits = props.reduce((s, p) => s + Number(p.units || 0), 0)
     const occupied = tenants.filter((t) => t.property_id && t.account_status !== 'suspended').length
     const occupancy = totalUnits ? Math.round((occupied / totalUnits) * 100) : 0

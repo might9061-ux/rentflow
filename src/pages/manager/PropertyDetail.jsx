@@ -40,9 +40,12 @@ export default function PropertyDetail() {
   const active = tenants.filter((t) => t.account_status !== 'suspended')
   const approved = payments.filter((p) => p.status === 'approved')
   const collected = approved.reduce((s, p) => s + Number(p.amount), 0)
-  const outstanding = active.filter((t) => t.status !== 'paid').reduce((s, t) => s + tenantLedger(t, payments).totalOwed, 0)
+  // Balance and the "All Paid / Partial" badge both come from the ledger, not
+  // the stored status — a drifted status can't hide or invent what's owed.
+  const owedBy = active.map((t) => tenantLedger(t, payments).totalOwed)
+  const outstanding = owedBy.reduce((s, v) => s + v, 0)
   const occ = active.length === 0 ? { cls: 'neutral', label: 'Vacant' }
-    : active.every((t) => t.status === 'paid') ? { cls: 'ok', label: 'All Paid' } : { cls: 'due', label: 'Partial' }
+    : owedBy.every((v) => v <= 0.001) ? { cls: 'ok', label: 'All Paid' } : { cls: 'due', label: 'Partial' }
   // The property's dwellings (named or numbered) and how many sit empty.
   const slots = propertyUnitSlots(P)
   const noun = dwellingNoun(P.type)

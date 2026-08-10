@@ -186,7 +186,7 @@ export default function TenantDetail() {
 
         <div className="row gap wrap" style={{ marginTop: 16 }}>
           <span className="pill neutral">{property?.name || 'Unassigned'} · Unit {tenant.unit || '—'}</span>
-          <StatusPill status={tenant.status} />
+          <StatusPill status={led.currentStatus} />
           <StatusPill status={tenant.account_status} />
           <span className="pill neutral">Due day {tenant.due_day}</span>
           <span className="pill neutral">{tenant.email_verified ? '✓ Email' : '✗ Email'}</span>

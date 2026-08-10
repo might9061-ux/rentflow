@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, fullName, fmtDate } from '../../lib/format.js'
-import { applyPayment, formatPeriod } from '../../lib/billing.js'
+import { formatPeriod } from '../../lib/billing.js'
+import { buildLedger } from '../../lib/ledger.js'
 import { sendWhatsApp, receiptMessage } from '../../lib/whatsapp.js'
 import Modal from '../../components/Modal.jsx'
 import { Textarea } from '../../components/Field.jsx'
@@ -18,16 +19,19 @@ export default function Approvals() {
   const [loading, setLoading] = useState(true)
   const [pending, setPending] = useState([])
   const [tenants, setTenants] = useState([])
+  const [payments, setPayments] = useState([])
   const [rejecting, setRejecting] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [proofView, setProofView] = useState(null)
 
   const load = async () => {
-    const [rows, t] = await Promise.all([db.listPayments(userId, { status: 'pending' }), db.listTenants(userId)])
+    const [rows, t, allPays] = await Promise.all([
+      db.listPayments(userId, { status: 'pending' }), db.listTenants(userId), db.listPayments(userId),
+    ])
     // Online (gateway) payments are confirmed automatically by the provider —
     // they must never be approved by hand, so keep them out of this manual
     // queue. Only proof/manual payments need a human review here.
-    setPending(rows.filter((p) => !p.paid_online)); setTenants(t); setLoading(false)
+    setPending(rows.filter((p) => !p.paid_online)); setTenants(t); setPayments(allPays); setLoading(false)
     ctx?.reloadPending?.()
   }
   useEffect(() => { load() }, [userId])
@@ -66,7 +70,15 @@ export default function Approvals() {
           <div className="col" style={{ gap: 14 }}>
             {pending.map((p) => {
               const t = tenantOf(p.tenant_id)
-              const calc = applyPayment({ rent: t?.rent || 0, creditBalance: t?.credit_balance || 0, amount: p.amount })
+              // Preview the advance credit this payment leaves once approved,
+              // derived from the ledger (all approved rows + this one) so it
+              // matches the tenant's screen — never the stored credit_balance.
+              const approvedForT = payments.filter((x) => x.tenant_id === p.tenant_id && x.status === 'approved')
+              const after = buildLedger({
+                payments: [...approvedForT, { ...p, status: 'approved' }],
+                rent: Number(t?.rent || 0), dueDay: t?.due_day, startDate: t?.lease_start || t?.created_at,
+              })
+              const calc = { newCredit: after.creditAdvance, isAdvance: after.creditAdvance > 0.001 }
               return (
                 <div key={p.id} className="card pad">
                   <div className="spread wrap" style={{ gap: 16 }}>

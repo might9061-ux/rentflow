@@ -24,6 +24,7 @@ export function StatCard({ label, value, sub, icon, onClick }) {
 const STATUS_MAP = {
   paid:     { cls: 'ok',       label: 'Paid' },
   due:      { cls: 'due',      label: 'Due' },
+  partial:  { cls: 'due',      label: 'Partial' },
   overdue:  { cls: 'overdue',  label: 'Overdue' },
   pending:  { cls: 'pending',  label: 'Pending' },
   rejected: { cls: 'rejected', label: 'Rejected' },
