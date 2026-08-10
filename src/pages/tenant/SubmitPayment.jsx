@@ -92,11 +92,12 @@ export default function SubmitPayment() {
   const manualMethods = options.filter((o) => o.kind === 'manual' && accepted.includes(o.key)).map((o) => o.key)
   const showManual = manualMethods.length > 0
   const amt = Number(amount) || 0
-  // The platform fee is collected via a Pesepay split, which is temporarily
-  // disabled, so nothing extra is added right now — the tenant pays exactly the
-  // rent amount, direct to the landlord.
+  // Online = paid through the gateway (Pesepay hosted page). The 0.5% platform
+  // fee is added on Pesepay's side at checkout (split ADD_ON), not here, so we
+  // charge exactly the rent and just DISCLOSE that the fee is added at checkout.
+  const isOnline = method === 'online' || method === 'card' || method === 'express'
   const fee = 0
-  const total = amt + fee             // what the tenant actually pays
+  const total = amt + fee             // rent only — Pesepay adds its fee at checkout
   // Balance still owed this period (matches the dashboard's headline). The
   // preview is based on THIS, not the full rent — so paying the balance reads as
   // "covered" instead of wrongly showing the whole month as remaining.
