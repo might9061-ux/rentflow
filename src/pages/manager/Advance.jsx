@@ -14,10 +14,11 @@ export default function Advance() {
   const [loading, setLoading] = useState(true)
   const [tenants, setTenants] = useState([])
   const [properties, setProperties] = useState([])
+  const [payments, setPayments] = useState([])
 
   const load = useCallback(async () => {
-    const [t, p] = await Promise.all([db.listTenants(userId), db.listProperties(userId)])
-    setTenants(t); setProperties(p); setLoading(false)
+    const [t, p, pays] = await Promise.all([db.listTenants(userId), db.listProperties(userId), db.listPayments(userId)])
+    setTenants(t); setProperties(p); setPayments(pays); setLoading(false)
   }, [userId])
   useEffect(() => { load() }, [load])
 
@@ -25,10 +26,11 @@ export default function Advance() {
 
   const propName = (id) => properties.find((p) => p.id === id)?.name || '—'
 
-  // Tenants who are paid up AND carrying credit toward future months.
+  // Tenants carrying credit toward future months. hasAdvance is ledger-derived,
+  // so it already implies the current and past months are fully covered.
   const ahead = tenants
-    .filter((t) => t.account_status === 'active' && t.status === 'paid')
-    .map((t) => ({ t, adv: computeAdvance(t) }))
+    .filter((t) => t.account_status === 'active')
+    .map((t) => ({ t, adv: computeAdvance(t, payments) }))
     .filter((x) => x.adv.hasAdvance)
     .sort((a, b) => b.adv.credit - a.adv.credit)
 

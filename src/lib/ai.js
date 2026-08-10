@@ -19,6 +19,7 @@ import { supabase } from './supabaseClient.js'
 import { money, fullName, monthYear } from './format.js'
 import { formatPeriod } from './billing.js'
 import { computeArrears, computeAdvance } from './arrears.js'
+import { tenantLedger } from './ledger.js'
 import { paymentMethodsFor } from './methods.js'
 
 export const AI_PROVIDER = import.meta.env.VITE_AI_PROVIDER?.trim() || 'demo'
@@ -110,8 +111,7 @@ function managerFacts(ctx = {}) {
     }))
 
   const advance = active
-    .filter((t) => t.status === 'paid')
-    .map((t) => ({ t, adv: computeAdvance(t) }))
+    .map((t) => ({ t, adv: computeAdvance(t, payments) }))
     .filter((x) => x.adv.hasAdvance)
     .sort((a, b) => b.adv.credit - a.adv.credit)
     .map(({ t, adv }) => ({
@@ -142,17 +142,20 @@ function managerFacts(ctx = {}) {
 function tenantFacts(ctx = {}) {
   const { profile = {}, manager, payments = [], accepted = [], payDetails = {}, period } = ctx
   const rent = Number(profile.rent || 0)
-  const credit = Number(profile.credit_balance || 0)
+  const led = tenantLedger(profile, payments)
   const arr = computeArrears(profile, payments)
-  const adv = computeAdvance(profile)
+  const adv = computeAdvance(profile, payments)
+  // Credit, status and owed-this-period come from the ledger, not the stored
+  // credit_balance/status columns, so they match the tenant's own screen.
+  const credit = adv.credit
   const methods = paymentMethodsFor(manager).filter((m) => accepted.includes(m.key))
 
   return {
     role: 'tenant',
     firstName: profile.first_name || 'there',
-    rent, status: profile.status, credit,
+    rent, status: led.currentStatus, credit,
     period: period ? formatPeriod(period) : null,
-    owedThisPeriod: profile.status === 'paid' ? 0 : Math.max(0, rent - credit),
+    owedThisPeriod: arr.currentOwed,
     arrears: { broughtForward: arr.broughtForward, total: arr.total, monthsBehind: arr.monthsBehind },
     advance: adv.hasAdvance
       ? { credit, monthsCovered: adv.monthsCovered, coveredThrough: monthYear(adv.coveredThrough),
@@ -378,10 +381,11 @@ function findTenant(q, tenants = []) {
 function tenantSummaryForManager(t, ctx) {
   const payments = (ctx?.payments || [])
   const arr = computeArrears(t, payments)
-  const adv = computeAdvance(t)
+  const adv = computeAdvance(t, payments)
+  const status = tenantLedger(t, payments).currentStatus
   const property = (ctx?.properties || []).find((p) => p.id === t.property_id)
   let r = `${fullName(t)} — ${property?.name || 'Unassigned'}, Unit ${t.unit || '—'}\n` +
-    `• Rent: ${money(t.rent)} / month · Status: ${t.status}`
+    `• Rent: ${money(t.rent)} / month · Status: ${status}`
   if (arr.total > 0) {
     r += `\n• Owing: ${money(arr.total)}${arr.broughtForward > 0 ? ` (incl. ${money(arr.broughtForward)} carried over, ${arr.monthsBehind} mo behind)` : ''}`
   } else if (adv.hasAdvance) {

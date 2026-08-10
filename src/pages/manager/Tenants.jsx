@@ -7,7 +7,7 @@ import { money, fullName } from '../../lib/format.js'
 import { currentPeriod, formatPeriod } from '../../lib/billing.js'
 import { downloadCSV } from '../../lib/csv.js'
 import { capacityFor } from '../../lib/pricing.js'
-import { tenantCredit, tenantTotalPaid } from '../../lib/ledger.js'
+import { tenantLedger, tenantTotalPaid } from '../../lib/ledger.js'
 import { StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
 import { IconPlus, IconEdit, IconKey, IconReceipt, IconTag } from '../../components/icons.jsx'
 import TenantModal from './TenantModal.jsx'
@@ -30,9 +30,13 @@ export default function Tenants() {
     const [t, p, m, pays] = await Promise.all([
       db.listTenants(userId), db.listProperties(userId), db.getManager(userId), db.listPayments(userId).catch(() => []),
     ])
-    // Overlay derived credit + total from the actual payments, so the list and
-    // CSV always reflect real payment data rather than the stored snapshot.
-    const withDerived = t.map((x) => ({ ...x, credit_balance: tenantCredit(x, pays), total_paid: tenantTotalPaid(x, pays) }))
+    // Overlay derived status + credit + total from the actual payments, so the
+    // list and CSV always reflect real payment data rather than the stored
+    // snapshot (which can drift and disagree with the dashboard).
+    const withDerived = t.map((x) => {
+      const led = tenantLedger(x, pays)
+      return { ...x, status: led.currentStatus, credit_balance: led.creditAdvance, total_paid: tenantTotalPaid(x, pays) }
+    })
     setTenants(withDerived); setProperties(p); setManager(m); setLoading(false)
   }
   useEffect(() => { load() }, [userId])

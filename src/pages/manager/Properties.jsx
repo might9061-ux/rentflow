@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
+import { tenantLedger } from '../../lib/ledger.js'
 import { fileToProof } from '../../lib/upload.js'
 import { toInternational } from '../../lib/phone.js'
 import { PROPERTY_TYPES, FURNISHED, UTILITIES_INCLUDED, AMENITY_GROUPS, dwellingNoun } from '../../lib/propertyOptions.js'
@@ -18,18 +19,21 @@ export default function Properties() {
   const [loading, setLoading] = useState(true)
   const [props, setProps] = useState([])
   const [tenants, setTenants] = useState([])
+  const [payments, setPayments] = useState([])
   const [editing, setEditing] = useState(null) // property | {} (new) | null
 
   const load = async () => {
-    const [p, t] = await Promise.all([db.listProperties(userId), db.listTenants(userId)])
-    setProps(p); setTenants(t); setLoading(false)
+    const [p, t, pays] = await Promise.all([db.listProperties(userId), db.listTenants(userId), db.listPayments(userId)])
+    setProps(p); setTenants(t); setPayments(pays); setLoading(false)
   }
   useEffect(() => { load() }, [userId])
 
   const occupancyOf = (prop) => {
     const ts = tenants.filter((t) => t.property_id === prop.id && t.account_status !== 'suspended')
     if (ts.length === 0) return { cls: 'neutral', label: 'Vacant', count: 0 }
-    const allPaid = ts.every((t) => t.status === 'paid')
+    // "All Paid" means the ledger shows nothing owed for every tenant — derived
+    // from the payment rows, not the stored status which can drift.
+    const allPaid = ts.every((t) => tenantLedger(t, payments).totalOwed <= 0.001)
     if (allPaid) return { cls: 'ok', label: 'All Paid', count: ts.length }
     return { cls: 'due', label: 'Partial', count: ts.length }
   }

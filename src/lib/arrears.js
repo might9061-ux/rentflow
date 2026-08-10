@@ -1,10 +1,19 @@
-// Arrears: how much a tenant still owes, including balance carried over from
-// previous months. A tenant stays "in arrears" until their total reaches $0.
+// Arrears & advance — how much a tenant still owes (including balance carried
+// over from previous months) and how far ahead a prepaid tenant is.
+//
+// Everything here is DERIVED from the rent ledger (src/lib/ledger.js), the
+// single source of truth: it spreads approved payment rows across billing
+// months instead of trusting the stored credit_balance / status columns. That
+// keeps the Arrears page, reminders and the AI assistant in lock-step with the
+// dashboard and each tenant's own screen — and makes a partial payment reduce
+// the balance instead of marking the whole month paid (the old inflation bug).
 
-import { periodForDate, currentPeriod } from './billing.js'
+import { currentPeriod } from './billing.js'
+import { tenantLedger } from './ledger.js'
 
 const mk = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 const DAY = 86400000
+const EPS = 0.001
 const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 
 // Late fee owed by a tenant, per the manager's policy. Charged only when the
@@ -21,46 +30,16 @@ export function lateFeeFor(tenant, manager, payments, today = new Date()) {
   return Math.round(fee * 100) / 100
 }
 
-function paidSet(tenant, payments) {
-  return new Set(
-    payments.filter((p) => p.tenant_id === tenant.id && p.status === 'approved')
-      .map((p) => (p.period_from || '').slice(0, 7))
-  )
-}
-
-function startMonth(tenant) {
-  const now = new Date()
-  // Billing starts at the lease start when set; otherwise the month the tenant
-  // was actually added. Never assume a fixed number of months back — that made a
-  // brand-new tenant look months in arrears and inflated the "not paid" slice.
-  const base = tenant.lease_start || tenant.created_at
-  const s = base ? new Date(base) : now
-  return new Date(s.getFullYear(), s.getMonth(), 1)
-}
-
 // { broughtForward, currentOwed, total, monthsBehind }
 export function computeArrears(tenant, payments) {
-  const rent = Number(tenant.rent || 0)
-  const credit = Number(tenant.credit_balance || 0)
-  const paid = paidSet(tenant, payments)
-  const now = new Date()
-  const curKey = mk(now)
-
-  let d = startMonth(tenant)
-  let broughtForward = 0
-  let monthsBehind = 0
-  let guard = 0
-  while (mk(d) < curKey && guard < 240) {
-    if (!paid.has(mk(d))) { broughtForward += rent; monthsBehind++ }
-    d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    guard++
+  const led = tenantLedger(tenant, payments)
+  const currentOwed = led.owedThisMonth
+  return {
+    broughtForward: led.overdueAmount,
+    currentOwed,
+    total: led.totalOwed,
+    monthsBehind: led.overdueMonths + (currentOwed > EPS ? 1 : 0),
   }
-
-  const currentPaid = tenant.status === 'paid' || paid.has(curKey)
-  const currentOwed = currentPaid ? 0 : Math.max(0, rent - credit)
-  if (currentOwed > 0) monthsBehind++
-
-  return { broughtForward, currentOwed, total: broughtForward + currentOwed, monthsBehind }
 }
 
 // Advance / prepaid coverage: a tenant has paid beyond the current month and is
@@ -77,9 +56,11 @@ export function computeArrears(tenant, payments) {
 //   coveredThrough: ISO     — first day of the last FULLY-covered month
 //   partialMonth  : ISO     — first day of the partially-covered month (or null)
 //   hasAdvance    : boolean
-export function computeAdvance(tenant) {
+export function computeAdvance(tenant, payments = []) {
   const rent = Number(tenant.rent || 0)
-  const credit = Number(tenant.credit_balance || 0)
+  // Advance credit is the money the ledger allocated to periods AFTER the
+  // current one — not the stored credit_balance, which can drift from reality.
+  const credit = tenantLedger(tenant, payments).creditAdvance
   if (rent <= 0 || credit <= 0) {
     return { credit, fullMonths: 0, monthsCovered: 0, partialAmount: 0, partialPct: 0, coveredThrough: null, partialMonth: null, hasAdvance: false }
   }
@@ -124,20 +105,18 @@ export function computeAdvance(tenant) {
 //   frame = a number of months, or 'all'
 //   returns { collected, notPaid }
 export function collectionBreakdown(tenant, payments, frame) {
+  const led = tenantLedger(tenant, payments)
   const rent = Number(tenant.rent || 0)
-  const credit = Number(tenant.credit_balance || 0)
-  const paid = paidSet(tenant, payments)
   const now = new Date()
-  const curKey = mk(now)
-  const lease = startMonth(tenant)
+  const curKey = led.curKey
+  // The lease-start month is the first ledger cell — never count months before it.
+  const leaseKey = led.cells[0]?.key || mk(now)
 
-  // Never count months before the lease started — that's what inflated "not paid".
-  let start = lease
+  let startKey = leaseKey
   if (frame !== 'all') {
-    const w = new Date(now.getFullYear(), now.getMonth() - (frame - 1), 1)
-    if (w > lease) start = w
+    const wKey = mk(new Date(now.getFullYear(), now.getMonth() - (frame - 1), 1))
+    if (wKey > leaseKey) startKey = wKey
   }
-  const startKey = mk(start)
 
   // Collected = real approved payments whose billed period falls in the window.
   const collected = payments
@@ -148,31 +127,29 @@ export function collectionBreakdown(tenant, payments, frame) {
     })
     .reduce((s, p) => s + Number(p.amount || 0), 0)
 
-  // Not paid = rent for in-window months with no covering payment.
+  // Not paid = the shortfall (rent minus what the ledger actually allocated) for
+  // each in-window month. A partial payment shrinks the slice; it no longer
+  // flips the whole month to "paid".
   let notPaid = 0
-  let guard = 0
-  let d = new Date(start.getFullYear(), start.getMonth(), 1)
-  while (mk(d) <= curKey && guard < 600) {
-    const isCur = mk(d) === curKey
-    const covered = paid.has(mk(d)) || (isCur && (tenant.status === 'paid' || credit >= rent))
-    if (!covered) notPaid += rent
-    d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    guard++
+  for (const cell of led.cells) {
+    if (cell.key < startKey) continue
+    if (cell.key > curKey) break
+    if (rent > 0) notPaid += Math.max(0, rent - cell.allocated)
   }
   return { collected, notPaid }
 }
 
-// The oldest unpaid billing period — what a fresh payment should be applied to.
+// The oldest unpaid (or partially-paid) billing period — what a fresh payment
+// should be applied to. Derived from the ledger so a half-covered month is still
+// picked up instead of being skipped as "paid".
 export function oldestUnpaidPeriod(tenant, payments) {
-  const paid = paidSet(tenant, payments)
-  const now = new Date()
-  const curKey = mk(now)
-  let d = startMonth(tenant)
-  let guard = 0
-  while (mk(d) <= curKey && guard < 240) {
-    if (!paid.has(mk(d))) return periodForDate(new Date(d), tenant.due_day || 1)
-    d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    guard++
+  const led = tenantLedger(tenant, payments)
+  const rent = Number(tenant.rent || 0)
+  if (rent > 0) {
+    for (const cell of led.cells) {
+      if (cell.key > led.curKey) break
+      if (cell.allocated < rent - EPS) return cell.period
+    }
   }
   return currentPeriod(tenant.due_day || 1)
 }
