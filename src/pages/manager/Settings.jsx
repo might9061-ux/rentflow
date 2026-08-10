@@ -367,18 +367,6 @@ function GatewaySection({ wmId }) {
         </div>
       )}
 
-      {provider === 'pesepay' && (
-        <div className="banner gold" style={{ marginTop: 12 }}>
-          <div className="b-ico"><IconWallet size={18} /></div>
-          <div style={{ fontSize: '0.86rem' }}>
-            <b>How the fees work:</b> in your Pesepay dashboard, accept RentLoja’s <b>0.5% split request</b> so rent
-            can be routed to you. Tenants pay that 0.5% on top at checkout — <b>you receive the full rent</b>.
-            Separately, Pesepay charges a <b>flat US$5</b> each time you withdraw your funds (that’s Pesepay’s
-            charge, not ours).
-          </div>
-        </div>
-      )}
-
       <ToggleRow title="Accept live payments"
         desc={live ? 'Tenants can pay you online right now.' : 'Keep this off until you’ve tested with a small real payment.'}
         on={live} onToggle={() => setLive((v) => !v)} />
