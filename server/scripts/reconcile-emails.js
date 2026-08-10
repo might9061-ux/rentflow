@@ -60,7 +60,10 @@ async function loadRecords() {
   const m = await admin.from('managers').select('id, first_name, last_name, email, role')
   if (m.error) throw new Error(`read managers: ${m.error.message}`)
   for (const r of m.data) rows.push({ kind: r.role === 'staff' ? 'agent' : 'owner', ...r })
-  const t = await admin.from('tenants').select('id, first_name, last_name, email')
+  // Skip soft-deleted tenants: deleting a tenant intentionally removes their
+  // Auth login (see migration 0034), so a missing login there is expected —
+  // not email drift or a broken account.
+  const t = await admin.from('tenants').select('id, first_name, last_name, email').is('deleted_at', null)
   if (t.error) throw new Error(`read tenants: ${t.error.message}`)
   for (const r of t.data) rows.push({ kind: 'tenant', ...r })
   return rows
