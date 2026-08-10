@@ -247,7 +247,7 @@ function HostedForm({ amt, fee, charge, period }) {
     setBusy(true)
     try {
       const { redirectUrl } = await db.startGatewayPayment({
-        amount: amt, fee, method: 'card', period_from: period.from, period_to: period.to,
+        amount: amt, fee, method: 'Pesepay', period_from: period.from, period_to: period.to,
       })
       if (!redirectUrl) throw new Error('The gateway did not return a checkout link. Please try again.')
       window.location.href = redirectUrl
@@ -285,7 +285,7 @@ function CardForm({ live, amt, fee, charge, period, onPaid }) {
     setBusy(true)
     try {
       const { redirectUrl } = await db.startGatewayPayment({
-        amount: amt, fee, method: 'card', period_from: period.from, period_to: period.to,
+        amount: amt, fee, method: 'Pesepay', period_from: period.from, period_to: period.to,
       })
       if (!redirectUrl) throw new Error('The gateway did not return a checkout link. Try another method.')
       window.location.href = redirectUrl

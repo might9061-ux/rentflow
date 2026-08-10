@@ -22,7 +22,7 @@ export default function PlanGatewayCheckout({ capacity, price, tierName, cycle, 
   const pay = async () => {
     setBusy(true)
     try {
-      const { payment, redirectUrl } = await db.startSubscriptionPayment({ capacity, method: 'card', cycle })
+      const { payment, redirectUrl } = await db.startSubscriptionPayment({ capacity, method: 'Pesepay', cycle })
       if (!redirectUrl) throw new Error('Pesepay didn’t return a checkout link. Please try again in a moment.')
       try { localStorage.setItem('rentflow_pending_sub', payment.id) } catch { /* ignore */ }
       window.location.href = redirectUrl
