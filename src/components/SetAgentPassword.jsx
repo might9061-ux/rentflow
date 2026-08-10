@@ -12,12 +12,14 @@ export default function SetAgentPassword({ userId, onDone }) {
   const toast = useToast()
   const [pw, setPw] = useState('')
   const [pw2, setPw2] = useState('')
+  const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
     if (pw.length < 6) return toast.error('Too short', 'Use at least 6 characters.')
     if (pw !== pw2) return toast.error('Passwords don’t match', 'Type the same password twice.')
+    if (!agreed) return toast.error('Please agree to continue', 'You must accept the Terms and Privacy Policy.')
     setBusy(true)
     try {
       await db.completeAgentFirstLogin(userId, pw)
@@ -37,7 +39,11 @@ export default function SetAgentPassword({ userId, onDone }) {
           autoComplete="new-password" autoFocus minLength={6} required />
         <PasswordInput label="Confirm password" value={pw2} onChange={(e) => setPw2(e.target.value)}
           autoComplete="new-password" minLength={6} required />
-        <button className="btn primary block lg" disabled={busy} style={{ marginTop: 6 }}>
+        <label className="row gap" style={{ margin: '14px 0 2px', fontSize: '0.86rem', cursor: 'pointer', alignItems: 'flex-start' }}>
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 3 }} />
+          <span>I agree to the <a href="/terms" target="_blank" rel="noopener" style={{ color: 'var(--accent)' }}>Terms &amp; Conditions</a> and <a href="/privacy" target="_blank" rel="noopener" style={{ color: 'var(--accent)' }}>Privacy Policy</a>.</span>
+        </label>
+        <button className="btn primary block lg" disabled={busy || !agreed} style={{ marginTop: 6 }}>
           <IconKey size={15} /> {busy ? 'Saving…' : 'Set password & continue'}
         </button>
       </form>

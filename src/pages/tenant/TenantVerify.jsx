@@ -145,12 +145,14 @@ function SetPassword({ onDone, onBack }) {
   const toast = useToast()
   const [pw, setPw] = useState('')
   const [pw2, setPw2] = useState('')
+  const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
     if (pw.length < 6) return toast.error('Too short', 'Use at least 6 characters.')
     if (pw !== pw2) return toast.error('Passwords don’t match')
+    if (!agreed) return toast.error('Please agree to continue', 'You must accept the Terms and Privacy Policy to use RentLoja.')
     setBusy(true)
     try { await onDone(pw) } catch (err) { toast.error('Could not set password', err.message); setBusy(false) }
   }
@@ -163,9 +165,13 @@ function SetPassword({ onDone, onBack }) {
       </p>
       <PasswordInput label="New password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus required minLength={6} />
       <PasswordInput label="Confirm password" value={pw2} onChange={(e) => setPw2(e.target.value)} required minLength={6} />
+      <label className="row gap" style={{ margin: '14px 0 2px', fontSize: '0.86rem', cursor: 'pointer', alignItems: 'flex-start' }}>
+        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 3 }} />
+        <span>I agree to the <a href="/terms" target="_blank" rel="noopener" style={{ color: 'var(--accent)' }}>Terms &amp; Conditions</a> and <a href="/privacy" target="_blank" rel="noopener" style={{ color: 'var(--accent)' }}>Privacy Policy</a>.</span>
+      </label>
       <div className="row gap" style={{ marginTop: 6 }}>
         {onBack && <button type="button" className="btn ghost" onClick={onBack}>Back</button>}
-        <button className="btn primary grow lg" disabled={busy}>{busy ? 'Saving…' : 'Finish & enter RentLoja'}</button>
+        <button className="btn primary grow lg" disabled={busy || !agreed}>{busy ? 'Saving…' : 'Finish & enter RentLoja'}</button>
       </div>
     </form>
   )

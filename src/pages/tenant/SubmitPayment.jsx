@@ -156,10 +156,8 @@ export default function SubmitPayment() {
         {amt > 0 && (
           <div className="fee-box">
             <div className="spread"><span className="muted">Rent</span><span className="mono">{money(amt)}</span></div>
-            {isOnline
-              ? <div className="spread"><span className="muted">Pesepay fee (0.5%)</span><span className="mono" style={{ color: 'var(--text-dim)' }}>Added at checkout</span></div>
-              : <div className="spread"><span className="muted">Platform fee</span><span className="mono" style={{ color: 'var(--green)' }}>None — paid outside the app</span></div>}
-            <div className="spread fee-total"><b>{isOnline ? 'Rent (before Pesepay fee)' : 'Total to pay'}</b><b className="mono">{money(total)}</b></div>
+            {!isOnline && <div className="spread"><span className="muted">Platform fee</span><span className="mono" style={{ color: 'var(--green)' }}>None — paid outside the app</span></div>}
+            <div className="spread fee-total"><b>Total to pay</b><b className="mono">{money(total)}</b></div>
           </div>
         )}
         {preview && (
@@ -258,7 +256,7 @@ function HostedForm({ amt, fee, charge, period }) {
     <div className="card pad">
       <div className="banner" style={{ marginBottom: 12 }}>
         <div className="b-ico"><IconWallet size={18} /></div>
-        <div style={{ fontSize: '.9rem' }}>You’ll be taken to Pesepay’s secure page to pay by <b>card, EcoCash, InnBucks, ZimSwitch or Omari</b>. A small <b>0.5% fee</b> is added there — you’ll see the exact total before you confirm. RentLoja never sees your card or PIN.</div>
+        <div style={{ fontSize: '.9rem' }}>You’ll be taken to Pesepay’s secure page to pay by <b>card, EcoCash, InnBucks, ZimSwitch or Omari</b>. You’ll see the exact total before you confirm. RentLoja never sees your card or PIN.</div>
       </div>
       <button className="btn primary block lg" disabled={busy} onClick={start}>
         {busy ? <><Spinner /> Opening secure checkout…</> : <>Pay {money(charge)} <IconArrowRight size={16} /></>}
