@@ -5,7 +5,7 @@ import { db } from '../../lib/db.js'
 import { money, fullName, fmtDate } from '../../lib/format.js'
 import { StatCard, StatusPill, Spinner, EmptyState, PeriodTag } from '../../components/ui.jsx'
 import { DonutChart } from '../../components/Charts.jsx'
-import { tenantCredit } from '../../lib/ledger.js'
+import { tenantLedger } from '../../lib/ledger.js'
 import { subscriptionStatus } from '../../lib/subscription.js'
 import {
   IconWallet, IconClock, IconBuilding, IconCheckCircle, IconArrowRight,
@@ -48,7 +48,10 @@ export default function ManagerDashboard() {
     const pending = payments.filter((p) => p.status === 'pending')
     const collected = approved.reduce((s, p) => s + Number(p.amount), 0)
     const activeUnpaid = tenants.filter((t) => t.status !== 'paid' && t.account_status === 'active')
-    const outstanding = activeUnpaid.reduce((s, t) => s + Math.max(0, Number(t.rent) - tenantCredit(t, payments)), 0)
+    // Amount owed = the ledger's real balance per tenant (overdue + what's left
+    // this month), so a PARTIAL payment reduces it. Using rent − advance-credit
+    // ignored partial payments and overstated the outstanding total.
+    const outstanding = activeUnpaid.reduce((s, t) => s + tenantLedger(t, payments).totalOwed, 0)
     // Only tenants genuinely LATE (status 'overdue'), not those merely in an
     // unpaid current month ('due') — calling the latter "overdue" would be wrong.
     const overdue = activeUnpaid.filter((t) => t.status === 'overdue')

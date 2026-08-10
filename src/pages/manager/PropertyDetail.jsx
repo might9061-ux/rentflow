@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, fullName, fmtDate } from '../../lib/format.js'
 import { AMENITY_GROUPS, dwellingNoun, propertyUnitSlots } from '../../lib/propertyOptions.js'
-import { tenantCredit } from '../../lib/ledger.js'
+import { tenantLedger } from '../../lib/ledger.js'
 import { sendWhatsApp, listingMessage } from '../../lib/whatsapp.js'
 import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
 import { IconArrowRight, IconBuilding, IconUsers, IconWallet, IconClock, IconEdit, IconWhatsapp, IconCheck, IconEye, IconShare } from '../../components/icons.jsx'
@@ -40,7 +40,7 @@ export default function PropertyDetail() {
   const active = tenants.filter((t) => t.account_status !== 'suspended')
   const approved = payments.filter((p) => p.status === 'approved')
   const collected = approved.reduce((s, p) => s + Number(p.amount), 0)
-  const outstanding = active.filter((t) => t.status !== 'paid').reduce((s, t) => s + Math.max(0, Number(t.rent) - tenantCredit(t, payments)), 0)
+  const outstanding = active.filter((t) => t.status !== 'paid').reduce((s, t) => s + tenantLedger(t, payments).totalOwed, 0)
   const occ = active.length === 0 ? { cls: 'neutral', label: 'Vacant' }
     : active.every((t) => t.status === 'paid') ? { cls: 'ok', label: 'All Paid' } : { cls: 'due', label: 'Partial' }
   // The property's dwellings (named or numbered) and how many sit empty.
