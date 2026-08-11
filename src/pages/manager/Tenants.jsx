@@ -14,7 +14,8 @@ import TenantModal from './TenantModal.jsx'
 import CredentialsModal from './CredentialsModal.jsx'
 
 export default function Tenants() {
-  const { userId } = useAuth()
+  const { userId, profile } = useAuth()
+  const isOwner = profile?.role !== 'staff' // agents never see plan/subscription CTAs
   const toast = useToast()
   const nav = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -28,7 +29,9 @@ export default function Tenants() {
 
   const load = async () => {
     const [t, p, m, pays] = await Promise.all([
-      db.listTenants(userId), db.listProperties(userId), db.getManager(userId), db.listPayments(userId).catch(() => []),
+      // The workspace OWNER's row carries the plan/capacity — an agent's own row
+      // has no plan, which would wrongly show "choose a plan" and block adding.
+      db.listTenants(userId), db.listProperties(userId), db.getWorkspaceManager(userId), db.listPayments(userId).catch(() => []),
     ])
     // Overlay derived status + credit + total from the actual payments, so the
     // list and CSV always reflect real payment data rather than the stored
@@ -92,7 +95,7 @@ export default function Tenants() {
           <div>Add a property first, then you can assign tenants to its units.</div></div>
       )}
 
-      {atCapacity && (
+      {atCapacity && (isOwner ? (
         <div className="banner gold"><div className="b-ico"><IconTag size={18} /></div>
           <div className="spread grow wrap" style={{ gap: 10 }}>
             <span>
@@ -103,7 +106,12 @@ export default function Tenants() {
             <Link to="/manager/plan" className="btn primary sm">{manager.plan_active ? 'Upgrade plan' : 'Choose a plan'}</Link>
           </div>
         </div>
-      )}
+      ) : (
+        // Agents don't manage the plan — never show them a subscription CTA.
+        <div className="banner gold"><div className="b-ico"><IconTag size={18} /></div>
+          <div>This workspace has reached its tenant capacity. Ask the account owner to upgrade the plan.</div>
+        </div>
+      ))}
 
       <div className="card" style={{ marginBottom: 16, padding: 12 }}>
         <div className="row gap wrap" style={{ alignItems: 'center' }}>
