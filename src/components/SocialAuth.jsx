@@ -16,18 +16,12 @@ function GoogleIcon() {
   )
 }
 
-// Apple logo — single glyph, follows the text colour.
-function AppleIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-      <path d="M16.36 12.75c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65zM14.1 5.82c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.78-.97 2.83 1.02.08 2.07-.52 2.71-1.29z" />
-    </svg>
-  )
-}
-
-// Google / Apple sign-in — MANAGER-ONLY. Rendered on the manager auth screen for
-// both sign-in and sign-up (OAuth is one flow for both). Hidden in demo mode,
-// where there's no Supabase to broker the redirect.
+// Social sign-in — MANAGER-ONLY. Rendered on the manager auth screen for both
+// sign-in and sign-up (OAuth is one flow for both). Hidden in demo mode, where
+// there's no Supabase to broker the redirect.
+//
+// Google only for now — Apple needs a paid Apple Developer account. To add Apple
+// later: re-add an AppleIcon and a second button calling go('apple').
 export default function SocialAuth() {
   const { signInWithProvider } = useAuth()
   const toast = useToast()
@@ -51,10 +45,6 @@ export default function SocialAuth() {
       <button type="button" className="btn ghost block" onClick={() => go('google')} disabled={!!busy}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
         <GoogleIcon /> {busy === 'google' ? 'Redirecting…' : 'Continue with Google'}
-      </button>
-      <button type="button" className="btn ghost block" onClick={() => go('apple')} disabled={!!busy}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 }}>
-        <AppleIcon /> {busy === 'apple' ? 'Redirecting…' : 'Continue with Apple'}
       </button>
       <style>{`
         .sa-or { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; color: var(--text-faint); font-size: 0.8rem; }
