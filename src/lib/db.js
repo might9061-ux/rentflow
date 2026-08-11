@@ -81,18 +81,6 @@ const sb = {
     }))
     return { emailed: true }
   },
-  // Social sign-in (Google / Apple) — manager-only. Redirects to the provider,
-  // then back to /manager/auth where the session resolves as a manager (the
-  // handle_new_manager trigger creates the owner profile on first sign-in).
-  // Requires the provider to be enabled in Supabase Auth → Providers.
-  async signInWithProvider(provider) {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider, // 'google' | 'apple'
-      options: { redirectTo: window.location.origin + '/manager/auth' },
-    })
-    if (error) throw new Error(error.message)
-    // On success the browser navigates to the provider; nothing more to do here.
-  },
   async signInManager({ email, identifier, password }) {
     const em = await resolveLoginEmail(identifier ?? email)
     const data = ok(await supabase.auth.signInWithPassword({ email: em, password }))
