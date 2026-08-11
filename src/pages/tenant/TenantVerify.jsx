@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { db, DEMO_MODE } from '../../lib/db.js'
-import { prettyPhone } from '../../lib/phone.js'
 import OtpInput from '../../components/OtpInput.jsx'
 import { PasswordInput } from '../../components/Field.jsx'
-import { IconMail, IconPhone, IconCheck, IconShield, IconLogout } from '../../components/icons.jsx'
+import { IconMail, IconCheck, IconShield, IconLogout } from '../../components/icons.jsx'
 
 export default function TenantVerify() {
   const { profile, userId, refresh, signOut } = useAuth()
@@ -22,8 +21,10 @@ export default function TenantVerify() {
   const verified = profile?.email_verified || profile?.phone_verified
   const [step, setStep] = useState(verified ? 'password' : 'verify')
   const [emailDone, setEmailDone] = useState(profile?.email_verified || false)
-  const [phoneDone, setPhoneDone] = useState(profile?.phone_verified || false)
-  const canProceed = emailDone || phoneDone
+  // Verification is email-only for now — phone is kept as a contact detail, not a
+  // verification method (SMS/Africa's Talking isn't set up). The phone channel
+  // code below is left intact to re-enable once SMS is live.
+  const canProceed = emailDone
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }} className="theme-tenant">
@@ -40,20 +41,16 @@ export default function TenantVerify() {
             <>
               <h1 style={{ fontSize: '1.9rem' }}>Verify it’s you</h1>
               <p className="muted" style={{ marginTop: 4, marginBottom: 20 }}>
-                Confirm your email <b>or</b> phone with a 6-digit code. You can do both.
+                Confirm your email with a 6-digit code.
               </p>
 
               <ChannelCard
                 icon={<IconMail size={18} />} label="Email" target={profile?.email}
                 channel="email" tenantId={userId} done={emailDone} onDone={() => setEmailDone(true)}
               />
-              <ChannelCard
-                icon={<IconPhone size={18} />} label="Phone" target={prettyPhone(profile?.phone)}
-                channel="phone" tenantId={userId} done={phoneDone} onDone={() => setPhoneDone(true)}
-              />
 
               <p className="hint row gap" style={{ marginBottom: 10 }}>
-                <IconShield size={13} /> Codes are only sent to the email and phone your manager registered for you.
+                <IconShield size={13} /> The code is only sent to the email your manager registered for you.
               </p>
 
               <button className="btn primary block lg" disabled={!canProceed}
