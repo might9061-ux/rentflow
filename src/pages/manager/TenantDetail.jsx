@@ -162,15 +162,15 @@ export default function TenantDetail() {
                 </>
               )}
             </div>
-            {/* Reset the login to a fresh temporary password. Before they've set
-                their own it's a silent re-issue of the initial credentials; once
-                active, resend() confirms first, since it replaces the password they
-                chose (they'll set a new one on next sign-in). */}
+            {/* The temporary key is only for the first-login handover. Once the
+                tenant has set their own password, they sign in with it (and can
+                self-reset via "Forgot password?"), so the credentials button is
+                hidden. */}
             {/* Deleted tenants are read-only "past residents": only the statement /
                 receipts remain. Everything else is hidden. */}
             {!deletedAt && (<>
-              {!vacatedAt && (
-                <button className="btn ghost" onClick={resend}><IconKey size={15} /> {tenant.first_login ? 'Resend credentials' : 'Reset password'}</button>
+              {!vacatedAt && tenant.first_login && (
+                <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
               )}
               {!vacatedAt && <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>}
               <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>
