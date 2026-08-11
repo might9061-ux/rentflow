@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { supabase } from '../lib/supabaseClient.js'
 import { useTheme, TEXT_SIZES } from '../context/ThemeContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { db } from '../lib/db.js'
@@ -127,20 +128,37 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
   )
 }
 
-// Irreversible account deletion, gated by the user's password + a typed "DELETE".
+// Irreversible account deletion, gated by a typed "DELETE" plus — for password
+// accounts — the account password. Social (Google) accounts have no password, so
+// the password step is skipped for them.
 function DeleteAccountModal({ role, onClose }) {
   const { signOut } = useAuth()
   const toast = useToast()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
-  const ready = password && confirm.trim().toUpperCase() === 'DELETE'
+  // Assume a password login until we learn the account is social-only, so we
+  // never accidentally drop the password step for a password account.
+  const [hasPassword, setHasPassword] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    supabase.auth.getUser().then(({ data }) => {
+      const providers = (data?.user?.identities || []).map((i) => i.provider)
+      // An 'email' identity means a password exists. Google-only accounts don't
+      // have one, so there's no password to confirm.
+      if (alive && providers.length) setHasPassword(providers.includes('email'))
+    }).catch(() => { /* keep the default (show password) */ })
+    return () => { alive = false }
+  }, [])
+
+  const ready = (hasPassword ? !!password : true) && confirm.trim().toUpperCase() === 'DELETE'
 
   const del = async () => {
     if (!ready) return
     setBusy(true)
     try {
-      await db.deleteOwnAccount({ password, role })
+      await db.deleteOwnAccount({ password: hasPassword ? password : undefined, role })
       toast.success('Account deleted', 'Your account and data have been removed.')
       await signOut()
     } catch (e) { toast.error('Could not delete', e.message); setBusy(false) }
@@ -157,13 +175,19 @@ function DeleteAccountModal({ role, onClose }) {
           ? ' and your tenancy records'
           : ', including the tenants, properties and all records in your workspace'}. This cannot be undone.
       </p>
-      <div className="field">
-        <label>Confirm your password</label>
-        <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
-      </div>
+      {hasPassword ? (
+        <div className="field">
+          <label>Confirm your password</label>
+          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+        </div>
+      ) : (
+        <p className="muted" style={{ fontSize: '0.84rem' }}>
+          You sign in with Google, so there's no password to enter — just type <b>DELETE</b> below to confirm.
+        </p>
+      )}
       <div className="field">
         <label>Type <b>DELETE</b> to confirm</label>
-        <input className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="DELETE" />
+        <input className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="DELETE" autoFocus={!hasPassword} />
       </div>
       <p className="hint" style={{ color: 'var(--danger)' }}>Deleting is immediate and permanent.</p>
     </Modal>

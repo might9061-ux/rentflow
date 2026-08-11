@@ -111,17 +111,28 @@ router.post('/me/plan/resume', h(async (req, res) => {
 }))
 
 // POST /api/managers/me/delete — permanently delete the caller's own account.
-// Password-verified (step-up). Deleting the auth user cascades: managers.id
-// references auth.users(id) on delete cascade, and tenants/properties/payments
-// all reference managers on delete cascade — so the whole workspace goes with it.
+// Step-up verified. Deleting the auth user cascades: managers.id references
+// auth.users(id) on delete cascade, and tenants/properties/payments all
+// reference managers on delete cascade — so the whole workspace goes with it.
+//
+// Password accounts confirm with their password. Social (Google/Apple) accounts
+// have NO password, so we skip that check — the request is already authenticated
+// by the caller's bearer token, and the client still requires typing "DELETE".
 router.post('/me/delete', h(async (req, res) => {
-  const password = String(req.body?.password || '')
-  if (!password) throw new Error('Enter your password to delete your account.')
-  const me = ok(await admin.from('managers').select('email').eq('id', req.user.id).single())
-  if (!me?.email) throw new Error('Account not found.')
-  if (!(await verifyPassword(me.email, password))) {
-    return res.status(401).json({ error: 'Password is incorrect.' })
+  const { data: authData } = await admin.auth.admin.getUserById(req.user.id)
+  const providers = (authData?.user?.identities || []).map((i) => i.provider)
+  const hasPassword = providers.includes('email')
+
+  if (hasPassword) {
+    const password = String(req.body?.password || '')
+    if (!password) throw new Error('Enter your password to delete your account.')
+    const me = ok(await admin.from('managers').select('email').eq('id', req.user.id).single())
+    if (!me?.email) throw new Error('Account not found.')
+    if (!(await verifyPassword(me.email, password))) {
+      return res.status(401).json({ error: 'Password is incorrect.' })
+    }
   }
+
   const { error } = await admin.auth.admin.deleteUser(req.user.id)
   if (error) throw new Error(error.message)
   res.json({ deleted: true })
