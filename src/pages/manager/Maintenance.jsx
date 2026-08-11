@@ -11,8 +11,6 @@ import { StatusTag } from '../tenant/Maintenance.jsx'
 import { IconWrench, IconClock, IconCheckCircle, IconWhatsapp } from '../../components/icons.jsx'
 import { sendWhatsApp } from '../../lib/whatsapp.js'
 
-const FILTERS = [{ id: 'all', label: 'All' }, { id: 'open', label: 'Open' }, { id: 'in_progress', label: 'In progress' }, { id: 'resolved', label: 'Resolved' }]
-
 export default function Maintenance() {
   const { userId } = useAuth()
   const { reloadPending } = useOutletContext() || {}
@@ -20,8 +18,8 @@ export default function Maintenance() {
   const [items, setItems] = useState([])
   const [tenants, setTenants] = useState([])
   const [properties, setProperties] = useState([])
-  const [filter, setFilter] = useState('resolved')
   const [managing, setManaging] = useState(null)
+  const [listView, setListView] = useState(null) // 'open' | 'in_progress' → pop-up list
 
   const load = useCallback(async () => {
     // Always clear loading, even if a call fails, so the page can never hang.
@@ -37,11 +35,33 @@ export default function Maintenance() {
 
   const tenantOf = (id) => tenants.find((t) => t.id === id)
   const propName = (id) => properties.find((p) => p.id === id)?.name || '—'
-  const open = items.filter((m) => m.status === 'open').length
-  const inProg = items.filter((m) => m.status === 'in_progress').length
-  const shown = filter === 'all' ? items : items.filter((m) => m.status === filter)
-  // Count per filter, so each tab shows how many requests are in that state.
-  const counts = { all: items.length, open, in_progress: inProg, resolved: items.filter((m) => m.status === 'resolved').length }
+  const byStatus = (s) => items.filter((m) => m.status === s)
+  const openList = byStatus('open')
+  const inProgList = byStatus('in_progress')
+  const resolvedList = byStatus('resolved')
+
+  // One request card, reused in the resolved list and the Open / In-progress
+  // pop-ups. Tapping it opens the detail (and closes the pop-up if it was open).
+  const RequestCard = (m) => (
+    <button key={m.id} type="button" className="card pad mnt-card" onClick={() => { setListView(null); setManaging(m) }}>
+      <div className="spread wrap" style={{ gap: 8, alignItems: 'flex-start' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 600 }}>{m.title}</div>
+          <div className="muted" style={{ fontSize: '0.8rem' }}>{m.category} · {fullName(tenantOf(m.tenant_id))}</div>
+        </div>
+        <StatusTag status={m.status} />
+      </div>
+      <div className="spread wrap" style={{ gap: 8, marginTop: 10, fontSize: '0.8rem' }}>
+        <span className="muted">{propName(m.property_id)} · Unit {m.unit || '—'}</span>
+        <span className="row gap" style={{ alignItems: 'center' }}>
+          {m.priority === 'urgent' && <span className="pill overdue">Urgent</span>}
+          <span className="muted">{timeAgo(m.updated_at)}</span>
+        </span>
+      </div>
+    </button>
+  )
+
+  const listItems = listView === 'open' ? openList : listView === 'in_progress' ? inProgList : []
 
   return (
     <div className="page">
@@ -51,38 +71,18 @@ export default function Maintenance() {
         <p>Repair requests from your tenants — assign, track and close them out.</p>
       </div>
 
-      {/* The three cards ARE the filter — tap one to see those requests. */}
+      {/* Tap Open or In progress to see those in a pop-up; Resolved stays listed below. */}
       <div className="grid stats" style={{ marginBottom: 22 }}>
-        <StatCard label="Open" value={open} sub="Not yet started" icon={<IconWrench size={18} />} onClick={() => setFilter('open')} />
-        <StatCard label="In progress" value={inProg} sub="Being worked on" icon={<IconClock size={18} />} onClick={() => setFilter('in_progress')} />
-        <StatCard label="Resolved" value={counts.resolved} sub="Closed out" icon={<IconCheckCircle size={18} />} onClick={() => setFilter('resolved')} />
+        <StatCard label="Open" value={openList.length} sub="Not yet started" icon={<IconWrench size={18} />} onClick={() => setListView('open')} />
+        <StatCard label="In progress" value={inProgList.length} sub="Being worked on" icon={<IconClock size={18} />} onClick={() => setListView('in_progress')} />
+        <StatCard label="Resolved" value={resolvedList.length} sub="Closed out" icon={<IconCheckCircle size={18} />} />
       </div>
 
-      <h3 style={{ marginBottom: 12 }}>{FILTERS.find((f) => f.id === filter)?.label} requests</h3>
-
-      {shown.length === 0 ? (
-        <div className="card"><EmptyState icon="✅" title="Nothing here">No requests in this view.</EmptyState></div>
+      <h3 style={{ marginBottom: 12 }}>Resolved requests</h3>
+      {resolvedList.length === 0 ? (
+        <div className="card"><EmptyState icon="✅" title="Nothing resolved yet">Resolved requests show up here.</EmptyState></div>
       ) : (
-        <div className="mnt-cards">
-          {shown.map((m) => (
-            <button key={m.id} type="button" className="card pad mnt-card" onClick={() => setManaging(m)}>
-              <div className="spread wrap" style={{ gap: 8, alignItems: 'flex-start' }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600 }}>{m.title}</div>
-                  <div className="muted" style={{ fontSize: '0.8rem' }}>{m.category} · {fullName(tenantOf(m.tenant_id))}</div>
-                </div>
-                <StatusTag status={m.status} />
-              </div>
-              <div className="spread wrap" style={{ gap: 8, marginTop: 10, fontSize: '0.8rem' }}>
-                <span className="muted">{propName(m.property_id)} · Unit {m.unit || '—'}</span>
-                <span className="row gap" style={{ alignItems: 'center' }}>
-                  {m.priority === 'urgent' && <span className="pill overdue">Urgent</span>}
-                  <span className="muted">{timeAgo(m.updated_at)}</span>
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
+        <div className="mnt-cards">{resolvedList.map(RequestCard)}</div>
       )}
       <style>{`
         .mnt-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
@@ -91,6 +91,17 @@ export default function Maintenance() {
         .mnt-card:hover { border-color: var(--accent-line, var(--line)); }
         .mnt-card:active { transform: scale(0.995); }
       `}</style>
+
+      {listView && (
+        <Modal title={listView === 'open' ? 'Open requests' : 'In progress requests'} onClose={() => setListView(null)}
+          footer={<button className="btn ghost" onClick={() => setListView(null)}>Close</button>}>
+          {listItems.length === 0 ? (
+            <EmptyState icon="✅" title="Nothing here">No requests in this state.</EmptyState>
+          ) : (
+            <div className="col" style={{ gap: 12 }}>{listItems.map(RequestCard)}</div>
+          )}
+        </Modal>
+      )}
 
       {managing && (
         <ManageModal item={managing} tenant={tenantOf(managing.tenant_id)} propName={propName(managing.property_id)}
