@@ -124,10 +124,13 @@ export default function Team() {
                   <td>
                     <div className="row gap" style={{ justifyContent: 'flex-end' }}>
                       <button className="btn sm ghost" title="Edit access" onClick={() => setEditing(s)}><IconEdit size={14} /></button>
-                      {/* Reset the login to a fresh temporary password. Before they've
-                          set their own it's a silent re-issue; once active, resend()
-                          asks first, since it replaces a password they chose. */}
-                      <button className="btn sm ghost" title={s.first_login ? 'Resend temp password' : 'Reset password'} onClick={() => resend(s)}><IconKey size={14} /></button>
+                      {/* The temporary key is only for the first-login handover. Once
+                          the agent has set their own password, they sign in with it
+                          (and can self-serve via "Forgot password?"), so there's no
+                          temp key to hand out — hide it. */}
+                      {s.first_login && (
+                        <button className="btn sm ghost" title="Resend temp password" onClick={() => resend(s)}><IconKey size={14} /></button>
+                      )}
                       <button className="btn sm ghost danger" title="Remove" onClick={() => remove(s)}><IconTrash size={14} /></button>
                     </div>
                   </td>
