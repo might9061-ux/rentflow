@@ -29,11 +29,16 @@ router.post('/tenants', h(async (req, res) => {
   const b = req.body || {}
   if (!b.email || !b.first_name || !b.last_name) throw new Error('first_name, last_name and email are required')
 
-  // Plan-capacity guard (parity with the create_tenant RPC).
+  // Plan-capacity guard — always against the OWNER's plan. An agent has no plan
+  // of their own (plan_active is false on their row), so using the caller's row
+  // would wrongly block every agent from adding tenants.
+  const owner = manager.owner_id
+    ? (await admin.from('managers').select('plan_active, plan_capacity').eq('id', ownerId).single()).data
+    : manager
   const { count } = await admin.from('tenants').select('id', { count: 'exact', head: true }).eq('manager_id', ownerId)
-  const cap = manager.plan_active ? (manager.plan_capacity || 0) : 0
+  const cap = owner?.plan_active ? (owner.plan_capacity || 0) : 0
   if ((count || 0) >= cap) {
-    throw new Error(`Active plan required to add tenants (${count || 0} of ${cap} used). Subscribe or upgrade your plan.`)
+    throw new Error(`This workspace has reached its tenant capacity (${count || 0} of ${cap}). The account owner needs to upgrade the plan.`)
   }
 
   const pw = tempPassword()
