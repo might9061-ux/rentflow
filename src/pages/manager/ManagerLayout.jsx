@@ -13,7 +13,7 @@ import GlobalSearch from '../../components/GlobalSearch.jsx'
 import { hasQuickUnlock, isMobileDevice } from '../../lib/quickUnlock.js'
 import {
   IconGrid, IconBuilding, IconUsers, IconCheckCircle, IconWallet,
-  IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconTag, IconSparkle, IconPalette, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash, IconSearch, IconMail,
+  IconBell, IconLogout, IconMenu, IconKey, IconSettings, IconSparkle, IconSun, IconMoon, IconClock, IconShield, IconArrowRight, IconWrench, IconChart, IconCash, IconSearch, IconMail,
 } from '../../components/icons.jsx'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
 import Logo from '../../components/Logo.jsx'
@@ -33,8 +33,9 @@ const NAV = [
   { to: '/manager/messages', label: 'Messages', icon: IconMail, badge: 'messages' },
   { to: '/manager/notifications', label: 'Notifications', icon: IconBell },
   { to: '/manager/team', label: 'Agents', icon: IconShield, owner: true },
-  { to: '/manager/plan', label: 'Plan', icon: IconTag, owner: true },
-  { to: '/manager/branding', label: 'Branding', icon: IconPalette, owner: true },
+  // Plan & Branding live inside Settings now (top cards with "Manage" buttons),
+  // so they're off the sidebar. Their routes still exist — the Settings cards
+  // and onboarding link to /manager/plan and /manager/branding.
   { to: '/manager/settings', label: 'Settings', icon: IconSettings, owner: true },
 ]
 
