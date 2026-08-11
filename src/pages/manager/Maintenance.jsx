@@ -24,8 +24,12 @@ export default function Maintenance() {
   const [managing, setManaging] = useState(null)
 
   const load = useCallback(async () => {
-    const [m, t, p] = await Promise.all([db.listMaintenance(userId), db.listTenants(userId), db.listProperties(userId)])
-    setItems(m); setTenants(t); setProperties(p); setLoading(false)
+    // Always clear loading, even if a call fails, so the page can never hang.
+    try {
+      const [m, t, p] = await Promise.all([db.listMaintenance(userId), db.listTenants(userId), db.listProperties(userId)])
+      setItems(m); setTenants(t); setProperties(p)
+    } catch (e) { console.error('Maintenance load failed', e) }
+    finally { setLoading(false) }
   }, [userId])
   useEffect(() => { load() }, [load])
 
