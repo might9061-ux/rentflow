@@ -33,7 +33,7 @@ export default function TenantLogin() {
 
   if (challenge) {
     return (
-      <AuthShell accent="green" eyebrow="Tenant" title="One more step">
+      <AuthShell accent="green" eyebrow="Tenant" title="One more step" support="manager">
         <LoginOtpStep challenge={challenge} onBack={() => setChallenge(null)}
           onVerified={(r) => { if (r?.first_login) toast.info('Verify your account', 'Let’s confirm it’s you before you continue.') }} />
       </AuthShell>
@@ -45,6 +45,7 @@ export default function TenantLogin() {
       accent="green"
       eyebrow="Tenant"
       title="Sign in"
+      support="manager"
       subtitle="Use the email and password your property manager sent you."
       footer={<>First time? Use the <b>temporary password</b> from your manager — you’ll set a new one next.</>}
     >
