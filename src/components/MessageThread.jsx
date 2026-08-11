@@ -16,6 +16,14 @@ import { IconSend, IconSparkle, IconEdit, IconTrash, IconX, IconCheck } from './
 const DAY_MS = 24 * 60 * 60 * 1000
 const EDIT_WINDOW_MS = 15 * 60 * 1000
 
+const ROLE_WORD = { manager: 'Manager', staff: 'Agent', tenant: 'Tenant' }
+// "Manager Might", "Agent Might", "Tenant Rudo" — role first so two people with
+// the same name are still told apart. Falls back to just the role if the name
+// isn't available (e.g. the plain Supabase path with no server enrichment).
+function senderLabel(m) {
+  return [ROLE_WORD[m.sender_role] || '', m.sender_name || ''].filter(Boolean).join(' ')
+}
+
 function sessionLabel(d) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -89,6 +97,11 @@ export default function MessageThread({
   }
 
   const rows = withSessions(items)
+  // Mark the first message of each sender's run (and after a session break) so we
+  // label who's speaking — "Manager Might", "Agent Might", "Tenant Rudo" — without
+  // repeating it on every bubble.
+  const labelIds = new Set()
+  { let prev = null; for (const r of rows) { if (r.divider) { prev = null; continue } if (r.sender_id !== prev) labelIds.add(r.id); prev = r.sender_id } }
 
   return (
     <div className="card msg-card">
@@ -117,6 +130,9 @@ export default function MessageThread({
 
             return (
               <div key={m.id} className={`msg ${mine ? 'mine' : 'theirs'} ${deleted ? 'gone' : ''}`}>
+                {!mine && labelIds.has(m.id) && senderLabel(m) && (
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', marginBottom: 3 }}>{senderLabel(m)}</div>
+                )}
                 {m.from_assistant && !deleted && (
                   <div className="msg-tag"><IconSparkle size={11} /> {mine ? 'Asked the Copilot first' : 'Copilot couldn’t answer this'}</div>
                 )}

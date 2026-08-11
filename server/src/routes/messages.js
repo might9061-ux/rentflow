@@ -46,8 +46,28 @@ router.get('/', h(async (req, res) => {
   const rows = ok(await req.db.from('messages').select('*')
     .or(`tenant_id.eq.${partyId},staff_id.eq.${partyId}`)
     .order('created_at', { ascending: true }))
-  res.json(rows)
+  res.json(await withSenderNames(rows))
 }))
+
+// Attach each message's sender name so every client can show "Manager Might",
+// "Agent Might", "Tenant Rudo". Uses the admin client because a tenant's own RLS
+// scope can't read the managers table — but they should still see who wrote to
+// them. Names of people in your own conversation, nothing more.
+async function withSenderNames(rows) {
+  const ids = [...new Set(rows.map((r) => r.sender_id).filter(Boolean))]
+  if (!ids.length) return rows
+  const [mgrs, tens] = await Promise.all([
+    admin.from('managers').select('id, first_name, last_name').in('id', ids),
+    admin.from('tenants').select('id, first_name, last_name').in('id', ids),
+  ])
+  const byId = new Map()
+  for (const p of (mgrs.data || [])) byId.set(p.id, p)
+  for (const p of (tens.data || [])) byId.set(p.id, p)
+  return rows.map((r) => {
+    const p = byId.get(r.sender_id)
+    return { ...r, sender_name: p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : null }
+  })
+}
 
 // GET /api/messages/threads — conversation list for a manager.
 router.get('/threads', h(async (req, res) => {
