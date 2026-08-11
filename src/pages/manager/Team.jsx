@@ -249,6 +249,7 @@ function StaffModal({ staff, properties, onClose, onSaved }) {
 }
 
 function CredentialsModal({ staff, tempPassword, onClose }) {
+  if (!staff) return null // nothing to show without a staff record — never crash on staff.phone
   const share = () => {
     const msg = `Hi ${staff.first_name}, you've been added as a manager on RentLoja.\n\n` +
       `Sign in here: ${window.location.origin} (choose “Manager”).\nEmail: ${staff.email}\nTemporary password: ${tempPassword}\n\n` +
