@@ -20,7 +20,7 @@ export default function Maintenance() {
   const [items, setItems] = useState([])
   const [tenants, setTenants] = useState([])
   const [properties, setProperties] = useState([])
-  const [filter, setFilter] = useState('open')
+  const [filter, setFilter] = useState('resolved')
   const [managing, setManaging] = useState(null)
 
   const load = useCallback(async () => {
@@ -51,27 +51,14 @@ export default function Maintenance() {
         <p>Repair requests from your tenants — assign, track and close them out.</p>
       </div>
 
+      {/* The three cards ARE the filter — tap one to see those requests. */}
       <div className="grid stats" style={{ marginBottom: 22 }}>
-        <StatCard label="Open" value={open} sub="Not yet started" icon={<IconWrench size={18} />} />
-        <StatCard label="In progress" value={inProg} sub="Being worked on" icon={<IconClock size={18} />} />
-        <StatCard label="Resolved" value={items.filter((m) => m.status === 'resolved').length} sub="Closed out" icon={<IconCheckCircle size={18} />} />
+        <StatCard label="Open" value={open} sub="Not yet started" icon={<IconWrench size={18} />} onClick={() => setFilter('open')} />
+        <StatCard label="In progress" value={inProg} sub="Being worked on" icon={<IconClock size={18} />} onClick={() => setFilter('in_progress')} />
+        <StatCard label="Resolved" value={counts.resolved} sub="Closed out" icon={<IconCheckCircle size={18} />} onClick={() => setFilter('resolved')} />
       </div>
 
-      <div className="seg" style={{ marginBottom: 18 }}>
-        {FILTERS.map((f) => (
-          <button key={f.id} className={filter === f.id ? 'on' : ''} onClick={() => setFilter(f.id)}>
-            {f.label}
-            {counts[f.id] > 0 && <span className="seg-count">{counts[f.id]}</span>}
-          </button>
-        ))}
-      </div>
-      <style>{`
-        .seg button { display: inline-flex; align-items: center; gap: 7px; }
-        .seg .seg-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
-          display: inline-grid; place-items: center; font-size: 0.72rem; font-weight: 700; line-height: 1;
-          background: var(--accent, #c96a3a); color: #fff; }
-        .seg button.on .seg-count { background: rgba(255,255,255,0.28); color: #fff; }
-      `}</style>
+      <h3 style={{ marginBottom: 12 }}>{FILTERS.find((f) => f.id === filter)?.label} requests</h3>
 
       {shown.length === 0 ? (
         <div className="card"><EmptyState icon="✅" title="Nothing here">No requests in this view.</EmptyState></div>
