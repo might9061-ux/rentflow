@@ -31,24 +31,30 @@ export default function AssistantWidget({ role }) {
     : `Hi ${profile?.first_name || ''} — ask me about your rent, balance, how to pay, credit or receipts.`
 
   // Build grounded context for the assistant.
+  // Returns the built context so callers can use it immediately — setCtx is
+  // async, so relying on the ctx state right after calling this gives the stale
+  // (null) value.
   const loadContext = useCallback(async () => {
+    let built
     if (role === 'manager') {
       const [tenants, properties, payments] = await Promise.all([
         db.listTenants(userId), db.listProperties(userId), db.listPayments(userId),
       ])
-      setCtx({ profile, tenants, properties, payments })
+      built = { profile, tenants, properties, payments }
     } else {
       const [payments, manager] = await Promise.all([
         db.listTenantPayments(userId), db.getTenantManager(userId),
       ])
-      setCtx({
+      built = {
         profile, payments, manager,
         accepted: acceptedMethods(manager),
         payDetails: manager?.payment_details || {},
         period: currentPeriod(profile?.due_day || 1),
         notify: !!manager?.notify_on_tenant_ai,
-      })
+      }
     }
+    setCtx(built)
+    return built
   }, [role, userId, profile])
 
   const refreshUnread = useCallback(async () => {
@@ -82,7 +88,7 @@ export default function AssistantWidget({ role }) {
     setMessages((m) => [...m, { role: 'user', text }])
     setBusy(true)
     try {
-      const context = ctx || (await loadContext(), ctx)
+      const context = ctx || (await loadContext())
       const reply = await askAssistant({ role, message: text, context, history: messages })
       setMessages((m) => [...m, { role: 'assistant', text: reply }])
       // Notify the manager of tenant questions when they've opted in.
