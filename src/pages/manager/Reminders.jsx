@@ -35,13 +35,18 @@ export default function Reminders() {
   const [dirty, setDirty] = useState(false)
 
   const load = useCallback(async () => {
-    const [m, t, p, pr, lg] = await Promise.all([
-      db.getWorkspaceManager(userId), db.listTenants(userId), db.listPayments(userId),
-      db.listProperties(userId), db.listReminderLog(userId),
-    ])
-    setWm(m); setTenants(t); setPayments(p); setProperties(pr); setLog(lg)
-    setEnabled(remindersEnabled(m)); setChannel(reminderChannel(m)); setRules(reminderRules(m))
-    setDirty(false); setLoading(false)
+    // Always clear loading, even if a call fails, so the page can never hang on a
+    // single rejected request.
+    try {
+      const [m, t, p, pr, lg] = await Promise.all([
+        db.getWorkspaceManager(userId), db.listTenants(userId), db.listPayments(userId),
+        db.listProperties(userId), db.listReminderLog(userId),
+      ])
+      setWm(m); setTenants(t); setPayments(p); setProperties(pr); setLog(lg)
+      setEnabled(remindersEnabled(m)); setChannel(reminderChannel(m)); setRules(reminderRules(m))
+      setDirty(false)
+    } catch (e) { console.error('Reminders load failed', e) }
+    finally { setLoading(false) }
   }, [userId])
   useEffect(() => { load() }, [load])
 

@@ -54,15 +54,20 @@ export default function Payments() {
   }, [tab, rejected, seenKey])
 
   const load = useCallback(async () => {
-    const [p, rej, ref, t, pr, wm] = await Promise.all([
-      db.listPayments(userId, { status: 'approved' }),
-      db.listPayments(userId, { status: 'rejected' }),
-      db.listRefunds(userId),
-      db.listTenants(userId), db.listProperties(userId),
-      db.getWorkspaceManager(userId),
-    ])
-    setRows(p); setRejected(rej); setRefunds(ref); setTenants(t); setProperties(pr)
-    setRefundsOn(!!wm?.refunds_enabled); setLoading(false)
+    // Always clear loading, even if a call fails, so the page can never hang on a
+    // single rejected request.
+    try {
+      const [p, rej, ref, t, pr, wm] = await Promise.all([
+        db.listPayments(userId, { status: 'approved' }),
+        db.listPayments(userId, { status: 'rejected' }),
+        db.listRefunds(userId),
+        db.listTenants(userId), db.listProperties(userId),
+        db.getWorkspaceManager(userId),
+      ])
+      setRows(p); setRejected(rej); setRefunds(ref); setTenants(t); setProperties(pr)
+      setRefundsOn(!!wm?.refunds_enabled)
+    } catch (e) { console.error('Payments load failed', e) }
+    finally { setLoading(false) }
   }, [userId])
   useEffect(() => {
     let alive = true
