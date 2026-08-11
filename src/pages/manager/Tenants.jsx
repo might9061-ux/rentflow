@@ -159,7 +159,12 @@ export default function Tenants() {
                       <div className="row gap" style={{ justifyContent: 'flex-end' }}>
                         <button className="btn sm ghost" title="Payment history" onClick={(e) => { e.stopPropagation(); nav(`/manager/tenants/${t.id}`) }}><IconReceipt size={14} /></button>
                         <button className="btn sm ghost" title="Edit" onClick={(e) => { e.stopPropagation(); setEditing(t) }}><IconEdit size={14} /></button>
-                        <button className="btn sm ghost" title={t.first_login ? 'Resend credentials' : 'Reset password'} onClick={(e) => { e.stopPropagation(); resend(t) }}><IconKey size={14} /></button>
+                        {/* The temp key is only for the first-login handover. Once the
+                            tenant has set their own password, they sign in with it (and
+                            reset it via "Forgot password?"), so hide the key. */}
+                        {t.first_login && (
+                          <button className="btn sm ghost" title="Resend credentials" onClick={(e) => { e.stopPropagation(); resend(t) }}><IconKey size={14} /></button>
+                        )}
                       </div>
                     </td>
                   </tr>
