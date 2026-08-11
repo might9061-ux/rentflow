@@ -72,25 +72,34 @@ export default function Maintenance() {
       {shown.length === 0 ? (
         <div className="card"><EmptyState icon="✅" title="Nothing here">No requests in this view.</EmptyState></div>
       ) : (
-        <div className="table-wrap">
-          <table className="data">
-            <thead><tr><th>Issue</th><th>Tenant</th><th>Property / Unit</th><th>Priority</th><th>Status</th><th>Updated</th><th></th></tr></thead>
-            <tbody>
-              {shown.map((m) => (
-                <tr key={m.id} className="clickable-row" onClick={() => setManaging(m)}>
-                  <td><div style={{ fontWeight: 600 }}>{m.title}</div><div className="muted" style={{ fontSize: '0.8rem' }}>{m.category}</div></td>
-                  <td>{fullName(tenantOf(m.tenant_id))}</td>
-                  <td><div>{propName(m.property_id)}</div><div className="muted" style={{ fontSize: '0.8rem' }}>Unit {m.unit || '—'}</div></td>
-                  <td>{m.priority === 'urgent' ? <span className="pill overdue">Urgent</span> : <span className="muted">Normal</span>}</td>
-                  <td><StatusTag status={m.status} /></td>
-                  <td className="muted nowrap">{timeAgo(m.updated_at)}</td>
-                  <td style={{ textAlign: 'right' }}><button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); setManaging(m) }}>Manage</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mnt-cards">
+          {shown.map((m) => (
+            <button key={m.id} type="button" className="card pad mnt-card" onClick={() => setManaging(m)}>
+              <div className="spread wrap" style={{ gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600 }}>{m.title}</div>
+                  <div className="muted" style={{ fontSize: '0.8rem' }}>{m.category} · {fullName(tenantOf(m.tenant_id))}</div>
+                </div>
+                <StatusTag status={m.status} />
+              </div>
+              <div className="spread wrap" style={{ gap: 8, marginTop: 10, fontSize: '0.8rem' }}>
+                <span className="muted">{propName(m.property_id)} · Unit {m.unit || '—'}</span>
+                <span className="row gap" style={{ alignItems: 'center' }}>
+                  {m.priority === 'urgent' && <span className="pill overdue">Urgent</span>}
+                  <span className="muted">{timeAgo(m.updated_at)}</span>
+                </span>
+              </div>
+            </button>
+          ))}
         </div>
       )}
+      <style>{`
+        .mnt-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        @media (min-width: 720px) { .mnt-cards { grid-template-columns: 1fr 1fr; } }
+        .mnt-card { text-align: left; width: 100%; cursor: pointer; transition: border-color .15s, transform .05s; }
+        .mnt-card:hover { border-color: var(--accent-line, var(--line)); }
+        .mnt-card:active { transform: scale(0.995); }
+      `}</style>
 
       {managing && (
         <ManageModal item={managing} tenant={tenantOf(managing.tenant_id)} propName={propName(managing.property_id)}
