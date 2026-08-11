@@ -10,6 +10,7 @@ import { prettyPhone } from '../lib/phone.js'
 import { hasQuickUnlock, forgetAccount } from '../lib/quickUnlock.js'
 import Modal from './Modal.jsx'
 import MfaSetup from './MfaSetup.jsx'
+import PushToggle from './PushToggle.jsx'
 import { IconMail, IconPhone, IconKey, IconLogout, IconTrash, IconSun, IconMoon, IconEye, IconShield } from './icons.jsx'
 
 // "My profile" — view your details and set a profile picture. Works for the
@@ -97,6 +98,12 @@ export default function ProfileModal({ role, title = 'My profile', onClose, onCh
       </div>
 
       {showMfa && <MfaSetup onClose={() => setShowMfa(false)} />}
+
+      {/* Device notifications — available to everyone (owner, agent, tenant), so
+          agents can get alerted about payments, messages and maintenance too. */}
+      <div style={{ marginTop: 14 }}>
+        <PushToggle blurb="Get alerted on this device about payments, messages and maintenance — even when RentLoja is closed." />
+      </div>
 
       <div className="row gap wrap" style={{ marginTop: 16 }}>
         <button className="btn ghost sm" onClick={() => fileRef.current?.click()} disabled={busy}>{profile?.avatar ? 'Change photo' : 'Add photo'}</button>
