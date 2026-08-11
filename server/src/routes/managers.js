@@ -22,7 +22,12 @@ router.get('/me', h(async (req, res) => {
 router.get('/workspace', h(async (req, res) => {
   const me = ok(await req.db.from('managers').select('owner_id').eq('id', req.user.id).single())
   const ownerId = me?.owner_id || req.user.id
-  res.json(ok(await req.db.from('managers').select('*').eq('id', ownerId).single()))
+  // Read the owner row with the ADMIN client: a staff member's RLS doesn't let
+  // them read their owner's managers row, so req.db returned 0 rows and .single()
+  // threw "Cannot coerce…", hanging every page that loads the workspace (Payments,
+  // Reminders, …). Staff legitimately need the workspace config (currency, plan,
+  // branding, reminders), and ownerId is derived from their own row, so this is safe.
+  res.json(ok(await admin.from('managers').select('*').eq('id', ownerId).single()))
 }))
 
 // Columns a manager may never set on themselves: privilege and billing. The
