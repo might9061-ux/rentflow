@@ -9,6 +9,8 @@
 // Instead of crashing, we reload ONCE to fetch the fresh build. Guarded by a
 // short time window so a genuinely broken deploy can't reload in a loop.
 
+import { lazy } from 'react'
+
 const RELOAD_KEY = 'rl_stale_reload_at'
 const WINDOW_MS = 10000
 
@@ -17,6 +19,21 @@ const WINDOW_MS = 10000
 export function isChunkLoadError(err) {
   const msg = (err && (err.message || String(err))) || ''
   return /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk \S+ failed|error loading dynamically imported module/i.test(msg)
+}
+
+// Wraps React.lazy so that a dynamic import returning undefined (stale build —
+// the old chunk URL 404s and Vite resolves to undefined instead of throwing a
+// recognisable ChunkLoadError) is turned into an explicit ChunkLoadError. This
+// lets isChunkLoadError / reloadForStaleBuild handle it correctly.
+export function safeLazy(importFn) {
+  return lazy(() =>
+    importFn().then(mod => {
+      if (!mod || mod.default == null) {
+        throw new Error('ChunkLoadError: module resolved to undefined (stale build)')
+      }
+      return mod
+    })
+  )
 }
 
 // Reload once to pick up the new version. Returns true if a reload was triggered.

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import { LoadingScreen } from './components/ui.jsx'
@@ -6,52 +6,56 @@ import AppLock from './components/AppLock.jsx'
 import MfaChallenge from './components/MfaChallenge.jsx'
 import { needsChallenge } from './lib/mfa.js'
 import { resetDemo } from './lib/db.js'
+import { safeLazy } from './lib/appUpdate.js'
 
 // Landing stays eager for the fastest first paint; everything else is split into
 // its own chunk that only downloads when that route is visited.
+// safeLazy wraps React.lazy to detect when a chunk resolves to undefined (stale
+// build after a deploy) and throws a recognisable ChunkLoadError so the
+// ErrorBoundary can auto-reload instead of crashing.
 import RolePicker from './pages/RolePicker.jsx'
-const ManagerAuth = lazy(() => import('./pages/manager/ManagerAuth.jsx'))
-const TenantLogin = lazy(() => import('./pages/tenant/TenantLogin.jsx'))
-const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'))
-const Privacy = lazy(() => import('./pages/Privacy.jsx'))
-const Terms = lazy(() => import('./pages/Terms.jsx'))
-const PublicListings = lazy(() => import('./pages/public/Listings.jsx'))
-const PublicListing = lazy(() => import('./pages/public/Listing.jsx'))
+const ManagerAuth = safeLazy(() => import('./pages/manager/ManagerAuth.jsx'))
+const TenantLogin = safeLazy(() => import('./pages/tenant/TenantLogin.jsx'))
+const ResetPassword = safeLazy(() => import('./pages/ResetPassword.jsx'))
+const Privacy = safeLazy(() => import('./pages/Privacy.jsx'))
+const Terms = safeLazy(() => import('./pages/Terms.jsx'))
+const PublicListings = safeLazy(() => import('./pages/public/Listings.jsx'))
+const PublicListing = safeLazy(() => import('./pages/public/Listing.jsx'))
 
-const ManagerLayout = lazy(() => import('./pages/manager/ManagerLayout.jsx'))
-const ManagerDashboard = lazy(() => import('./pages/manager/Dashboard.jsx'))
-const Properties = lazy(() => import('./pages/manager/Properties.jsx'))
-const PropertyDetail = lazy(() => import('./pages/manager/PropertyDetail.jsx'))
-const Tenants = lazy(() => import('./pages/manager/Tenants.jsx'))
-const TenantDetail = lazy(() => import('./pages/manager/TenantDetail.jsx'))
-const Approvals = lazy(() => import('./pages/manager/Approvals.jsx'))
-const Payments = lazy(() => import('./pages/manager/Payments.jsx'))
-const ManagerNotifications = lazy(() => import('./pages/manager/Notifications.jsx'))
-const ManagerMessages = lazy(() => import('./pages/manager/Messages.jsx'))
-const Reminders = lazy(() => import('./pages/manager/Reminders.jsx'))
-const Maintenance = lazy(() => import('./pages/manager/Maintenance.jsx'))
-const Finances = lazy(() => import('./pages/manager/Finances.jsx'))
-const Payroll = lazy(() => import('./pages/manager/Payroll.jsx'))
-const Workers = lazy(() => import('./pages/manager/Workers.jsx'))
-const Settings = lazy(() => import('./pages/manager/Settings.jsx'))
-const Plan = lazy(() => import('./pages/manager/Plan.jsx'))
-const Demo = lazy(() => import('./pages/manager/Demo.jsx'))
-const Branding = lazy(() => import('./pages/manager/Branding.jsx'))
-const Team = lazy(() => import('./pages/manager/Team.jsx'))
+const ManagerLayout = safeLazy(() => import('./pages/manager/ManagerLayout.jsx'))
+const ManagerDashboard = safeLazy(() => import('./pages/manager/Dashboard.jsx'))
+const Properties = safeLazy(() => import('./pages/manager/Properties.jsx'))
+const PropertyDetail = safeLazy(() => import('./pages/manager/PropertyDetail.jsx'))
+const Tenants = safeLazy(() => import('./pages/manager/Tenants.jsx'))
+const TenantDetail = safeLazy(() => import('./pages/manager/TenantDetail.jsx'))
+const Approvals = safeLazy(() => import('./pages/manager/Approvals.jsx'))
+const Payments = safeLazy(() => import('./pages/manager/Payments.jsx'))
+const ManagerNotifications = safeLazy(() => import('./pages/manager/Notifications.jsx'))
+const ManagerMessages = safeLazy(() => import('./pages/manager/Messages.jsx'))
+const Reminders = safeLazy(() => import('./pages/manager/Reminders.jsx'))
+const Maintenance = safeLazy(() => import('./pages/manager/Maintenance.jsx'))
+const Finances = safeLazy(() => import('./pages/manager/Finances.jsx'))
+const Payroll = safeLazy(() => import('./pages/manager/Payroll.jsx'))
+const Workers = safeLazy(() => import('./pages/manager/Workers.jsx'))
+const Settings = safeLazy(() => import('./pages/manager/Settings.jsx'))
+const Plan = safeLazy(() => import('./pages/manager/Plan.jsx'))
+const Demo = safeLazy(() => import('./pages/manager/Demo.jsx'))
+const Branding = safeLazy(() => import('./pages/manager/Branding.jsx'))
+const Team = safeLazy(() => import('./pages/manager/Team.jsx'))
 
-const TenantLayout = lazy(() => import('./pages/tenant/TenantLayout.jsx'))
-const TenantDashboard = lazy(() => import('./pages/tenant/Dashboard.jsx'))
-const SubmitPayment = lazy(() => import('./pages/tenant/SubmitPayment.jsx'))
-const PaymentHistory = lazy(() => import('./pages/tenant/PaymentHistory.jsx'))
-const TenantLease = lazy(() => import('./pages/tenant/Lease.jsx'))
-const TenantNotifications = lazy(() => import('./pages/tenant/Notifications.jsx'))
-const TenantMessages = lazy(() => import('./pages/tenant/Messages.jsx'))
-const TenantMaintenance = lazy(() => import('./pages/tenant/Maintenance.jsx'))
-const AdminAuth = lazy(() => import('./pages/admin/AdminAuth.jsx'))
-const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'))
-const AdminOverview = lazy(() => import('./pages/admin/AdminOverview.jsx'))
-const AdminWorkspaces = lazy(() => import('./pages/admin/AdminWorkspaces.jsx'))
-const AdminSubscriptions = lazy(() => import('./pages/admin/AdminSubscriptions.jsx'))
+const TenantLayout = safeLazy(() => import('./pages/tenant/TenantLayout.jsx'))
+const TenantDashboard = safeLazy(() => import('./pages/tenant/Dashboard.jsx'))
+const SubmitPayment = safeLazy(() => import('./pages/tenant/SubmitPayment.jsx'))
+const PaymentHistory = safeLazy(() => import('./pages/tenant/PaymentHistory.jsx'))
+const TenantLease = safeLazy(() => import('./pages/tenant/Lease.jsx'))
+const TenantNotifications = safeLazy(() => import('./pages/tenant/Notifications.jsx'))
+const TenantMessages = safeLazy(() => import('./pages/tenant/Messages.jsx'))
+const TenantMaintenance = safeLazy(() => import('./pages/tenant/Maintenance.jsx'))
+const AdminAuth = safeLazy(() => import('./pages/admin/AdminAuth.jsx'))
+const AdminLayout = safeLazy(() => import('./pages/admin/AdminLayout.jsx'))
+const AdminOverview = safeLazy(() => import('./pages/admin/AdminOverview.jsx'))
+const AdminWorkspaces = safeLazy(() => import('./pages/admin/AdminWorkspaces.jsx'))
+const AdminSubscriptions = safeLazy(() => import('./pages/admin/AdminSubscriptions.jsx'))
 const AdminFees = lazy(() => import('./pages/admin/AdminFees.jsx'))
 const AdminCosts = lazy(() => import('./pages/admin/AdminCosts.jsx'))
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers.jsx'))
