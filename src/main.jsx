@@ -19,6 +19,7 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { reloadForStaleBuild } from './lib/appUpdate.js'
 import './index.css'
 
 // Vercel Analytics reports the URL of every page view. Our URLs carry things
@@ -60,6 +61,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </React.StrictMode>
 )
+
+// Stale-deploy safety net: Vite fires this when a code chunk fails to load
+// because a new version replaced it. Reload once to the fresh build instead of
+// letting the app crash. (The ErrorBoundary catches the same case as a backup.)
+window.addEventListener('vite:preloadError', (e) => {
+  e.preventDefault?.()
+  reloadForStaleBuild()
+})
 
 // Register the service worker so RentLoja is installable as a home-screen app.
 if ('serviceWorker' in navigator) {

@@ -1,5 +1,30 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+// Stamp the service worker's cache name with a unique build id at build time.
+// public/sw.js ships a literal `rentloja-__BUILD_ID__`; here we replace it in the
+// built dist/sw.js with a per-build value. Because the SW's `activate` handler
+// deletes every cache except the current one, each deploy purges the previous
+// build's cached assets — so devices can't keep serving a stale version.
+function stampServiceWorker() {
+  return {
+    name: 'rentflow-stamp-sw',
+    apply: 'build',
+    closeBundle() {
+      const id = Date.now().toString(36)
+      const p = resolve('dist', 'sw.js')
+      try {
+        const src = readFileSync(p, 'utf8')
+        if (src.includes('__BUILD_ID__')) {
+          writeFileSync(p, src.replace(/__BUILD_ID__/g, id))
+          console.log(`[rentflow] service worker cache stamped: rentloja-${id}`)
+        }
+      } catch { /* no dist/sw.js (e.g. SSR build) — nothing to stamp */ }
+    },
+  }
+}
 
 // ── Local Claude endpoint ────────────────────────────────────────────────────
 // Exposes POST /api/assistant during `npm run dev` (and `vite preview`). It
@@ -59,7 +84,7 @@ function readJson(req) {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-    plugins: [react(), claudeAssistant(env)],
+    plugins: [react(), claudeAssistant(env), stampServiceWorker()],
     server: {
       port: 5173,
       open: true,

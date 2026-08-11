@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import * as Sentry from '@sentry/react'
+import { isChunkLoadError, reloadForStaleBuild } from '../lib/appUpdate.js'
 
 // Catches unexpected render errors so the app shows a recoverable message
 // instead of a blank screen.
@@ -14,6 +15,10 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
+    // A failed chunk import means a new version was deployed while this device
+    // held the old one — not a bug. Reload once to get the fresh build instead
+    // of showing a scary crash screen.
+    if (isChunkLoadError(error)) { reloadForStaleBuild(); return }
     // Report the render crash to Sentry (no-op until VITE_SENTRY_DSN is set),
     // with the React component stack for context.
     Sentry.captureException(error, { extra: { componentStack: info?.componentStack } })
@@ -22,6 +27,15 @@ export default class ErrorBoundary extends Component {
 
   render() {
     if (!this.state.error) return this.props.children
+    // Stale-build reload is already in flight (from componentDidCatch) — show a
+    // neutral "updating" note, not the crash card.
+    if (isChunkLoadError(this.state.error)) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+          <div className="muted" style={{ textAlign: 'center' }}>Updating RentLoja…</div>
+        </div>
+      )
+    }
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
         <div className="card pad" style={{ maxWidth: 440, textAlign: 'center' }}>

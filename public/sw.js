@@ -1,7 +1,12 @@
 // Minimal service worker so RentLoja is installable, works offline-ish, and can
 // raise pop-up notifications.
 // Same-origin only — never touches the API / Supabase / fonts (cross-origin).
-const CACHE = 'rentloja-v6'
+//
+// CACHE is stamped with a unique build id at build time (see the
+// `rentflow-stamp-sw` plugin in vite.config.js), so every deploy uses a new
+// cache name. The `activate` handler deletes all other caches, so an old build
+// can never keep serving stale assets — the newest version always wins.
+const CACHE = 'rentloja-__BUILD_ID__'
 
 self.addEventListener('install', () => self.skipWaiting())
 
