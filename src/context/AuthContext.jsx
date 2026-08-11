@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { db } from '../lib/db.js'
 import { setActiveCurrency } from '../lib/format.js'
 import { currencyByCode, marketFor } from '../lib/markets.js'
-import { stashTokens, markSignedOut, clearSignedOut } from '../lib/quickUnlock.js'
+import { stashTokens, forgetAccount, clearSignedOut } from '../lib/quickUnlock.js'
 import { markUnlocked, markLocked } from '../lib/lockState.js'
 
 const AuthCtx = createContext(null)
@@ -89,10 +89,12 @@ export function AuthProvider({ children }) {
     },
     async resendVerification(email) { return db.resendVerification(email) },
     async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); markUnlocked(); clearSignedOut(userId); await refresh() },
-    // Signing out is deliberate: stop offering password-free re-entry on the
-    // landing screen, but keep the PIN/passkey so the lock screen still works
-    // once they sign back in.
-    async signOut() { markSignedOut(session?.userId); await db.signOut(); markLocked(); setSession(null); setProfile(null) },
+    // Signing out is deliberate and complete: forget this device's saved sign-in
+    // for the account entirely — the stored session token AND the PIN / passkey —
+    // so nobody can get back in without the password. Quick unlock can be set up
+    // again after the next password sign-in. (The in-app LOCK screen, for a
+    // still-signed-in session, is unaffected — that path never calls signOut.)
+    async signOut() { forgetAccount(session?.userId); await db.signOut(); markLocked(); setSession(null); setProfile(null) },
   }
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>
