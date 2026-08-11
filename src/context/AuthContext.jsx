@@ -80,6 +80,13 @@ export function AuthProvider({ children }) {
     },
     async resendLoginOtp(challengeId) { return db.resendLoginOtp(challengeId) },
     async signUpManager(data) { const r = await db.signUpManager(data); markUnlocked(); await refresh(); return r },
+    // Google / Apple, manager-only. Redirects away to the provider; the session
+    // is picked up on return by the onAuthChange listener above.
+    async signInWithProvider(provider) {
+      if (!db.signInWithProvider) throw new Error('Social sign-in isn’t available in this mode.')
+      markUnlocked()
+      return db.signInWithProvider(provider)
+    },
     async resendVerification(email) { return db.resendVerification(email) },
     async quickUnlock({ userId, role, tokens }) { await db.quickUnlockSession({ userId, role, tokens }); markUnlocked(); clearSignedOut(userId); await refresh() },
     // Signing out is deliberate: stop offering password-free re-entry on the

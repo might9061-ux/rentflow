@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import AuthShell from '../AuthShell.jsx'
+import SocialAuth from '../../components/SocialAuth.jsx'
 import ForgotPasswordModal from '../ForgotPasswordModal.jsx'
 import { Input, EmailInput, PasswordInput, Row } from '../../components/Field.jsx'
 import PhoneInput from '../../components/PhoneInput.jsx'
@@ -144,6 +145,8 @@ export default function ManagerAuth() {
           </p>
         )}
       </form>
+
+      <SocialAuth />
 
       {forgot && (
         <ForgotPasswordModal accent="gold" role="manager" initialEmail={form.email}
