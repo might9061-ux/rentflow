@@ -107,6 +107,9 @@ router.post('/staff', h(async (req, res) => {
     role: 'staff', owner_id: ownerId,
     assigned_property_ids: Array.isArray(b.assigned_property_ids) ? b.assigned_property_ids : [],
     account_status: 'active',
+    // Agents don't pick a plan (the owner's plan covers the workspace), so mark
+    // them onboarded up front — never send an agent to the "choose a plan" gate.
+    onboarded: true,
   }
   // Must set their own password on first sign-in; starts the temp key's clock.
   const firstLoginCols = {
