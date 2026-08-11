@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import { IconArrowRight } from '../components/icons.jsx'
+import SupportContact from '../components/SupportContact.jsx'
 
-// Shared centered card used by manager/tenant auth screens.
-export default function AuthShell({ accent = 'gold', eyebrow, title, subtitle, children, footer }) {
+// Shared centered card used by manager/tenant auth screens. `support` picks who
+// the "Need help?" line points at: 'hq' (RentLoja), 'manager' (tenant screens),
+// or 'none'.
+export default function AuthShell({ accent = 'gold', eyebrow, title, subtitle, children, footer, support = 'hq' }) {
   return (
     <div className={accent === 'green' ? 'theme-tenant' : ''}
       style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -19,6 +22,8 @@ export default function AuthShell({ accent = 'gold', eyebrow, title, subtitle, c
         </div>
 
         {footer && <div style={{ textAlign: 'center', marginTop: 16, fontSize: '0.88rem' }} className="muted">{footer}</div>}
+
+        <SupportContact mode={support} style={{ marginTop: 16 }} />
       </div>
     </div>
   )

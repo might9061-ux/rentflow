@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { listPublicListings } from '../../lib/publicListings.js'
 import { money } from '../../lib/format.js'
 import { Spinner, EmptyState } from '../../components/ui.jsx'
+import SupportContact from '../../components/SupportContact.jsx'
 
 const norm = (s) => (s || '').trim()
 const uniqSorted = (arr) => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b))
@@ -123,6 +124,8 @@ export default function PublicListings() {
             </div>
           )}
       </div>
+
+      <SupportContact mode="hq" style={{ marginTop: 28 }} />
 
       <footer className="pub-foot">
         <span>Powered by RentLoja</span>

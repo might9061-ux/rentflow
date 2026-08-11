@@ -37,7 +37,7 @@ export default function AdminAuth() {
 
   if (challenge) {
     return (
-      <AuthShell accent="gold" eyebrow="App owner" title="One more step">
+      <AuthShell accent="gold" eyebrow="App owner" title="One more step" support="none">
         <LoginOtpStep challenge={challenge} onBack={() => setChallenge(null)} onVerified={() => {}} />
       </AuthShell>
     )
@@ -48,6 +48,7 @@ export default function AdminAuth() {
       accent="gold"
       eyebrow="App owner"
       title="Admin console"
+      support="none"
       subtitle="Sign in to manage the RentLoja platform."
     >
       <form onSubmit={submit}>
