@@ -15,6 +15,7 @@ export default function TenantLogin() {
   const [busy, setBusy] = useState(false)
   const [forgot, setForgot] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
+  const [pwLocked, setPwLocked] = useState(true) // hold back password autofill until focus
   const [challenge, setChallenge] = useState(null) // set → show the emailed login-code step
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
@@ -53,6 +54,7 @@ export default function TenantLogin() {
         <Input label="Phone or email" autoComplete="username" value={form.email} onChange={set('email')}
           placeholder="0775 123 001 or name@example.com" required />
         <PasswordInput label="Password" autoComplete="current-password" value={form.password} onChange={set('password')} required
+          readOnly={pwLocked} onFocus={() => setPwLocked(false)}
           hint="Temporary passwords look like TEMP-XXXX" />
         <div style={{ textAlign: 'right', marginTop: -8, marginBottom: 14 }}>
           <button type="button" className="link-btn" onClick={() => setForgot(true)} style={{ fontWeight: 500, fontSize: '0.84rem' }}>

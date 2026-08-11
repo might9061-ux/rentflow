@@ -15,6 +15,10 @@ export default function ManagerAuth() {
   const toast = useToast()
   const [mode, setMode] = useState('signin') // 'signin' | 'signup'
   const [forgot, setForgot] = useState(false)
+  // Keep the browser from PRE-FILLING a saved password on load — the field stays
+  // readonly (so autofill skips it) until the user focuses it. Email can still
+  // autofill; only the password is held back, for shared-device safety.
+  const [pwLocked, setPwLocked] = useState(true)
   const [busy, setBusy] = useState(false)
   const [agreed, setAgreed] = useState(false) // Terms + Privacy consent (sign-up only)
   const [verifyEmail, setVerifyEmail] = useState(null) // set → show "check your email" screen
@@ -116,7 +120,8 @@ export default function ManagerAuth() {
           <PhoneInput label="Phone" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
         )}
         <PasswordInput label="Password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-          value={form.password} onChange={set('password')} required minLength={6} />
+          value={form.password} onChange={set('password')} required minLength={6}
+          readOnly={mode === 'signin' && pwLocked} onFocus={() => setPwLocked(false)} />
 
         {mode === 'signin' && (
           <div style={{ textAlign: 'right', marginTop: -8, marginBottom: 14 }}>
