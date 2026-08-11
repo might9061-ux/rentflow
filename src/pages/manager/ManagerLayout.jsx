@@ -184,7 +184,7 @@ export default function ManagerLayout() {
             </div>
           </button>
           <button className="btn ghost block sm" onClick={() => setShowProfile(true)} style={{ marginBottom: 8 }}>
-            <IconKey size={15} /> Account
+            {isOwner ? <><IconKey size={15} /> Account</> : <><IconSettings size={15} /> Settings</>}
           </button>
           <button className="btn ghost block sm" onClick={signOut}><IconLogout size={15} /> Sign out</button>
           {profile?.brand_name && (
@@ -198,7 +198,7 @@ export default function ManagerLayout() {
       {open && <div className="sidebar-backdrop" onClick={() => setOpen(false)} />}
 
       {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
-      {showProfile && <ProfileModal role="manager" title="Account" onClose={() => setShowProfile(false)} onChangePassword={() => setShowChangePw(true)} />}
+      {showProfile && <ProfileModal role="manager" title={isOwner ? 'Account' : 'Settings'} onClose={() => setShowProfile(false)} onChangePassword={() => setShowChangePw(true)} />}
       {showQuickUnlock && profile && (
         <QuickUnlockSetup
           meta={{ userId, role: 'manager', name: `${profile.first_name} ${profile.last_name}`, identifier: profile.email }}
