@@ -94,7 +94,7 @@ async function askClaude({ role, message, context, facts, history }) {
 
 // ── Derived facts (shared by demo + live) ────────────────────────────────────
 function managerFacts(ctx = {}) {
-  const { profile, tenants = [], properties = [], payments = [] } = ctx
+  const { profile, tenants = [], properties = [], payments = [] } = ctx || {}
   const approved = payments.filter((p) => p.status === 'approved')
   const pending = payments.filter((p) => p.status === 'pending')
   const collected = approved.reduce((s, p) => s + Number(p.amount), 0)
@@ -140,7 +140,7 @@ function managerFacts(ctx = {}) {
 }
 
 function tenantFacts(ctx = {}) {
-  const { profile = {}, manager, payments = [], accepted = [], payDetails = {}, period } = ctx
+  const { profile = {}, manager, payments = [], accepted = [], payDetails = {}, period } = ctx || {}
   const rent = Number(profile.rent || 0)
   const led = tenantLedger(profile, payments)
   const arr = computeArrears(profile, payments)

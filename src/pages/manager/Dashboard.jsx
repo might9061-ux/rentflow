@@ -31,6 +31,7 @@ function collectedInFrame(approved, frame) {
 
 export default function ManagerDashboard() {
   const { userId, profile } = useAuth()
+  const isOwner = profile?.role !== 'staff' // agents never see subscription/billing
   const nav = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
@@ -87,8 +88,9 @@ export default function ManagerDashboard() {
         <p>Here’s how your portfolio is doing today.</p>
       </div>
 
-      {/* Automatic reminder when the manager's own subscription is due/overdue. */}
-      {data.sub && (data.sub.state === 'overdue' || data.sub.state === 'due-soon') && (
+      {/* Automatic reminder when the OWNER's own subscription is due/overdue.
+          Agents never see subscription/billing — it's not their account. */}
+      {isOwner && data.sub && (data.sub.state === 'overdue' || data.sub.state === 'due-soon') && (
         <Link to="/manager/plan" className="banner gold" style={{ marginBottom: 18, textDecoration: 'none', display: 'flex' }}>
           <div className="b-ico"><IconWallet size={18} /></div>
           <div className="spread" style={{ flex: 1, alignItems: 'center', gap: 10 }}>
