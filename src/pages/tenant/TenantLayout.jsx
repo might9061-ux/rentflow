@@ -8,6 +8,7 @@ import ChangePasswordModal from '../../components/ChangePasswordModal.jsx'
 import AssistantWidget from '../../components/AssistantWidget.jsx'
 import QuickUnlockSetup from '../../components/QuickUnlockSetup.jsx'
 import ProfileModal from '../../components/ProfileModal.jsx'
+import SupportContact from '../../components/SupportContact.jsx'
 import { hasQuickUnlock, isMobileDevice } from '../../lib/quickUnlock.js'
 import { brandVars, cacheBrand } from '../../lib/brand.js'
 import Logo from '../../components/Logo.jsx'
@@ -120,6 +121,7 @@ export default function TenantLayout() {
             <IconSettings size={15} /> Settings
           </button>
           <button className="btn ghost block sm" onClick={signOut}><IconLogout size={15} /> Sign out</button>
+          <SupportContact mode="manager" style={{ marginTop: 12, fontSize: '0.72rem' }} />
           {brandMgr?.brand_name && (
             <div style={{ textAlign: 'center', fontSize: '0.68rem', color: 'var(--text-faint)', marginTop: 12 }}>
               Powered by <b style={{ color: 'var(--text-dim)' }}>RentLoja</b>
