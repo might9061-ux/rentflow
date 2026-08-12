@@ -77,6 +77,10 @@ export default function Maintenance() {
         <p>Repair requests from your tenants — assign, track and close them out.</p>
       </div>
 
+      {/* Calendar hero — the diary's month at a glance. Dots mark due dates
+          (red overdue, amber soon, azure later); tap a day to see its tasks. */}
+      <DiaryCalendar tasks={tasks} propName={propName} onMarkDone={(t) => setCompleting(t)} />
+
       {/* Tap Open or In progress to see those in a pop-up; Resolved stays listed below. */}
       <div className="grid stats" style={{ marginBottom: 22 }}>
         <StatCard label="Open" value={openList.length} sub="Not yet started" icon={<IconWrench size={18} />} onClick={() => setListView('open')} />
@@ -301,5 +305,107 @@ function CompleteTaskModal({ task, onClose, onDone }) {
       <Input label="Done by (optional)" value={form.done_by} onChange={set('done_by')} placeholder="Caretaker / contractor" />
       <Textarea label="Note (optional)" value={form.note} onChange={set('note')} placeholder="What was done, parts replaced…" style={{ minHeight: 60 }} />
     </Modal>
+  )
+}
+
+// Month calendar for the facilities diary. Dots mark diary due-dates — red for
+// overdue, amber due within 14 days, azure later. Tap a day to see its tasks
+// and mark them done right there.
+function DiaryCalendar({ tasks, propName, onMarkDone }) {
+  const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const [picked, setPicked] = useState(null) // ISO day whose tasks are shown
+
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const todayIso = iso(new Date())
+  const byDay = {}
+  for (const t of tasks) (byDay[t.next_due] = byDay[t.next_due] || []).push(t)
+
+  // Monday-first grid covering the whole month.
+  const first = new Date(month)
+  const startOffset = (first.getDay() + 6) % 7
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
+  const cells = []
+  for (let i = 0; i < startOffset; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(month.getFullYear(), month.getMonth(), d))
+  while (cells.length % 7) cells.push(null)
+
+  const dotColor = (dayIso) => dayIso < todayIso ? 'var(--danger)'
+    : (new Date(dayIso) - new Date(todayIso)) / 86400000 <= 14 ? 'var(--warn)' : 'var(--accent)'
+  const label = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const move = (n) => { setPicked(null); setMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1)) }
+  const pickedTasks = picked ? (byDay[picked] || []) : []
+
+  return (
+    <div className="card pad" style={{ marginBottom: 22 }}>
+      <div className="spread" style={{ marginBottom: 10 }}>
+        <h3 style={{ fontSize: '1.1rem' }}>Facilities calendar</h3>
+        <div className="row gap">
+          <button className="btn sm ghost" onClick={() => move(-1)} aria-label="Previous month">‹</button>
+          <b style={{ fontSize: '0.92rem', minWidth: 130, textAlign: 'center' }}>{label}</b>
+          <button className="btn sm ghost" onClick={() => move(1)} aria-label="Next month">›</button>
+        </div>
+      </div>
+
+      <div className="cal-grid">
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div key={d} className="cal-h">{d}</div>)}
+        {cells.map((d, i) => {
+          if (!d) return <div key={`e${i}`} className="cal-cell empty" />
+          const dayIso = iso(d)
+          const due = byDay[dayIso] || []
+          const isToday = dayIso === todayIso
+          return (
+            <button key={dayIso} type="button"
+              className={`cal-cell ${isToday ? 'today' : ''} ${picked === dayIso ? 'picked' : ''} ${due.length ? 'has' : ''}`}
+              onClick={() => setPicked(due.length ? (picked === dayIso ? null : dayIso) : null)}>
+              <span className="cal-n">{d.getDate()}</span>
+              {due.length > 0 && (
+                <span className="cal-dots">
+                  {due.slice(0, 3).map((t) => <span key={t.id} className="cal-dot" style={{ background: dotColor(dayIso) }} />)}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {picked && pickedTasks.length > 0 && (
+        <div style={{ marginTop: 12, borderTop: '1px solid var(--line-soft)', paddingTop: 12 }}>
+          <div className="muted" style={{ fontSize: '0.78rem', marginBottom: 8 }}>Due {fmtDate(picked)}</div>
+          {pickedTasks.map((t) => (
+            <div key={t.id} className="spread wrap" style={{ gap: 8, padding: '8px 0' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{t.asset}</div>
+                <div className="muted" style={{ fontSize: '0.78rem' }}>{t.task} · {propName(t.property_id)}</div>
+              </div>
+              <button className="btn sm ok" onClick={() => onMarkDone(t)}>Mark done</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="row gap wrap" style={{ marginTop: 10, fontSize: '0.72rem', color: 'var(--text-faint)' }}>
+        <span className="row" style={{ gap: 5, alignItems: 'center' }}><span className="cal-dot" style={{ background: 'var(--danger)' }} /> Overdue</span>
+        <span className="row" style={{ gap: 5, alignItems: 'center' }}><span className="cal-dot" style={{ background: 'var(--warn)' }} /> Due soon</span>
+        <span className="row" style={{ gap: 5, alignItems: 'center' }}><span className="cal-dot" style={{ background: 'var(--accent)' }} /> Scheduled</span>
+      </div>
+
+      <style>{`
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+        .cal-h { text-align: center; font-size: 0.66rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); padding: 4px 0; }
+        .cal-cell { position: relative; min-height: 44px; border: 1px solid transparent; border-radius: 7px;
+          background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+          font-family: inherit; color: var(--text); }
+        .cal-cell.empty { background: transparent; }
+        .cal-cell.has { cursor: pointer; border-color: var(--line-soft); }
+        .cal-cell.has:hover { border-color: var(--accent-line); }
+        .cal-cell.today { border-color: var(--accent); }
+        .cal-cell.today .cal-n { color: var(--accent); font-weight: 700; }
+        .cal-cell.picked { background: var(--accent-bg); border-color: var(--accent); }
+        .cal-n { font-size: 0.8rem; line-height: 1; }
+        .cal-dots { display: flex; gap: 3px; }
+        .cal-dot { width: 6px; height: 6px; border-radius: 99px; display: inline-block; }
+        @media (max-width: 560px) { .cal-cell { min-height: 38px; } }
+      `}</style>
+    </div>
   )
 }
