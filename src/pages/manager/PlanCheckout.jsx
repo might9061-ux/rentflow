@@ -12,7 +12,7 @@ export default function PlanCheckout({ mode, capacity, price, charge, credit = 0
   const toast = useToast()
   const isTrial = mode === 'trial'
   const payNow = isTrial ? 0 : (charge != null ? charge : price) // amount charged today (upgrade = difference; trial = 0)
-  const firstCharge = new Date(Date.now() + 7 * 86400000)
+  const firstCharge = new Date(Date.now() + 30 * 86400000)
   const saved = manager?.billing_card
   const [useNew, setUseNew] = useState(!saved)
   const [num, setNum] = useState('')
@@ -51,7 +51,7 @@ export default function PlanCheckout({ mode, capacity, price, charge, credit = 0
       footer={<>
         <button className="btn ghost" onClick={onClose} disabled={busy}>Cancel</button>
         <button className="btn primary" onClick={pay} disabled={busy}>
-          {busy ? <><Spinner /> Processing…</> : isTrial ? <>Start 7‑day free trial</> : <>Pay {money(payNow)}</>}
+          {busy ? <><Spinner /> Processing…</> : isTrial ? <>Start free month</> : <>Pay {money(payNow)}</>}
         </button>
       </>}>
       {/* Plan summary */}
@@ -106,7 +106,7 @@ export default function PlanCheckout({ mode, capacity, price, charge, credit = 0
       )}
 
       <p className="hint" style={{ marginTop: 14 }}>{isTrial
-        ? '🔒 Your card is saved but not charged today. Your first payment is 7 days from now — cancel before then and you won’t be charged. Demo gateway (use 4242 4242 4242 4242).'
+        ? '🔒 No charge today — your first month is free. Your first payment is a month from now; cancel before then and you won’t be charged. Demo gateway (use 4242 4242 4242 4242).'
         : '🔒 Your card is securely saved for future installments. Demo gateway — no real charge is made (use 4242 4242 4242 4242).'}</p>
     </Modal>
   )

@@ -55,7 +55,7 @@ export default function Demo() {
           <div className="spread wrap" style={{ gap: 12 }}>
             <div>
               <div style={{ fontWeight: 600, fontFamily: 'var(--serif)', fontSize: '1.2rem' }}>Like what you see?</div>
-              <div className="muted" style={{ fontSize: '0.86rem' }}>Start free for 7 days — add your own properties and tenants. No charge today.</div>
+              <div className="muted" style={{ fontSize: '0.86rem' }}>Start free for a month — add your own properties and tenants. No card, no charge.</div>
             </div>
             <div className="row gap">
               <button className="btn ghost" onClick={() => nav('/rent')}>Browse rentals</button>

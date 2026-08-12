@@ -89,11 +89,11 @@ router.post('/me/plan', h(async (req, res) => {
     plan_started_at: cur?.plan_started_at || new Date().toISOString(),
     plan_canceled_at: null, // (re)activating clears any pending cancellation
   }
-  // A 7-day free trial is only granted on a genuinely fresh start (not already
-  // active, and hasn't used a trial before). The card is saved by the client; no
-  // charge is recorded here.
+  // A 1-month free trial is only granted on a genuinely fresh start (not already
+  // active, and hasn't used a trial before). No card and no charge — the first
+  // month is free; billing begins when the trial ends.
   if (req.body?.trial === true && !cur?.plan_active && !cur?.trial_ends_at) {
-    patch.trial_ends_at = new Date(Date.now() + 7 * DAY).toISOString()
+    patch.trial_ends_at = new Date(Date.now() + 30 * DAY).toISOString()
   }
   res.json(ok(await admin.from('managers').update(patch).eq('id', owner).select(PLAN_SELECT).single()))
 }))

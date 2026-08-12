@@ -19,7 +19,7 @@ const FEATURES = [
 ]
 
 const FAQS = [
-  { q: 'Is RentLoja free to try?', a: 'Yes — property managers get a 7-day free trial. You add a card to start, but nothing is charged until the trial ends, and you can cancel any time before then.' },
+  { q: 'Is RentLoja free to try?', a: 'Yes — property managers get a free first month. No card needed to start, nothing is charged until the month ends, and you can cancel any time before then.' },
   { q: 'How much does it cost?', a: 'Plans are billed monthly and priced by how many tenants you manage, starting from $10/month. You’ll see the exact tier on the Plan & billing page after signing up.' },
   { q: 'Is it free for tenants?', a: 'Yes. Tenants pay and track their rent at no cost — their property manager runs the account.' },
   { q: 'How do tenants pay rent?', a: 'By card or EcoCash for an instant receipt, or by uploading proof of a cash/bank payment for the manager to approve.' },
@@ -106,10 +106,10 @@ export default function RolePicker() {
           tenants a simple way to pay and keep every receipt.
         </p>
         <div className="lp-cta">
-          <button className="btn primary lg" onClick={() => nav('/manager/auth')}>Start your 7-day free trial <IconArrowRight size={16} /></button>
+          <button className="btn primary lg" onClick={() => nav('/manager/auth')}>Start your free month <IconArrowRight size={16} /></button>
           <button className="btn ghost lg" onClick={() => nav('/rent')}>Browse rooms &amp; houses</button>
         </div>
-        <div className="lp-trust"><IconCheck size={14} /> 7 days free · no charge today · cancel anytime</div>
+        <div className="lp-trust"><IconCheck size={14} /> 1 month free · no card · cancel anytime</div>
         <div className="lp-demo">
           <span className="lp-demo-label"><IconSparkle size={14} /> Try the live demo — no sign-up:</span>
           <button className="btn ghost sm" onClick={() => enterDemo('manager')}>As a manager</button>
@@ -259,11 +259,11 @@ export default function RolePicker() {
             <h2 style={{ marginTop: 6 }}>Pay for what you need</h2>
             <p className="muted" style={{ maxWidth: 460 }}>
               Plans are priced by how many tenants you manage — from <b style={{ color: 'var(--text)' }}>$10/month</b>.
-              Start with a <b style={{ color: 'var(--text)' }}>7-day free trial</b>; you’re only billed once it ends,
+              Start with a <b style={{ color: 'var(--text)' }}>free first month</b>; you’re only billed once it ends,
               and you can cancel anytime.
             </p>
           </div>
-          <button className="btn primary lg" onClick={() => nav('/manager/auth')}>Start free trial <IconArrowRight size={16} /></button>
+          <button className="btn primary lg" onClick={() => nav('/manager/auth')}>Start free month <IconArrowRight size={16} /></button>
         </div>
       </section>
 
