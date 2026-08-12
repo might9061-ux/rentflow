@@ -15,7 +15,9 @@ rent, see their balance, and keep every receipt.
 PRICING & FREE MONTH
 - New managers get a FREE FIRST MONTH: pick a plan size (how many tenants), with
   no card and no charge. Billing begins only after the free month ends.
-- Plans are priced by tenant capacity, from about $10/month, stepping up by tier.
+- Plans are priced by tenant capacity, from about $10/month, stepping up by tier
+  (up to 200 tenants = $70/month). Above 200, just type your exact tenant count —
+  the price is $70 plus $0.30 per tenant above 200 (e.g. 1000 tenants ≈ $310/mo).
   Billable monthly or yearly. One free month per manager.
 - Tenants never pay RentLoja anything — the manager's subscription covers the
   whole workspace (including all its tenants and agents).

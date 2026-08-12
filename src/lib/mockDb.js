@@ -661,10 +661,12 @@ export const mockApi = {
     if (cap < 1) throw new Error('Choose how many tenants you need.')
     const tenants = d.tenants.filter((t) => t.manager_id === m.id).length
     if (cap < tenants) throw new Error(`You already have ${tenants} tenants — choose at least that many.`)
-    const TIERS = [[5, 10], [20, 20], [50, 40], [100, 50], [Infinity, 70]]
+    const TIERS = [[5, 10], [20, 20], [50, 40], [100, 50], [200, 70]]
     const wasActive = m.plan_active
     m.plan_capacity = cap
-    m.plan_price = (TIERS.find(([upTo]) => cap <= upTo) || TIERS[TIERS.length - 1])[1]
+    // 200+ scales with the exact count: $70 + $0.30/tenant above 200.
+    m.plan_price = cap > 200 ? 70 + Math.ceil((cap - 200) * 0.30)
+      : (TIERS.find(([upTo]) => cap <= upTo) || TIERS[TIERS.length - 1])[1]
     m.plan_active = true
     m.onboarded = true
     m.plan_cycle = opts?.cycle === 'yearly' ? 'yearly' : 'monthly'

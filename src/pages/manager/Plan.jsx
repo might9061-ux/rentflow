@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, fmtDate, monthYear } from '../../lib/format.js'
 import {
-  priceForCapacity, PLAN_PRESETS, PLAN_TIERS, tierForCapacity, MIN_CAPACITY, MAX_CAPACITY,
+  priceForCapacity, PLAN_PRESETS, PLAN_TIERS, tierForCapacity, MIN_CAPACITY, MAX_CAPACITY, MAX_TYPED,
 } from '../../lib/pricing.js'
 import { installmentAmount, YEARLY_MONTHS } from '../../lib/subscription.js'
 import { Spinner } from '../../components/ui.jsx'
@@ -273,16 +273,23 @@ export default function Plan() {
           <div className="grow" style={{ minWidth: 240 }}>
             <label className="row spread" style={{ fontSize: '0.84rem', color: 'var(--text-dim)', marginBottom: 8 }}>
               <span>Tenant capacity</span>
-              <b style={{ color: 'var(--text)' }}>{capacity} tenants</b>
+              <span className="row gap" style={{ alignItems: 'center' }}>
+                {/* Type the exact count — goes beyond the slider's 200, and the
+                    price adjusts automatically ($0.30/tenant above 200). */}
+                <input type="number" min={MIN_CAPACITY} max={MAX_TYPED} value={capacity}
+                  onChange={(e) => setCapacity(Math.max(MIN_CAPACITY, Math.min(MAX_TYPED, Math.floor(Number(e.target.value) || MIN_CAPACITY))))}
+                  className="input" style={{ width: 90, padding: '6px 10px', textAlign: 'right', fontWeight: 700 }} />
+                <b style={{ color: 'var(--text)' }}>tenants</b>
+              </span>
             </label>
-            <input type="range" min={MIN_CAPACITY} max={MAX_CAPACITY} value={capacity}
+            <input type="range" min={MIN_CAPACITY} max={MAX_CAPACITY} value={Math.min(capacity, MAX_CAPACITY)}
               onChange={(e) => setCapacity(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--gold)' }} />
             <div className="row spread" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', marginTop: 4 }}>
-              <span>{MIN_CAPACITY}</span><span>{MAX_CAPACITY}</span>
+              <span>{MIN_CAPACITY}</span><span>{MAX_CAPACITY}+ — type any number above</span>
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div className="eyebrow" style={{ color: 'var(--gold)' }}>{tier.name}{Number.isFinite(tier.upTo) ? ` · up to ${tier.upTo}` : ' · 100+'}</div>
+            <div className="eyebrow" style={{ color: 'var(--gold)' }}>{tier.name}{capacity > 200 ? ` · ${capacity} tenants` : Number.isFinite(tier.upTo) ? ` · up to ${tier.upTo}` : ' · 200+'}</div>
             <div className="mono" style={{ fontFamily: 'var(--serif)', fontSize: '2.6rem', fontWeight: 600, lineHeight: 1, color: 'var(--gold)' }}>{money(chargeNow)}</div>
             <div className="muted" style={{ fontSize: '0.8rem' }}>{cycle === 'yearly' ? `per year · ${money(price)}/mo` : 'per month'}</div>
           </div>
@@ -398,6 +405,15 @@ export default function Plan() {
                 </tr>
               )
             })}
+            {/* Beyond the tiers the price scales with the exact count — just
+                type your tenant number above. */}
+            <tr style={capacity > 200 ? { background: 'var(--gold-bg)' } : undefined}>
+              <td style={{ fontWeight: 600 }}>200+</td>
+              <td>type your count</td>
+              <td colSpan={2} className="mono" style={{ fontWeight: 600 }}>
+                $70 <span className="muted" style={{ fontWeight: 400 }}>+ $0.30/tenant above 200 — e.g. 1000 tenants = {money(priceForCapacity(1000))}/mo</span>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
