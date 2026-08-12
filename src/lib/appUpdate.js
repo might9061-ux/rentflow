@@ -13,10 +13,12 @@ const RELOAD_KEY = 'rl_stale_reload_at'
 const WINDOW_MS = 10000
 
 // True when an error is a failed dynamic import of a code chunk (a stale build),
-// not a real bug in the page.
+// not a real bug in the page. The "reading 'default'" variant is React.lazy
+// resolving a chunk that half-loaded during a deploy (its module evaluated to
+// undefined) — same cause, different symptom.
 export function isChunkLoadError(err) {
   const msg = (err && (err.message || String(err))) || ''
-  return /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk \S+ failed|error loading dynamically imported module/i.test(msg)
+  return /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk \S+ failed|error loading dynamically imported module|reading 'default'/i.test(msg)
 }
 
 // Reload once to pick up the new version. Returns true if a reload was triggered.

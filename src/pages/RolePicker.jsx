@@ -132,7 +132,7 @@ export default function RolePicker() {
             <div className="lp-shot-hi">Good day, Tendai</div>
             <div className="lp-shot-stats">
               {[
-                { l: 'Total collected', v: '$18,450', s: '42 payments', I: IconWallet },
+                { l: 'Total collected', v: '$18,450', s: '▲ 12% vs last month', I: IconWallet },
                 { l: 'Outstanding', v: '$1,750', s: 'Unpaid tenants', I: IconChart },
                 { l: 'Occupancy', v: '82%', s: '18 / 22 units', I: IconBuilding },
                 { l: 'Pending', v: '3', s: 'To approve', I: IconCheck },
@@ -366,8 +366,10 @@ export default function RolePicker() {
           background: var(--surface); padding: 3px 14px; border-radius: 99px; border: 1px solid var(--line-soft); }
         .lp-shot-body { padding: 20px; text-align: left; background: var(--bg); }
         .lp-shot-hi { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; margin: 4px 0 16px; }
-        .lp-shot-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-        .lp-stat { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 12px; padding: 13px 14px; }
+        .lp-shot-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+          background: var(--line-soft); border: 1px solid var(--line-soft);
+          border-radius: var(--radius); overflow: hidden; }
+        .lp-stat { background: var(--surface); border: none; border-radius: 0; padding: 13px 14px; }
         .lp-stat-top { display: flex; justify-content: space-between; align-items: center; }
         .lp-stat-l { font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
         .lp-stat-ic { color: var(--gold); display: inline-flex; }

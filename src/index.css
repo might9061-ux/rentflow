@@ -196,15 +196,16 @@ input, select, textarea { font-family: inherit; }
 .link-btn:hover { text-decoration: underline; }
 
 /* ── Cards / panels ──────────────────────────────────────────────────────── */
+/* Executive look: crisp hairline cards, no drop shadows or hover lifts —
+   emphasis comes from type and spacing, not elevation. */
 .card {
   background: var(--surface);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-soft);
 }
 .card.pad { padding: 22px; }
-.card.clickable { cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
-.card.clickable:hover { transform: translateY(-2px); border-color: var(--accent-line); box-shadow: 0 16px 36px -24px var(--accent); }
+.card.clickable { cursor: pointer; transition: background 0.14s, border-color 0.15s; }
+.card.clickable:hover { background: var(--accent-bg); border-color: var(--accent-line); }
 .card.clickable:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
 .panel { background: var(--bg-raised); border: 1px solid var(--line-soft); border-radius: var(--radius); }
 
@@ -284,7 +285,7 @@ input, select, textarea { font-family: inherit; }
 .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--line-soft); }
 table.data { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 table.data th {
-  text-align: left; padding: 13px 16px; background: var(--bg-raised);
+  text-align: left; padding: 13px 16px; background: transparent;
   font-weight: 600; color: var(--text-faint); font-size: 0.72rem;
   text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--line);
   white-space: nowrap;
