@@ -345,16 +345,14 @@ function BrandingSummary({ manager }) {
   )
 }
 
-// The provider-specific field labels + help. Both adapters store into the same
-// two columns server-side; only the wording differs.
+// Pesepay is the only online-payments gateway (Paynow was removed from the UI;
+// its server adapter stays dormant in case it's ever brought back).
 const GATEWAYS = [
   { key: 'pesepay', name: 'Pesepay', idLabel: 'Integration key', keyLabel: 'Encryption key',
     help: 'From your Pesepay dashboard → Integrations. Use your SANDBOX keys while testing, then switch to live keys.' },
-  { key: 'paynow', name: 'Paynow', idLabel: 'Integration ID', keyLabel: 'Integration key',
-    help: 'From your Paynow account → Integrations (the Integration ID and its matching key).' },
 ]
 
-// Connect a Pesepay / Paynow merchant account. Keys are write-only from here:
+// Connect a Pesepay merchant account. Keys are write-only from here:
 // the server stores them and never sends them back, so once connected the inputs
 // stay blank and are only sent again when the owner types a fresh value.
 function GatewaySection({ wmId }) {
@@ -429,19 +427,12 @@ function GatewaySection({ wmId }) {
         <button type="button" onClick={() => setShowHow(true)} aria-label="How to connect" title="How to connect"
           style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--accent-line)', background: 'var(--accent-bg)', color: 'var(--accent)', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', lineHeight: 1, display: 'inline-grid', placeItems: 'center', flexShrink: 0 }}>?</button>
       </span>}
-      subtitle="Link your own Pesepay or Paynow merchant account so rent is paid straight to you. Keys are stored securely on the server and are never shown to tenants.">
+      subtitle="Link your Pesepay merchant account so rent is paid straight to you. Keys are stored securely on the server and are never shown to tenants.">
       {showHow && <HowToConnectModal onClose={() => setShowHow(false)} />}
       <div className="row gap wrap" style={{ marginBottom: 2 }}>
         {status.connected
           ? <span className="cur-chip on"><IconCheck size={13} /> {savedName} connected{status.live ? ' · live' : ' · not live yet'}</span>
           : <span className="muted" style={{ fontSize: '.82rem' }}>Not connected — tenants can still upload proof of manual payments.</span>}
-      </div>
-
-      <div className="field" style={{ marginBottom: 0 }}>
-        <label>Provider</label>
-        <select className="select" value={provider} onChange={(e) => setProvider(e.target.value)}>
-          {GATEWAYS.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
-        </select>
       </div>
 
       <div className="field-row">
