@@ -51,6 +51,28 @@ function CollectedDelta({ approved = [] }) {
   )
 }
 
+// Occupancy trend: reconstruct last month's occupied count from each tenant's
+// join (lease_start/created_at) and vacate dates, and compare in percentage
+// points. Outstanding gets no delta — it isn't reconstructible honestly.
+function OccupancyDelta({ tenants = [], totalUnits = 0, occupied, occupancy }) {
+  const base = `${occupied} of ${totalUnits} units`
+  if (!totalUnits) return <>{base}</>
+  const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth() - 1)
+  const prevLabel = monthAgo.toLocaleDateString(undefined, { month: 'short' })
+  const occupiedThen = tenants.filter((t) => {
+    const joined = new Date(t.lease_start || t.created_at || Date.now())
+    const left = t.vacated_at ? new Date(t.vacated_at) : null
+    return t.property_id && t.account_status !== 'suspended' && joined <= monthAgo && (!left || left > monthAgo)
+  }).length
+  const prevPct = Math.round((occupiedThen / totalUnits) * 100)
+  const diff = occupancy - prevPct
+  if (!diff) return <>{base} · same as {prevLabel}</>
+  const up = diff > 0
+  return (
+    <span>{base} · <b style={{ color: up ? 'var(--green)' : 'var(--warn)', fontWeight: 600 }}>{up ? '▲' : '▼'} {Math.abs(diff)}pp</b> vs {prevLabel}</span>
+  )
+}
+
 export default function ManagerDashboard() {
   const { userId, profile } = useAuth()
   const isOwner = profile?.role !== 'staff' // agents never see subscription/billing
@@ -90,6 +112,7 @@ export default function ManagerDashboard() {
       props, tenants, payments, approved, pending, collected, outstanding,
       occupancy, occupied, totalUnits, overdue: overdue.length, openRepairs, dueReminders,
       sub: subscriptionStatus(wm, subPays),
+      loadedAt: new Date(),
     })
     setLoading(false)
   }, [userId])
@@ -107,7 +130,10 @@ export default function ManagerDashboard() {
       <div className="page-head">
         <div className="eyebrow">Overview</div>
         <h1>Good day, {profile?.first_name}</h1>
-        <p>Here’s how your portfolio is doing today.</p>
+        <p>
+          Here’s how your portfolio is doing today.
+          <span className="muted" style={{ fontSize: '0.8rem' }}> · Updated {data.loadedAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+        </p>
       </div>
 
       {/* Automatic reminder when the OWNER's own subscription is due/overdue.
@@ -141,7 +167,7 @@ export default function ManagerDashboard() {
       <div className="grid stats" style={{ marginBottom: 20 }}>
         <StatCard label="Total collected" value={money(data.collected)} sub={<CollectedDelta approved={data.approved} />} icon={<IconWallet size={18} />} onClick={() => nav('/manager/payments')} />
         <StatCard label="Outstanding" value={money(data.outstanding)} sub="Across unpaid tenants" icon={<IconClock size={18} />} onClick={() => nav('/manager/tenants')} />
-        <StatCard label="Occupancy" value={`${data.occupancy}%`} sub={`${data.occupied} of ${data.totalUnits} units`} icon={<IconBuilding size={18} />} onClick={() => nav('/manager/properties')} />
+        <StatCard label="Occupancy" value={`${data.occupancy}%`} sub={<OccupancyDelta tenants={data.tenants} totalUnits={data.totalUnits} occupied={data.occupied} occupancy={data.occupancy} />} icon={<IconBuilding size={18} />} onClick={() => nav('/manager/properties')} />
         <StatCard label="Pending approvals" value={data.pending.length} sub="Awaiting your review" icon={<IconCheckCircle size={18} />} onClick={() => nav('/manager/approvals')} />
       </div>
 
