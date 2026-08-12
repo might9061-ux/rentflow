@@ -1035,15 +1035,18 @@ export const mockApi = {
     await delay(); const d = db(); const t = (d.facility_tasks || []).find((x) => x.id === task.id)
     if (!t) throw new Error('Task not found.')
     const done = done_at || new Date().toISOString().slice(0, 10)
-    d.facility_logs = d.facility_logs || []
-    d.facility_logs.push({ id: uid(), task_id: t.id, manager_id: t.manager_id, done_at: done,
-      cost: Number(cost) || 0, note: note || null, done_by: done_by || null, created_at: new Date().toISOString() })
+    let expenseId = null
     if (Number(cost) > 0) {
       d.expenses = d.expenses || []
-      d.expenses.push({ id: uid(), manager_id: t.manager_id, property_id: t.property_id || null,
+      expenseId = uid()
+      d.expenses.push({ id: expenseId, manager_id: t.manager_id, property_id: t.property_id || null,
         category: 'Maintenance', amount: Number(cost), spent_on: done,
         note: `${t.asset} — ${t.task}${done_by ? ` (${done_by})` : ''}`, created_at: new Date().toISOString() })
     }
+    d.facility_logs = d.facility_logs || []
+    d.facility_logs.push({ id: uid(), task_id: t.id, manager_id: t.manager_id, done_at: done,
+      cost: Number(cost) || 0, note: note || null, done_by: done_by || null,
+      expense_id: expenseId, created_at: new Date().toISOString() })
     const dt = new Date(done)
     if (t.interval_unit === 'weeks') dt.setDate(dt.getDate() + 7 * (Number(t.interval_months) || 1))
     else dt.setMonth(dt.getMonth() + (Number(t.interval_months) || 1))
@@ -1054,6 +1057,31 @@ export const mockApi = {
     await delay(30); const d = db()
     return (d.facility_logs || []).filter((l) => l.task_id === taskId)
       .sort((a, b) => (b.done_at || '').localeCompare(a.done_at || '')).map(clone)
+  },
+  async updateFacilityLog(log, { done_at, cost, note, done_by } = {}, task) {
+    await delay(); const d = db(); const l = (d.facility_logs || []).find((x) => x.id === log.id)
+    if (!l) throw new Error('Log not found.')
+    const amount = Number(cost) || 0
+    const exNote = `${task?.asset || 'Equipment'} — ${task?.task || 'service'}${done_by ? ` (${done_by})` : ''}`
+    d.expenses = d.expenses || []
+    let ex = l.expense_id ? d.expenses.find((e) => e.id === l.expense_id) : null
+    // Pre-linking logs: find the original expense by fingerprint, don't duplicate.
+    if (!ex && Number(l.cost) > 0) {
+      ex = d.expenses.find((e) => e.manager_id === l.manager_id && e.category === 'Maintenance'
+        && e.spent_on === l.done_at && Number(e.amount) === Number(l.cost)
+        && String(e.note || '').startsWith(task?.asset || ''))
+      if (ex) l.expense_id = ex.id
+    }
+    if (ex && amount > 0) { ex.amount = amount; ex.spent_on = done_at; ex.note = exNote }
+    else if (ex && amount === 0) { d.expenses = d.expenses.filter((e) => e.id !== ex.id); l.expense_id = null }
+    else if (!ex && amount > 0) {
+      const id = uid()
+      d.expenses.push({ id, manager_id: l.manager_id, property_id: task?.property_id || null,
+        category: 'Maintenance', amount, spent_on: done_at, note: exNote, created_at: new Date().toISOString() })
+      l.expense_id = id
+    }
+    l.done_at = done_at; l.cost = amount; l.note = note || null; l.done_by = done_by || null
+    save(d); return clone(l)
   },
   async listFacilityHistory(userId) {
     await delay(30); const d = db(); const { ownerId } = scopeOf(d, userId)

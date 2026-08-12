@@ -583,22 +583,58 @@ const sb = {
   // Maintenance expense so the money shows up in Finances.
   async completeFacilityTask(task, { done_at, cost, note, done_by } = {}) {
     const done = done_at || new Date().toISOString().slice(0, 10)
+    // Record the expense FIRST so the log can link to it — editing the log's
+    // cost later then updates the same expense instead of drifting Finances.
+    let expenseId = null
+    if (Number(cost) > 0) {
+      const ex = ok(await supabase.from('expenses').insert({
+        manager_id: task.manager_id, property_id: task.property_id || null,
+        category: 'Maintenance', amount: Number(cost), spent_on: done,
+        note: `${task.asset} — ${task.task}${done_by ? ` (${done_by})` : ''}`,
+      }).select().single())
+      expenseId = ex?.id || null
+    }
     ok(await supabase.from('facility_logs').insert({
       task_id: task.id, manager_id: task.manager_id, done_at: done,
       cost: Number(cost) || 0, note: note || null, done_by: done_by || null,
+      expense_id: expenseId,
     }))
     const d = new Date(done)
     if (task.interval_unit === 'weeks') d.setDate(d.getDate() + 7 * (Number(task.interval_months) || 1))
     else d.setMonth(d.getMonth() + (Number(task.interval_months) || 1))
     const next = d.toISOString().slice(0, 10)
-    if (Number(cost) > 0) {
-      ok(await supabase.from('expenses').insert({
-        manager_id: task.manager_id, property_id: task.property_id || null,
-        category: 'Maintenance', amount: Number(cost), spent_on: done,
-        note: `${task.asset} — ${task.task}${done_by ? ` (${done_by})` : ''}`,
-      }))
-    }
     return ok(await supabase.from('facility_tasks').update({ last_done: done, next_due: next }).eq('id', task.id).select().single())
+  },
+  // Edit a logged completion (the record is otherwise immutable). Keeps the
+  // linked expense in step: cost changed → update it; cleared → delete it;
+  // added where there was none → create and link it.
+  async updateFacilityLog(log, { done_at, cost, note, done_by } = {}, task) {
+    const amount = Number(cost) || 0
+    let expenseId = log.expense_id || null
+    const exNote = `${task?.asset || 'Equipment'} — ${task?.task || 'service'}${done_by ? ` (${done_by})` : ''}`
+    // Logs recorded before expense-linking existed have no expense_id — find
+    // their original expense by its fingerprint so we edit it, not duplicate it.
+    if (!expenseId && Number(log.cost) > 0) {
+      const { data: orphan } = await supabase.from('expenses').select('id')
+        .eq('manager_id', log.manager_id).eq('category', 'Maintenance')
+        .eq('spent_on', log.done_at).eq('amount', Number(log.cost))
+        .ilike('note', `${task?.asset || ''}%`).limit(1).maybeSingle()
+      if (orphan?.id) expenseId = orphan.id
+    }
+    if (expenseId && amount > 0) {
+      ok(await supabase.from('expenses').update({ amount, spent_on: done_at, note: exNote }).eq('id', expenseId))
+    } else if (expenseId && amount === 0) {
+      ok(await supabase.from('expenses').delete().eq('id', expenseId)); expenseId = null
+    } else if (!expenseId && amount > 0) {
+      const ex = ok(await supabase.from('expenses').insert({
+        manager_id: log.manager_id, property_id: task?.property_id || null,
+        category: 'Maintenance', amount, spent_on: done_at, note: exNote,
+      }).select().single())
+      expenseId = ex?.id || null
+    }
+    return ok(await supabase.from('facility_logs').update({
+      done_at, cost: amount, note: note || null, done_by: done_by || null, expense_id: expenseId,
+    }).eq('id', log.id).select().single())
   },
   async listFacilityLogs(taskId) { return ok(await supabase.from('facility_logs').select('*').eq('task_id', taskId).order('done_at', { ascending: false })) },
   // Every completion in the workspace — the calendar's history dots.

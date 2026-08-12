@@ -24,6 +24,7 @@ export default function Maintenance() {
   const [history, setHistory] = useState([])      // completed services (calendar history)
   const [editingTask, setEditingTask] = useState(null) // null | {next_due?} (new) | task
   const [completing, setCompleting] = useState(null)   // task being marked done
+  const [editingLog, setEditingLog] = useState(null)   // { log, task } — fix a logged completion
 
   const load = useCallback(async () => {
     // Always clear loading, even if a call fails, so the page can never hang.
@@ -83,7 +84,8 @@ export default function Maintenance() {
           (red overdue, amber soon, azure later); tap a day to see its tasks. */}
       <DiaryCalendar tasks={tasks} history={history} propName={propName}
         onMarkDone={(t) => setCompleting(t)}
-        onAddOn={(dayIso) => setEditingTask({ next_due: dayIso })} />
+        onAddOn={(dayIso) => setEditingTask({ next_due: dayIso })}
+        onEditLog={(log, task) => setEditingLog({ log, task })} />
 
       {/* Tap Open or In progress to see those in a pop-up; Resolved stays listed below. */}
       <div className="grid stats" style={{ marginBottom: 22 }}>
@@ -148,6 +150,10 @@ export default function Maintenance() {
       {completing && (
         <CompleteTaskModal task={completing}
           onClose={() => setCompleting(null)} onDone={() => { setCompleting(null); load() }} />
+      )}
+      {editingLog && (
+        <EditLogModal log={editingLog.log} task={editingLog.task}
+          onClose={() => setEditingLog(null)} onSaved={() => { setEditingLog(null); load() }} />
       )}
       <style>{`
         .mnt-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
@@ -331,7 +337,7 @@ function CompleteTaskModal({ task, onClose, onDone }) {
 // overdue, amber due within 14 days, azure later — and GREEN dots are history:
 // services already done stay on the day they happened, so past months read as a
 // service record. Tap any day to see its tasks/history, or add a task for it.
-function DiaryCalendar({ tasks, history = [], propName, onMarkDone, onAddOn }) {
+function DiaryCalendar({ tasks, history = [], propName, onMarkDone, onAddOn, onEditLog }) {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
   const [picked, setPicked] = useState(null) // ISO day whose tasks are shown
 
@@ -419,6 +425,7 @@ function DiaryCalendar({ tasks, history = [], propName, onMarkDone, onAddOn }) {
                     {t ? `${t.task} · ` : ''}done{l.done_by ? ` by ${l.done_by}` : ''}{Number(l.cost) > 0 ? ` · ${money(Number(l.cost))}` : ''}{l.note ? ` · ${l.note}` : ''}
                   </div>
                 </div>
+                <button className="btn sm ghost" onClick={() => onEditLog(l, t)}>Edit</button>
               </div>
             )
           })}
@@ -453,5 +460,45 @@ function DiaryCalendar({ tasks, history = [], propName, onMarkDone, onAddOn }) {
         @media (max-width: 560px) { .cal-cell { min-height: 38px; } }
       `}</style>
     </div>
+  )
+}
+
+// Fix a logged completion. The record is otherwise immutable — this is the only
+// way to change it, and the linked Maintenance expense is kept in step (cost
+// changed → updated; cleared → removed; added → created).
+function EditLogModal({ log, task, onClose, onSaved }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState({
+    done_at: log.done_at, cost: Number(log.cost) > 0 ? String(log.cost) : '',
+    done_by: log.done_by || '', note: log.note || '',
+  })
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  const save = async () => {
+    setBusy(true)
+    try {
+      await db.updateFacilityLog(log, form, task)
+      toast.success('Record updated', 'The service log — and its expense — now match.')
+      onSaved()
+    } catch (e) { toast.error('Could not update', e.message); setBusy(false) }
+  }
+
+  return (
+    <Modal title={`Edit record — ${task?.asset || 'Equipment'}`} onClose={onClose}
+      footer={<>
+        <button className="btn ghost" onClick={onClose}>Cancel</button>
+        <button className="btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
+      </>}>
+      <p className="muted" style={{ marginTop: 0, fontSize: '0.84rem' }}>
+        {task ? `${task.task} · ` : ''}logged {fmtDate(log.done_at)}. Changing the cost updates the expense in Finances too.
+      </p>
+      <div className="field-row">
+        <Input label="Done on" type="date" value={form.done_at} onChange={set('done_at')} />
+        <Input label="Cost (USD)" type="number" min="0" step="0.01" value={form.cost} onChange={set('cost')} />
+      </div>
+      <Input label="Done by" value={form.done_by} onChange={set('done_by')} placeholder="Caretaker / contractor" />
+      <Textarea label="Note" value={form.note} onChange={set('note')} style={{ minHeight: 60 }} />
+    </Modal>
   )
 }
