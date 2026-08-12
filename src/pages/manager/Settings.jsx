@@ -10,6 +10,7 @@ import { canBrand } from '../../lib/brand.js'
 import { tierForCapacity } from '../../lib/pricing.js'
 import { money, fmtDate } from '../../lib/format.js'
 import { Spinner } from '../../components/ui.jsx'
+import Modal from '../../components/Modal.jsx'
 import Logo from '../../components/Logo.jsx'
 import PushToggle from '../../components/PushToggle.jsx'
 import { IconWallet, IconPhone, IconReceipt, IconSun, IconMoon, IconCheck, IconTag, IconPalette } from '../../components/icons.jsx'
@@ -371,6 +372,7 @@ function GatewaySection({ wmId }) {
   // the key fields readOnly (browsers don't autofill readonly inputs) and unlock
   // on focus, so nothing gets filled behind the owner's back.
   const [locked, setLocked] = useState(true)
+  const [showHow, setShowHow] = useState(false) // "how to connect" guide
 
   useEffect(() => {
     if (!wmId) return
@@ -422,8 +424,13 @@ function GatewaySection({ wmId }) {
   if (loading) return null
 
   return (
-    <Section title="Connect online payments"
+    <Section
+      title={<span className="row gap" style={{ alignItems: 'center' }}>Connect online payments
+        <button type="button" onClick={() => setShowHow(true)} aria-label="How to connect" title="How to connect"
+          style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--accent-line)', background: 'var(--accent-bg)', color: 'var(--accent)', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', lineHeight: 1, display: 'inline-grid', placeItems: 'center', flexShrink: 0 }}>?</button>
+      </span>}
       subtitle="Link your own Pesepay or Paynow merchant account so rent is paid straight to you. Keys are stored securely on the server and are never shown to tenants.">
+      {showHow && <HowToConnectModal onClose={() => setShowHow(false)} />}
       <div className="row gap wrap" style={{ marginBottom: 2 }}>
         {status.connected
           ? <span className="cur-chip on"><IconCheck size={13} /> {savedName} connected{status.live ? ' · live' : ' · not live yet'}</span>
@@ -473,6 +480,55 @@ function GatewaySection({ wmId }) {
         <button className="btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save gateway'}</button>
       </div>
     </Section>
+  )
+}
+
+// Friendly step-by-step for connecting Pesepay, opened by the "?" next to
+// "Connect online payments".
+function HowToConnectModal({ onClose }) {
+  return (
+    <Modal title="How to connect online payments" onClose={onClose}
+      footer={<button className="btn primary" onClick={onClose}>Got it</button>}>
+      <p className="muted" style={{ marginTop: 0 }}>
+        A few one-time steps to start accepting rent online through <b>Pesepay</b>:
+      </p>
+      <ol className="how-steps">
+        <li>
+          <b>Create a Pesepay account.</b> Go to{' '}
+          <a href="https://pesepay.com" target="_blank" rel="noopener noreferrer">pesepay.com</a>, register
+          your business and fill in all the details they ask for.
+        </li>
+        <li>
+          <b>Wait for approval.</b> Pesepay reviews your business and <b>emails you</b> once it’s approved.
+        </li>
+        <li>
+          <b>Tell RentLoja.</b> When your approval comes through, let us know — WhatsApp is best:
+          <div className="how-contact">
+            <a href="https://wa.me/263773677343?text=Hi%20RentLoja%2C%20my%20Pesepay%20business%20is%20approved." target="_blank" rel="noreferrer">📱 WhatsApp +263 773 677 343</a>
+            <a href="mailto:rentloja@gmail.com?subject=Pesepay%20approved">✉️ rentloja@gmail.com</a>
+          </div>
+          Send us the <b>email address you registered with on Pesepay</b>.
+        </li>
+        <li>
+          <b>Accept the 0.5% split.</b> Accept the RentLoja split-payment agreement on Pesepay so rent is
+          paid straight into your account (RentLoja takes only a small 0.5% share). Full details are in the{' '}
+          <a href="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; agreement</a>.
+        </li>
+      </ol>
+      <p className="hint" style={{ marginTop: 8 }}>
+        Once that’s done, paste the same Pesepay email into the box below and switch on live payments —
+        you’re ready to collect rent online. 🎉
+      </p>
+      <style>{`
+        .how-steps { padding-left: 22px; margin: 6px 0 0; }
+        .how-steps li { margin-bottom: 14px; line-height: 1.55; }
+        .how-steps a { color: var(--accent); font-weight: 600; }
+        .how-contact { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+        .how-contact a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
+          border: 1px solid var(--accent-line); background: var(--accent-bg); border-radius: 999px;
+          font-size: 0.86rem; font-weight: 600; }
+      `}</style>
+    </Modal>
   )
 }
 
