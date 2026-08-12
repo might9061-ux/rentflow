@@ -95,9 +95,19 @@ export default function ManagerDashboard() {
           <div className="b-ico"><IconWallet size={18} /></div>
           <div className="spread" style={{ flex: 1, alignItems: 'center', gap: 10 }}>
             <div style={{ fontSize: '0.9rem' }}>
-              <b>{data.sub.state === 'overdue' ? 'Subscription overdue' : 'Subscription due soon'}</b> — your {money(data.sub.price)} installment is {data.sub.state === 'overdue'
-                ? `${Math.abs(data.sub.days)} day${Math.abs(data.sub.days) === 1 ? '' : 's'} overdue`
-                : (data.sub.days <= 0 ? 'due today' : `due in ${data.sub.days} day${data.sub.days === 1 ? '' : 's'}`)}.
+              {(() => {
+                const s = data.sub
+                const dw = (n) => `${n} day${n === 1 ? '' : 's'}`
+                if (s.state === 'due-soon' && s.trial) {
+                  return <><b>Your free month is almost over</b> — {s.days <= 0 ? 'it ends today' : `it ends in ${dw(s.days)}`}. Pay {money(s.price)} to keep RentLoja running.</>
+                }
+                if (s.state === 'overdue' && s.neverPaid) {
+                  return <><b>Your free month has ended</b> — pay {money(s.price)} now to keep using RentLoja ({dw(Math.abs(s.days))} overdue).</>
+                }
+                return <><b>{s.state === 'overdue' ? 'Subscription overdue' : 'Subscription due soon'}</b> — your {money(s.price)} installment is {s.state === 'overdue'
+                  ? `${dw(Math.abs(s.days))} overdue`
+                  : (s.days <= 0 ? 'due today' : `due in ${dw(s.days)}`)}.</>
+              })()}
             </div>
             <span className="btn primary sm" style={{ whiteSpace: 'nowrap' }}>Pay now <IconArrowRight size={14} /></span>
           </div>
