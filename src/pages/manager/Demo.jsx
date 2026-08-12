@@ -25,16 +25,13 @@ export default function Demo() {
       </header>
 
       <div className="page" style={{ maxWidth: 960 }}>
-        <div className="page-head">
-          <div className="eyebrow" style={{ color: 'var(--gold)' }}>Product tour</div>
-          <h1>See RentLoja in action</h1>
-          <p>A live look at both sides of the app, with sample data. No sign-in needed.</p>
-        </div>
-
-        {/* Solid, and sticky — it rides up and down with the scroll so you can
-            flip between Manager and Tenant at any point in the tour. */}
-        <div style={{ position: 'sticky', top: 10, zIndex: 30, display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          <div className="seg" style={{ background: 'var(--surface)', boxShadow: '0 2px 12px rgba(0,0,0,0.16)' }}>
+        <div className="spread page-head wrap" style={{ gap: 12 }}>
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--gold)' }}>Product tour</div>
+            <h1>See RentLoja in action</h1>
+            <p>A live look at both sides of the app, with sample data. No sign-in needed.</p>
+          </div>
+          <div className="seg">
             <button className={side === 'manager' ? 'on' : ''} onClick={() => setSide('manager')}>Manager side</button>
             <button className={side === 'tenant' ? 'on' : ''} onClick={() => setSide('tenant')}>Tenant side</button>
           </div>
