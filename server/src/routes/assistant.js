@@ -16,6 +16,7 @@
 import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import { h } from '../auth.js'
+import { APP_KNOWLEDGE } from '../lib/appKnowledge.js'
 
 const router = Router()
 
@@ -69,11 +70,15 @@ function systemPrompt(role, facts) {
     : 'You can summarise outstanding rent, who is behind and by how much, who has paid ahead, '
       + 'pending approvals, collections and occupancy, and explain how to add tenants or '
       + 'properties, record a cash payment, or send notices.'
-  const guard = 'Only answer questions about this RentLoja account and how to use RentLoja. If '
-    + 'asked for anything else — general knowledge, code, essays, other people\'s data — politely '
-    + 'decline and steer back to their rent or account.'
+  const about = 'You may also answer general questions ABOUT RentLoja — what it is, its features, '
+    + 'pricing and the free month, how to get paid, and how to do things in the app — using the '
+    + 'ABOUT RENTLOJA reference below. Use it for app questions; use DATA for anything about this '
+    + 'specific account. Don\'t invent features or prices that aren\'t in the reference.'
+  const guard = 'Only answer questions about RentLoja — this account, or how RentLoja works. If '
+    + 'asked for anything else — unrelated general knowledge, code, essays, other people\'s data — '
+    + 'politely decline and steer back to their rent, account, or the app.'
 
-  return [persona, style, grounding, scope, guard, '', 'DATA (JSON):', JSON.stringify(facts ?? {}, null, 2)].join('\n')
+  return [persona, style, grounding, scope, about, guard, '', APP_KNOWLEDGE, '', 'DATA (JSON):', JSON.stringify(facts ?? {}, null, 2)].join('\n')
 }
 
 // POST /api/assistant — one Copilot turn.
