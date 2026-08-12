@@ -115,10 +115,21 @@ export default function Plan() {
     if (tooSmall) return toast.error('Capacity too small', `You already have ${tenantCount} tenants.`)
     if (samePlan) return toast.info('You’re already on this plan')
     if (!active) {
-      // Fresh start: offer the 7-day free trial once; after that, activate & pay.
-      setCheckout(hadTrial
-        ? { mode: 'activate', capacity, price: chargeNow, charge: chargeNow, credit: 0, tierName: tier.name, cycle }
-        : { mode: 'trial', capacity, price: chargeNow, tierName: tier.name, cycle })
+      // Fresh start: the first month is free — start it instantly, no card, no
+      // charge. Billing begins when the trial ends. After the free month has been
+      // used once, activating means paying.
+      if (!hadTrial) {
+        setBusy(true)
+        try {
+          await db.startOwnPlan(capacity, { trial: true, cycle })
+          await refresh()
+          const end = new Date(Date.now() + 30 * 86400000)
+          toast.success('Free month started', `RentLoja is free until ${fmtDate(end)}. Your first payment of ${money(chargeNow)} is then — cancel any time before it and you won’t be charged.`)
+          if (onboarding) nav('/manager'); else await load()
+        } catch (e) { toast.error('Could not start', e.message) } finally { setBusy(false) }
+        return
+      }
+      setCheckout({ mode: 'activate', capacity, price: chargeNow, charge: chargeNow, credit: 0, tierName: tier.name, cycle })
       return
     }
     if (isDowngrade) {
@@ -219,7 +230,7 @@ export default function Plan() {
       {onboarding && (
         <div className="banner gold" style={{ marginBottom: 18 }}>
           <div className="b-ico"><IconTag size={18} /></div>
-          <div>Your account is ready — choose a capacity below and <b>start your 7-day free trial</b>. You won’t be charged today, and you can cancel any time before it ends.</div>
+          <div>Your account is ready — choose a capacity below and <b>start your free month</b>. No card, no charge — your first payment is a month from now, and you can cancel any time before then.</div>
         </div>
       )}
 
@@ -250,7 +261,7 @@ export default function Plan() {
         <div className="banner gold" style={{ marginBottom: 18 }}>
           <div className="b-ico"><IconTag size={18} /></div>
           <div>
-            <b>Free trial — {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left.</b> Your card is saved; your first
+            <b>Free month — {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left.</b> Your first
             payment of {money(manager.plan_price)} falls on {fmtDate(trialEndsAt)}. Cancel before then and you won’t be charged.
           </div>
         </div>
@@ -300,7 +311,7 @@ export default function Plan() {
         )}
 
         <button className="btn primary block lg" style={{ marginTop: 16 }} disabled={tooSmall || busy || samePlan} onClick={changePlan}>
-          {!active ? (hadTrial ? `Activate & pay ${money(chargeNow)}/${cycle === 'yearly' ? 'year' : 'month'}` : 'Start 7-day free trial')
+          {!active ? (hadTrial ? `Activate & pay ${money(chargeNow)}/${cycle === 'yearly' ? 'year' : 'month'}` : 'Start your free month')
             : samePlan ? 'Your current plan'
             : isUpgrade ? `Upgrade now — pay ${money(upgradeDue)}`
             : isDowngrade ? `Switch to ${tier.name} (no charge now)`

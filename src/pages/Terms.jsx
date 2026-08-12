@@ -36,10 +36,10 @@ export default function Terms() {
 
         <h3>3. Free trial</h3>
         <p>
-          New property‑manager accounts include a <b>7‑day free trial</b>. During the trial you can use the
-          manager features to set up properties and tenants. Unless you subscribe to a paid plan before the trial
-          ends, paid features (including adding or managing tenants beyond the trial) stop when the trial expires.
-          One trial per manager.
+          New property‑manager accounts include a <b>free first month</b> (no card required to start). During the
+          free month you can use the manager features to set up properties and tenants. Unless you subscribe to a
+          paid plan before the month ends, paid features (including adding or managing tenants) stop when the free
+          month expires. One free month per manager.
         </p>
 
         <h3>4. Subscriptions &amp; billing</h3>
