@@ -570,6 +570,36 @@ const sb = {
   async deleteExpense(id) { ok(await supabase.from('expenses').delete().eq('id', id)) },
 
   // ── maintenance / repair requests ───────────────────────────────────────────
+  // ── Facilities diary (plant & machinery) — recurring scheduled upkeep ──────
+  async listFacilityTasks(_userId) { return ok(await supabase.from('facility_tasks').select('*').order('next_due', { ascending: true })) },
+  async createFacilityTask(userId, data) {
+    // Tasks belong to the workspace OWNER so agents and the owner share one diary.
+    const me = ok(await supabase.from('managers').select('owner_id').eq('id', userId).single())
+    return ok(await supabase.from('facility_tasks').insert({ manager_id: me?.owner_id || userId, ...data }).select().single())
+  },
+  async updateFacilityTask(id, patch) { return ok(await supabase.from('facility_tasks').update(patch).eq('id', id).select().single()) },
+  async deleteFacilityTask(id) { ok(await supabase.from('facility_tasks').delete().eq('id', id)) },
+  // Mark done: log it, advance next_due by the interval, and (cost > 0) record a
+  // Maintenance expense so the money shows up in Finances.
+  async completeFacilityTask(task, { done_at, cost, note, done_by } = {}) {
+    const done = done_at || new Date().toISOString().slice(0, 10)
+    ok(await supabase.from('facility_logs').insert({
+      task_id: task.id, manager_id: task.manager_id, done_at: done,
+      cost: Number(cost) || 0, note: note || null, done_by: done_by || null,
+    }))
+    const d = new Date(done); d.setMonth(d.getMonth() + (Number(task.interval_months) || 1))
+    const next = d.toISOString().slice(0, 10)
+    if (Number(cost) > 0) {
+      ok(await supabase.from('expenses').insert({
+        manager_id: task.manager_id, property_id: task.property_id || null,
+        category: 'Maintenance', amount: Number(cost), spent_on: done,
+        note: `${task.asset} — ${task.task}${done_by ? ` (${done_by})` : ''}`,
+      }))
+    }
+    return ok(await supabase.from('facility_tasks').update({ last_done: done, next_due: next }).eq('id', task.id).select().single())
+  },
+  async listFacilityLogs(taskId) { return ok(await supabase.from('facility_logs').select('*').eq('task_id', taskId).order('done_at', { ascending: false })) },
+
   async listMaintenance(_userId) { return ok(await supabase.from('maintenance').select('*').order('created_at', { ascending: false })) },
   async listTenantMaintenance(tenantId) { return ok(await supabase.from('maintenance').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false })) },
   async getMaintenance(id) { return ok(await supabase.from('maintenance').select('*').eq('id', id).single()) },
