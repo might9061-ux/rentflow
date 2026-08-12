@@ -1002,6 +1002,55 @@ export const mockApi = {
     return (d.maintenance || []).filter((m) => m.manager_id === ownerId && m.status !== 'resolved' && (!isStaff || (m.property_id && propIds.has(m.property_id)))).length
   },
 
+  // ── facilities diary (plant & machinery) — recurring scheduled upkeep ───────
+  async listFacilityTasks(userId) {
+    await delay(40); const d = db(); const { ownerId } = scopeOf(d, userId)
+    return (d.facility_tasks || []).filter((t) => t.manager_id === ownerId)
+      .sort((a, b) => (a.next_due || '').localeCompare(b.next_due || '')).map(clone)
+  },
+  async createFacilityTask(userId, data) {
+    await delay(); const d = db(); const { ownerId } = scopeOf(d, userId)
+    d.facility_tasks = d.facility_tasks || []
+    const t = { id: uid(), manager_id: ownerId, property_id: data.property_id || null,
+      asset: data.asset, task: data.task, interval_months: Number(data.interval_months) || 3,
+      next_due: data.next_due, last_done: null, notes: data.notes || '', created_at: new Date().toISOString() }
+    d.facility_tasks.push(t); save(d); return clone(t)
+  },
+  async updateFacilityTask(id, patch) {
+    await delay(); const d = db(); const t = (d.facility_tasks || []).find((x) => x.id === id)
+    if (!t) throw new Error('Task not found.')
+    ;['asset', 'task', 'interval_months', 'next_due', 'notes', 'property_id'].forEach((k) => { if (k in patch) t[k] = patch[k] })
+    save(d); return clone(t)
+  },
+  async deleteFacilityTask(id) {
+    await delay(); const d = db()
+    d.facility_tasks = (d.facility_tasks || []).filter((t) => t.id !== id)
+    d.facility_logs = (d.facility_logs || []).filter((l) => l.task_id !== id)
+    save(d)
+  },
+  async completeFacilityTask(task, { done_at, cost, note, done_by } = {}) {
+    await delay(); const d = db(); const t = (d.facility_tasks || []).find((x) => x.id === task.id)
+    if (!t) throw new Error('Task not found.')
+    const done = done_at || new Date().toISOString().slice(0, 10)
+    d.facility_logs = d.facility_logs || []
+    d.facility_logs.push({ id: uid(), task_id: t.id, manager_id: t.manager_id, done_at: done,
+      cost: Number(cost) || 0, note: note || null, done_by: done_by || null, created_at: new Date().toISOString() })
+    if (Number(cost) > 0) {
+      d.expenses = d.expenses || []
+      d.expenses.push({ id: uid(), manager_id: t.manager_id, property_id: t.property_id || null,
+        category: 'Maintenance', amount: Number(cost), spent_on: done,
+        note: `${t.asset} — ${t.task}${done_by ? ` (${done_by})` : ''}`, created_at: new Date().toISOString() })
+    }
+    const dt = new Date(done); dt.setMonth(dt.getMonth() + (Number(t.interval_months) || 1))
+    t.last_done = done; t.next_due = dt.toISOString().slice(0, 10)
+    save(d); return clone(t)
+  },
+  async listFacilityLogs(taskId) {
+    await delay(30); const d = db()
+    return (d.facility_logs || []).filter((l) => l.task_id === taskId)
+      .sort((a, b) => (b.done_at || '').localeCompare(a.done_at || '')).map(clone)
+  },
+
   // ── tenants ───────────────────────────────────────────────────────────────
   async listTenants(userId) {
     await delay(60)
@@ -1571,6 +1620,24 @@ function seed() {
       expense_logged: false, created_at: monthsAgo(0.4).toISOString(), updated_at: monthsAgo(0.2).toISOString(), resolved_at: null },
   ]
 
+  // ── Facilities diary — recurring plant & machinery upkeep. One overdue, one
+  // due soon, one comfortably ahead: the demo shows all three states at once. ──
+  const isoIn = (days) => { const d = new Date(); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10) }
+  const facility_tasks = [
+    { id: 'fac-1', manager_id: managerId, property_id: 'prop-0001', asset: 'Borehole pump', task: 'Service & pressure check',
+      interval_months: 3, next_due: isoIn(-6), last_done: isoDay(monthsAgo(3)), notes: 'ZESA outage backup — critical.', created_at: monthsAgo(6).toISOString() },
+    { id: 'fac-2', manager_id: managerId, property_id: 'prop-0002', asset: 'Standby generator', task: 'Oil & filter change',
+      interval_months: 6, next_due: isoIn(9), last_done: isoDay(monthsAgo(5)), notes: '', created_at: monthsAgo(6).toISOString() },
+    { id: 'fac-3', manager_id: managerId, property_id: 'prop-0001', asset: 'Fire extinguishers', task: 'Annual certification',
+      interval_months: 12, next_due: isoIn(120), last_done: isoDay(monthsAgo(8)), notes: 'All floors.', created_at: monthsAgo(8).toISOString() },
+    { id: 'fac-4', manager_id: managerId, property_id: 'prop-0002', asset: 'Electric gate motor', task: 'Lubricate & test safety stop',
+      interval_months: 2, next_due: isoIn(3), last_done: isoDay(monthsAgo(2)), notes: '', created_at: monthsAgo(4).toISOString() },
+  ]
+  const facility_logs = [
+    { id: 'flg-1', task_id: 'fac-1', manager_id: managerId, done_at: isoDay(monthsAgo(3)), cost: 45, note: 'Replaced pressure valve.', done_by: 'Joseph Moyo', created_at: monthsAgo(3).toISOString() },
+    { id: 'flg-2', task_id: 'fac-2', manager_id: managerId, done_at: isoDay(monthsAgo(5)), cost: 80, note: '', done_by: 'GenServe Ltd', created_at: monthsAgo(5).toISOString() },
+  ]
+
   // ── Payroll — people the OWNER pays (agents, caretakers). Owner-only; each
   // payment is mirrored into the expenses ledger so Finances stays accurate. ──
   const mkPayee = (o) => ({ manager_id: managerId, title: '', phone: '', active: true, ...o })
@@ -1591,5 +1658,5 @@ function seed() {
     payroll.push({ id: uid(), manager_id: managerId, payee_id: p.id, name: p.name, category: p.category, amount: p.amount, period, method: 'Bank Transfer', paid_on: isoDay(monthsAgo(1)), note: '', expense_id: exId, created_at: monthsAgo(1).toISOString() })
   })
 
-  return { managers: [manager, ...staff, admin, ...extraOwners], properties: [prop1, prop2], tenants: [...tenants, ...extraTenants], payments: [...payments, ...extraPayments], notifications, reads, otps: [], resets: [], questions: [], expenses, sub_payments, reminder_log: [], messages: [], maintenance, payees, payroll, refunds: [], receipt_seq: 1000 + payments.length }
+  return { managers: [manager, ...staff, admin, ...extraOwners], properties: [prop1, prop2], tenants: [...tenants, ...extraTenants], payments: [...payments, ...extraPayments], notifications, reads, otps: [], resets: [], questions: [], expenses, sub_payments, reminder_log: [], messages: [], maintenance, facility_tasks, facility_logs, payees, payroll, refunds: [], receipt_seq: 1000 + payments.length }
 }
