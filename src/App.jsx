@@ -124,7 +124,10 @@ function DemoRibbon() {
 // Solid (opaque) so it never looks see-through over content, and draggable up or
 // down by the grip so it can be moved out of the way.
 function DemoRibbonBar({ role, other, switchTo, leave }) {
-  const [dy, setDy] = useState(0) // px lifted above the default bottom position
+  // Remembered across pages/reloads so it stays where you dragged it.
+  const [dy, setDy] = useState(() => {
+    try { return Number(localStorage.getItem('rentflow_demo_bar_dy')) || 0 } catch { return 0 }
+  })
   const drag = useRef(null)
   const onDown = (e) => {
     drag.current = { startY: e.clientY, startDy: dy }
@@ -135,7 +138,10 @@ function DemoRibbonBar({ role, other, switchTo, leave }) {
     const next = drag.current.startDy + (drag.current.startY - e.clientY)
     setDy(Math.max(0, Math.min(next, window.innerHeight - 90)))
   }
-  const onUp = () => { drag.current = null }
+  const onUp = () => {
+    drag.current = null
+    try { localStorage.setItem('rentflow_demo_bar_dy', String(dy)) } catch { /* ignore */ }
+  }
   return (
     <div style={{ position: 'fixed', left: 12, bottom: 12 + dy, zIndex: 400, display: 'flex', alignItems: 'center', gap: 8,
       padding: '7px 8px 7px 8px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--gold-line)',
