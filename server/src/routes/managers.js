@@ -56,9 +56,12 @@ const PLAN_TIERS = [
   { name: 'Growth', upTo: 20, price: 20 },
   { name: 'Pro', upTo: 50, price: 40 },
   { name: 'Portfolio', upTo: 100, price: 50 },
-  { name: 'Enterprise', upTo: Infinity, price: 70 },
+  { name: 'Enterprise', upTo: 200, price: 70 },
 ]
 const tierFor = (c) => PLAN_TIERS.find((t) => c <= t.upTo) || PLAN_TIERS[PLAN_TIERS.length - 1]
+// Above the top tier the price scales with the exact count ($0.30 per tenant
+// beyond 200 on top of $70) — the manager just types their number.
+const priceFor = (c) => c > 200 ? 70 + Math.ceil((c - 200) * 0.30) : tierFor(c).price
 
 // POST /api/managers/me/plan — a manager starts/changes their OWN plan.
 //
@@ -73,7 +76,7 @@ const tierFor = (c) => PLAN_TIERS.find((t) => c <= t.upTo) || PLAN_TIERS[PLAN_TI
 router.post('/me/plan', h(async (req, res) => {
   const capacity = Math.floor(Number(req.body?.capacity) || 0)
   if (!Number.isFinite(capacity) || capacity < 1) throw new Error('Choose how many tenants you need.')
-  if (capacity > 500) throw new Error('That capacity is too large — please contact support.')
+  if (capacity > 5000) throw new Error('That capacity is too large — please contact support.')
 
   const owner = await ownerId(req)
   const tier = tierFor(capacity)
@@ -84,7 +87,7 @@ router.post('/me/plan', h(async (req, res) => {
 
   const { data: cur } = await admin.from('managers').select('plan_started_at, plan_active, trial_ends_at').eq('id', owner).maybeSingle()
   const patch = {
-    plan_active: true, plan_capacity: capacity, plan_price: tier.price, onboarded: true,
+    plan_active: true, plan_capacity: capacity, plan_price: priceFor(capacity), onboarded: true,
     plan_cycle: req.body?.cycle === 'yearly' ? 'yearly' : 'monthly',
     plan_started_at: cur?.plan_started_at || new Date().toISOString(),
     plan_canceled_at: null, // (re)activating clears any pending cancellation
