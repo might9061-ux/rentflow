@@ -29,6 +29,28 @@ function collectedInFrame(approved, frame) {
     .reduce((s, p) => s + Number(p.amount || 0), 0)
 }
 
+// Executive-style trend line under "Total collected": this calendar month vs
+// the previous one, from the approved payments themselves.
+function CollectedDelta({ approved = [] }) {
+  const now = new Date()
+  const sumIn = (y, m) => approved
+    .filter((p) => { const d = new Date(p.paid_date || p.approved_at || p.created_at); return d.getFullYear() === y && d.getMonth() === m })
+    .reduce((s, p) => s + Number(p.amount || 0), 0)
+  const cur = sumIn(now.getFullYear(), now.getMonth())
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const prev = sumIn(prevDate.getFullYear(), prevDate.getMonth())
+  const prevLabel = prevDate.toLocaleDateString(undefined, { month: 'short' })
+  if (!prev) return <>{money(cur)} this month</>
+  const pct = Math.round(((cur - prev) / prev) * 100)
+  const up = pct >= 0
+  return (
+    <span>
+      <b style={{ color: up ? 'var(--green)' : 'var(--warn)', fontWeight: 600 }}>{up ? '▲' : '▼'} {Math.abs(pct)}%</b>
+      <span> vs {prevLabel}</span>
+    </span>
+  )
+}
+
 export default function ManagerDashboard() {
   const { userId, profile } = useAuth()
   const isOwner = profile?.role !== 'staff' // agents never see subscription/billing
@@ -117,7 +139,7 @@ export default function ManagerDashboard() {
       <AttentionBar data={data} nav={nav} />
 
       <div className="grid stats" style={{ marginBottom: 20 }}>
-        <StatCard label="Total collected" value={money(data.collected)} sub={`${data.approved.length} approved payments`} icon={<IconWallet size={18} />} onClick={() => nav('/manager/payments')} />
+        <StatCard label="Total collected" value={money(data.collected)} sub={<CollectedDelta approved={data.approved} />} icon={<IconWallet size={18} />} onClick={() => nav('/manager/payments')} />
         <StatCard label="Outstanding" value={money(data.outstanding)} sub="Across unpaid tenants" icon={<IconClock size={18} />} onClick={() => nav('/manager/tenants')} />
         <StatCard label="Occupancy" value={`${data.occupancy}%`} sub={`${data.occupied} of ${data.totalUnits} units`} icon={<IconBuilding size={18} />} onClick={() => nav('/manager/properties')} />
         <StatCard label="Pending approvals" value={data.pending.length} sub="Awaiting your review" icon={<IconCheckCircle size={18} />} onClick={() => nav('/manager/approvals')} />

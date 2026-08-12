@@ -298,25 +298,29 @@ table.data tbody tr.clickable-row { cursor: pointer; }
 .list-row.clickable { cursor: pointer; border-radius: var(--radius-sm); transition: background 0.12s; }
 .list-row.clickable:hover { background: var(--bg-raised); }
 
-/* ── Stat cards ──────────────────────────────────────────────────────────── */
+/* ── Stat cards — "Executive" KPI strip ─────────────────────────────────────
+   One joined panel with hairline dividers between the figures (the 1px-gap
+   trick: the grid's background is the line colour, each cell paints over it),
+   no accent bars, quieter type. Same markup as before, so it applies to every
+   page that uses StatCard. */
+.grid.stats {
+  gap: 1px; background: var(--line-soft);
+  border: 1px solid var(--line-soft); border-radius: var(--radius);
+  overflow: hidden;
+}
 .stat {
   position: relative; overflow: hidden;
-  background: var(--surface); border: 1px solid var(--line-soft);
-  border-radius: var(--radius); padding: 20px 22px;
+  background: var(--surface); border: none; border-radius: 0; padding: 16px 20px;
 }
-.stat::before {
-  content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;
-  background: var(--accent); opacity: 0.85;
-}
-.stat.clickable { cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
-.stat.clickable:hover { transform: translateY(-2px); border-color: var(--accent-line); box-shadow: 0 14px 32px -22px var(--accent); }
-.stat.clickable:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
-.stat .stat-go { position: absolute; right: 16px; bottom: 14px; font-size: 0.74rem; font-weight: 600; color: var(--accent);
+.stat.clickable { cursor: pointer; transition: background 0.14s; }
+.stat.clickable:hover { background: var(--accent-bg); }
+.stat.clickable:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.stat .stat-go { position: absolute; right: 16px; bottom: 12px; font-size: 0.72rem; font-weight: 600; color: var(--accent);
   opacity: 0; transform: translateX(-4px); transition: all 0.16s; }
 .stat.clickable:hover .stat-go, .stat.clickable:focus-visible .stat-go { opacity: 1; transform: translateX(0); }
-.stat .stat-label { font-size: 0.78rem; color: var(--text-dim); font-weight: 500; }
-.stat .stat-value { font-family: var(--serif); font-size: 2.1rem; font-weight: 600; margin-top: 4px; }
-.stat .stat-sub { font-size: 0.78rem; color: var(--text-faint); margin-top: 2px; }
+.stat .stat-label { font-size: 0.74rem; color: var(--text-dim); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.stat .stat-value { font-family: var(--serif); font-size: 1.75rem; font-weight: 600; margin-top: 5px; letter-spacing: -0.01em; }
+.stat .stat-sub { font-size: 0.78rem; color: var(--text-faint); margin-top: 3px; }
 
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 .modal-overlay {
