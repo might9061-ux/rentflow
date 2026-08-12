@@ -10,7 +10,7 @@ import { PROPERTY_TYPES, FURNISHED, UTILITIES_INCLUDED, AMENITY_GROUPS, dwelling
 import Modal from '../../components/Modal.jsx'
 import { Input, Textarea, Select, Row } from '../../components/Field.jsx'
 import { Spinner, EmptyState } from '../../components/ui.jsx'
-import { IconPlus, IconBuilding, IconEdit, IconTrash, IconUsers, IconArrowRight } from '../../components/icons.jsx'
+import { IconPlus, IconBuilding, IconEdit, IconTrash, IconArrowRight } from '../../components/icons.jsx'
 
 export default function Properties() {
   const { userId } = useAuth()
@@ -60,52 +60,59 @@ export default function Properties() {
         : props.length === 0 ? (
           <div className="card"><EmptyState icon="🏢" title="No properties yet">Add your first property to start adding tenants.</EmptyState></div>
         ) : (
-          <div className="grid cards">
+          /* Executive rows — a compact scannable list, matching the KPI style:
+             thumbnail, name · type, mono occupied/units, status, actions. */
+          <div className="card">
             {props.map((p) => {
               const occ = occupancyOf(p)
               return (
-                <div key={p.id} className="card pad clickable" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
-                  role="button" tabIndex={0}
+                <div key={p.id} className="prop-row" role="button" tabIndex={0}
                   onClick={() => nav(`/manager/properties/${p.id}`)}
                   onKeyDown={(e) => { if (e.key === 'Enter') nav(`/manager/properties/${p.id}`) }}>
-                  {p.photos?.length > 0 && <img className="prop-cover" src={p.photos[0]} alt={p.name} />}
-                  <div className="spread">
-                    <div className="row gap">
-                      {!p.photos?.length && (
-                        <div style={{ width: 42, height: 42, borderRadius: 11, display: 'grid', placeItems: 'center', background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>
-                          <IconBuilding size={20} />
-                        </div>
-                      )}
-                      <div>
-                        <h3 style={{ fontSize: '1.2rem' }}>{p.name}</h3>
-                        <div className="muted" style={{ fontSize: '0.82rem' }}>{p.location || '—'}</div>
-                      </div>
+                  {p.photos?.length > 0
+                    ? <img className="pr-thumb" src={p.photos[0]} alt="" />
+                    : <span className="pr-thumb pr-icon"><IconBuilding size={18} /></span>}
+                  <div className="pr-main">
+                    <div className="pr-name">
+                      {p.name}
+                      {p.is_advertised && <span className="pill green pr-pill">For rent</span>}
+                      {p.shared && <span className="pill neutral pr-pill">Shared</span>}
                     </div>
-                    <div className="col" style={{ gap: 6, alignItems: 'flex-end' }}>
-                      <span className={`pill ${occ.cls}`}><span className="dot" />{occ.label}</span>
-                      {p.shared && <span className="pill neutral">Shared</span>}
-                      {p.is_advertised && <span className="pill green">For rent</span>}
+                    <div className="muted pr-sub">
+                      {p.type || '—'}
+                      {(p.bedrooms != null || p.bathrooms != null) ? ` · ${p.bedrooms ?? '—'} bed, ${p.bathrooms ?? '—'} bath` : ''}
+                      {p.location ? ` · ${p.location}` : ''}
                     </div>
                   </div>
-
-                  <div className="row wrap" style={{ gap: 14, fontSize: '0.84rem' }}>
-                    <span className="muted">{p.type || '—'}</span>
-                    {(p.bedrooms != null || p.bathrooms != null) && (
-                      <span className="muted">{p.bedrooms ?? '—'} bed · {p.bathrooms ?? '—'} bath</span>
-                    )}
-                    <span className="row gap muted"><IconUsers size={14} /> {occ.count}/{p.units} units</span>
-                  </div>
-
-                  <div className="spread" style={{ marginTop: 'auto' }}>
-                    <div className="row gap">
-                      <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); setEditing(p) }}><IconEdit size={14} /> Edit</button>
-                      <button className="btn sm ghost danger" onClick={(e) => { e.stopPropagation(); remove(p) }}><IconTrash size={14} /></button>
-                    </div>
-                    <span className="row gap" style={{ color: 'var(--accent)', fontSize: '0.82rem', fontWeight: 600 }}>Open <IconArrowRight size={14} /></span>
-                  </div>
+                  <span className="mono pr-count" title="Occupied / total units">{occ.count}/{p.units}</span>
+                  <span className={`pill ${occ.cls} pr-status`}><span className="dot" />{occ.label}</span>
+                  <span className="row" style={{ gap: 4 }}>
+                    <button className="btn sm ghost" title="Edit" onClick={(e) => { e.stopPropagation(); setEditing(p) }}><IconEdit size={14} /></button>
+                    <button className="btn sm ghost danger" title="Delete" onClick={(e) => { e.stopPropagation(); remove(p) }}><IconTrash size={14} /></button>
+                    <span style={{ color: 'var(--accent)', display: 'inline-flex', padding: '0 4px' }}><IconArrowRight size={16} /></span>
+                  </span>
                 </div>
               )
             })}
+            <style>{`
+              .prop-row { display: flex; align-items: center; gap: 14px; padding: 13px 16px;
+                border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.13s; }
+              .prop-row:last-of-type { border-bottom: none; }
+              .prop-row:hover { background: var(--accent-bg); }
+              .prop-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+              .pr-thumb { width: 56px; height: 42px; border-radius: 8px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--line-soft); }
+              .pr-icon { display: grid; place-items: center; background: var(--gold-bg); color: var(--gold); border-color: var(--gold-line); }
+              .pr-main { flex: 1; min-width: 0; }
+              .pr-name { font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+              .pr-pill { font-size: 0.66rem; padding: 2px 8px; }
+              .pr-sub { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+              .pr-count { font-weight: 600; font-size: 0.9rem; }
+              @media (max-width: 640px) {
+                .prop-row { flex-wrap: wrap; }
+                .pr-sub { white-space: normal; }
+                .pr-status { order: 5; }
+              }
+            `}</style>
           </div>
         )}
 
