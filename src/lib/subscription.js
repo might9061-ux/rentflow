@@ -34,8 +34,12 @@ export function subscriptionStatus(manager, subPays = []) {
   const dueDate = onTrial ? new Date(manager.trial_ends_at) : nextRenewal(lastPaid, cycle)
   const days = Math.ceil((dueDate - now) / 86400000)
   const price = installmentAmount(manager.plan_price, cycle)
-  if (manager.plan_canceled_at) return { state: 'canceled', dueDate, days, price, cycle }
-  if (days < 0) return { state: 'overdue', dueDate, days, price, cycle }
-  if (days <= 5) return { state: 'due-soon', dueDate, days, price, cycle }
-  return { state: 'ok', dueDate, days, price, cycle }
+  // trial     — still inside the free first month.
+  // neverPaid — no installment has ever been made, so a due/overdue notice is
+  //             about the FIRST payment (their free month ending), not a renewal.
+  const base = { dueDate, days, price, cycle, trial: onTrial, neverPaid: approved.length === 0 }
+  if (manager.plan_canceled_at) return { state: 'canceled', ...base }
+  if (days < 0) return { state: 'overdue', ...base }
+  if (days <= 5) return { state: 'due-soon', ...base }
+  return { state: 'ok', ...base }
 }
