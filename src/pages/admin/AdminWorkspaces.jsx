@@ -60,7 +60,15 @@ export default function AdminWorkspaces() {
               <tbody>
                 {ws.map((w) => (
                   <tr key={w.id} className="clickable-row" onClick={() => setDrill(w)}>
-                    <td><div style={{ fontWeight: 600 }}>{w.company}</div><div className="muted" style={{ fontSize: '0.8rem' }}>{w.company !== w.name ? w.name : w.email}</div></td>
+                    <td>
+                      <div style={{ fontWeight: 600 }} className="row gap">
+                        {w.company}
+                        {w.joined_at && (Date.now() - new Date(w.joined_at).getTime()) < 3 * 86400000 && (
+                          <span className="pill ok" style={{ fontSize: '0.62rem', padding: '1px 7px' }}>NEW</span>
+                        )}
+                      </div>
+                      <div className="muted" style={{ fontSize: '0.8rem' }}>{w.company !== w.name ? w.name : w.email}</div>
+                    </td>
                     <td><span className="pill neutral">{tierForCapacity(w.plan_capacity).name}</span></td>
                     <td>{w.plan_active ? <span className="pill ok"><span className="dot" /> Active</span> : <span className="pill rejected">Inactive</span>}</td>
                     <td><BillingBadge w={w} /></td>
