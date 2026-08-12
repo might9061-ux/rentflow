@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import { LoadingScreen } from './components/ui.jsx'
@@ -118,10 +118,31 @@ function DemoRibbon() {
     try { resetDemo(); localStorage.removeItem('rentflow_demo'); localStorage.removeItem('rentflow_demo_start') } catch {}
     window.location.assign(to)
   }
+  return <DemoRibbonBar role={role} other={other} switchTo={switchTo} leave={leave} />
+}
+
+// Solid (opaque) so it never looks see-through over content, and draggable up or
+// down by the grip so it can be moved out of the way.
+function DemoRibbonBar({ role, other, switchTo, leave }) {
+  const [dy, setDy] = useState(0) // px lifted above the default bottom position
+  const drag = useRef(null)
+  const onDown = (e) => {
+    drag.current = { startY: e.clientY, startDy: dy }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+  }
+  const onMove = (e) => {
+    if (!drag.current) return
+    const next = drag.current.startDy + (drag.current.startY - e.clientY)
+    setDy(Math.max(0, Math.min(next, window.innerHeight - 90)))
+  }
+  const onUp = () => { drag.current = null }
   return (
-    <div style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 400, display: 'flex', alignItems: 'center', gap: 8,
-      padding: '7px 8px 7px 14px', borderRadius: 999, background: 'var(--gold-bg)', border: '1px solid var(--gold-line)',
+    <div style={{ position: 'fixed', left: 12, bottom: 12 + dy, zIndex: 400, display: 'flex', alignItems: 'center', gap: 8,
+      padding: '7px 8px 7px 8px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--gold-line)',
       color: 'var(--text)', fontSize: '0.8rem', boxShadow: 'var(--shadow)', flexWrap: 'wrap', maxWidth: 'calc(100vw - 24px)' }}>
+      <span onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+        title="Drag up or down to move" aria-label="Move demo bar"
+        style={{ cursor: 'grab', touchAction: 'none', userSelect: 'none', padding: '2px 4px', color: 'var(--text-faint)', fontSize: '1rem', lineHeight: 1 }}>⠿</span>
       <span style={{ fontWeight: 700, color: 'var(--gold)' }}>Demo</span>
       {role && <span className="muted" style={{ fontSize: '0.74rem' }}>{role} view</span>}
       <button className="btn primary sm" onClick={() => leave('/manager/auth')}>Start free trial</button>
