@@ -4,6 +4,7 @@ import { setActiveCurrency } from '../lib/format.js'
 import { currencyByCode, marketFor } from '../lib/markets.js'
 import { stashTokens, forgetAccount, clearSignedOut } from '../lib/quickUnlock.js'
 import { markUnlocked, markLocked } from '../lib/lockState.js'
+import { reclaimPush } from '../lib/push.js'
 
 const AuthCtx = createContext(null)
 export const useAuth = () => useContext(AuthCtx)
@@ -32,6 +33,10 @@ export function AuthProvider({ children }) {
       // (Tenants get it from their manager in TenantLayout.)
       if (s.role === 'manager') setActiveCurrency(currencyByCode(p.currency || marketFor(p.country).currency))
       setSession(s); setProfile(p)
+      // A device's push subscription belongs to ONE account — re-claim it for
+      // whoever just signed in, so on a shared phone the alerts follow the
+      // active account instead of whoever subscribed last. Fire and forget.
+      reclaimPush()
     } catch { setSession(null); setProfile(null) }
   }, [])
 

@@ -104,6 +104,22 @@ export async function enablePush() {
   return true
 }
 
+// A device (endpoint) belongs to ONE account — the server upserts on endpoint.
+// On a shared phone (e.g. testing manager and tenant side by side), whoever
+// subscribed LAST owned the device, so the other account's alerts landed on it
+// — a tenant could see a "new message from a tenant" pop-up about their own
+// message. Re-claim the subscription for whoever is signed in NOW, so alerts
+// always follow the active account. Called on session resolve; best-effort.
+export async function reclaimPush() {
+  try {
+    if (!pushSupported() || Notification.permission !== 'granted') return
+    const reg = await navigator.serviceWorker.getRegistration()
+    const sub = await reg?.pushManager.getSubscription()
+    if (!sub) return
+    await api('POST', '/api/push/subscribe', { subscription: sub.toJSON(), label: deviceLabel() })
+  } catch { /* best-effort — never block sign-in over push */ }
+}
+
 export async function disablePush() {
   if (!pushSupported()) return
   const reg = await navigator.serviceWorker.getRegistration()
