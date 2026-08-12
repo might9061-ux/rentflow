@@ -44,6 +44,24 @@ export function sendOtpEmail(to, name, code) {
   })
 }
 
+// Tell the App owner a new property manager just signed up.
+export function sendNewManagerEmail(to, { name, email, when }) {
+  return send({
+    to,
+    subject: `New RentLoja manager: ${name || email || 'signup'}`,
+    html: `
+      <div style="font-family:system-ui,Arial,sans-serif;max-width:480px;margin:auto">
+        <h2 style="color:#0f172a">New manager signed up 🎉</h2>
+        <p><b>${name || '(no name)'}</b> just created a RentLoja manager account.</p>
+        <table style="border-collapse:collapse;margin:14px 0;font-size:14px">
+          <tr><td style="padding:5px 14px 5px 0;color:#64748b">Email</td><td style="color:#0f172a">${email || '—'}</td></tr>
+          <tr><td style="padding:5px 14px 5px 0;color:#64748b">When</td><td style="color:#0f172a">${when || new Date().toUTCString()}</td></tr>
+        </table>
+        <p style="color:#64748b">They're on their free first month. See them in the admin console → Workspaces.</p>
+      </div>`,
+  })
+}
+
 // Alert: this account was signed into from a device we haven't seen before.
 // Deliberately calm in tone — most of these are the user's own new phone — but
 // it always gives a way to report it, because the one time it isn't them is

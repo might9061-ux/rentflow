@@ -12,7 +12,32 @@ import { Router } from 'express'
 import crypto from 'crypto'
 import { admin } from '../supabase.js'
 import { h } from '../auth.js'
-import { sendNewDeviceEmail, emailConfigured } from '../lib/email.js'
+import { sendNewDeviceEmail, sendNewManagerEmail, emailConfigured } from '../lib/email.js'
+import { pushSafe } from '../push.js'
+
+// First login of a brand-new PROPERTY MANAGER (owner) — tell the App owner, once,
+// on every channel: push to their phone + email. (The in-app alert is the "New"
+// tag on the admin Workspaces list.) Best-effort; never blocks the sign-in.
+async function alertOwnerOfNewManager(userId) {
+  try {
+    const { data: caller } = await admin.from('managers')
+      .select('first_name, last_name, email, role, platform_admin').eq('id', userId).maybeSingle()
+    if (!caller || caller.role !== 'owner' || caller.platform_admin) return // only new managers
+    const name = `${caller.first_name || ''} ${caller.last_name || ''}`.trim()
+    const { data: admins } = await admin.from('managers').select('id, email').eq('platform_admin', true)
+    for (const a of (admins || [])) {
+      pushSafe(a.id, {
+        title: 'New manager signed up',
+        body: `${name || caller.email} just created a RentLoja account.`,
+        url: '/admin/workspaces', tag: 'new-manager',
+      })
+    }
+    const to = admins?.[0]?.email
+    if (to && emailConfigured()) {
+      await sendNewManagerEmail(to, { name, email: caller.email, when: new Date().toUTCString() })
+    }
+  } catch (e) { console.error('[login-events] new-manager alert failed:', e?.message || e) }
+}
 
 const router = Router()
 
@@ -110,6 +135,10 @@ router.post('/', h(async (req, res) => {
   const { count } = await admin.from('login_devices')
     .select('id', { count: 'exact', head: true }).eq('user_id', req.user.id)
   const isFirstEver = (count || 0) <= 1
+
+  // The first login of a brand-new account is the sign-up — if it's a new
+  // manager, alert the App owner (push + email). Fire-and-forget.
+  if (isFirstEver) alertOwnerOfNewManager(req.user.id)
 
   let emailed = false
   if (!isFirstEver && emailConfigured() && req.user.email) {
