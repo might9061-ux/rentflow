@@ -17,8 +17,13 @@ export default class ErrorBoundary extends Component {
   componentDidCatch(error, info) {
     // A failed chunk import means a new version was deployed while this device
     // held the old one — not a bug. Reload once to get the fresh build instead
-    // of showing a scary crash screen.
-    if (isChunkLoadError(error)) { reloadForStaleBuild(); return }
+    // of showing a scary crash screen. If the reload was suppressed (we already
+    // tried seconds ago, so this is NOT a stale build), fall through to the
+    // normal crash path rather than an eternal "Updating…" screen.
+    if (isChunkLoadError(error)) {
+      if (reloadForStaleBuild()) return
+      this.setState({ reloadSuppressed: true })
+    }
     // Report the render crash to Sentry (no-op until VITE_SENTRY_DSN is set),
     // with the React component stack for context.
     Sentry.captureException(error, { extra: { componentStack: info?.componentStack } })
@@ -29,7 +34,7 @@ export default class ErrorBoundary extends Component {
     if (!this.state.error) return this.props.children
     // Stale-build reload is already in flight (from componentDidCatch) — show a
     // neutral "updating" note, not the crash card.
-    if (isChunkLoadError(this.state.error)) {
+    if (isChunkLoadError(this.state.error) && !this.state.reloadSuppressed) {
       return (
         <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
           <div className="muted" style={{ textAlign: 'center' }}>Updating RentLoja…</div>
