@@ -21,17 +21,19 @@ export default function Maintenance() {
   const [managing, setManaging] = useState(null)
   const [listView, setListView] = useState(null) // 'open' | 'in_progress' → pop-up list
   const [tasks, setTasks] = useState([])          // facilities diary (plant & machinery)
-  const [editingTask, setEditingTask] = useState(null) // null | {} (new) | task
+  const [history, setHistory] = useState([])      // completed services (calendar history)
+  const [editingTask, setEditingTask] = useState(null) // null | {next_due?} (new) | task
   const [completing, setCompleting] = useState(null)   // task being marked done
 
   const load = useCallback(async () => {
     // Always clear loading, even if a call fails, so the page can never hang.
     try {
-      const [m, t, p, f] = await Promise.all([
+      const [m, t, p, f, h] = await Promise.all([
         db.listMaintenance(userId), db.listTenants(userId), db.listProperties(userId),
         db.listFacilityTasks ? db.listFacilityTasks(userId).catch(() => []) : Promise.resolve([]),
+        db.listFacilityHistory ? db.listFacilityHistory(userId).catch(() => []) : Promise.resolve([]),
       ])
-      setItems(m); setTenants(t); setProperties(p); setTasks(f)
+      setItems(m); setTenants(t); setProperties(p); setTasks(f); setHistory(h)
     } catch (e) { console.error('Maintenance load failed', e) }
     finally { setLoading(false) }
   }, [userId])
@@ -79,7 +81,9 @@ export default function Maintenance() {
 
       {/* Calendar hero — the diary's month at a glance. Dots mark due dates
           (red overdue, amber soon, azure later); tap a day to see its tasks. */}
-      <DiaryCalendar tasks={tasks} propName={propName} onMarkDone={(t) => setCompleting(t)} />
+      <DiaryCalendar tasks={tasks} history={history} propName={propName}
+        onMarkDone={(t) => setCompleting(t)}
+        onAddOn={(dayIso) => setEditingTask({ next_due: dayIso })} />
 
       {/* Tap Open or In progress to see those in a pop-up; Resolved stays listed below. */}
       <div className="grid stats" style={{ marginBottom: 22 }}>
@@ -115,7 +119,7 @@ export default function Maintenance() {
                 <div className="fac-main">
                   <span style={{ fontWeight: 600 }}>{t.asset}</span>
                   <span className="muted"> · {t.task}</span>
-                  <div className="muted fac-sub">every {t.interval_months} mo · {propName(t.property_id)}{t.last_done ? ` · last ${fmtDate(t.last_done)}` : ''}</div>
+                  <div className="muted fac-sub">every {t.interval_months} {t.interval_unit === 'weeks' ? 'wk' : 'mo'} · {propName(t.property_id)}{t.last_done ? ` · last ${fmtDate(t.last_done)}` : ''}</div>
                 </div>
                 <span className="fac-when" style={{ color: when[1] }}>{when[0]}</span>
                 <button className="btn sm ok" onClick={(e) => { e.stopPropagation(); setCompleting(t) }}>Done ✓</button>
@@ -138,7 +142,7 @@ export default function Maintenance() {
       )}
 
       {editingTask && (
-        <FacilityTaskModal task={editingTask.id ? editingTask : null} properties={properties} userId={userId}
+        <FacilityTaskModal task={editingTask.id ? editingTask : null} initialDate={editingTask.next_due} properties={properties} userId={userId}
           onClose={() => setEditingTask(null)} onSaved={() => { setEditingTask(null); load() }} />
       )}
       {completing && (
@@ -225,7 +229,7 @@ function ManageModal({ item, tenant, propName, onClose, onSaved }) {
 }
 
 // Add or edit a scheduled equipment task in the facilities diary.
-function FacilityTaskModal({ task, properties, userId, onClose, onSaved }) {
+function FacilityTaskModal({ task, initialDate, properties, userId, onClose, onSaved }) {
   const toast = useToast()
   const isEdit = !!task
   const [busy, setBusy] = useState(false)
@@ -233,7 +237,8 @@ function FacilityTaskModal({ task, properties, userId, onClose, onSaved }) {
     asset: task?.asset || '', task: task?.task || '',
     property_id: task?.property_id || properties[0]?.id || '',
     interval_months: task?.interval_months || 3,
-    next_due: task?.next_due || new Date().toISOString().slice(0, 10),
+    interval_unit: task?.interval_unit || 'months',
+    next_due: task?.next_due || initialDate || new Date().toISOString().slice(0, 10),
     notes: task?.notes || '',
   })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -271,7 +276,16 @@ function FacilityTaskModal({ task, properties, userId, onClose, onSaved }) {
         <Select label="Property" value={form.property_id} onChange={set('property_id')}>
           {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>
-        <Input label="Repeat every (months)" type="number" min="1" value={form.interval_months} onChange={set('interval_months')} />
+        <div className="field">
+          <label>Repeat every</label>
+          <div className="row gap">
+            <input className="input" type="number" min="1" style={{ width: 80 }} value={form.interval_months} onChange={set('interval_months')} />
+            <select className="select" value={form.interval_unit} onChange={set('interval_unit')} style={{ flex: 1 }}>
+              <option value="weeks">weeks</option>
+              <option value="months">months</option>
+            </select>
+          </div>
+        </div>
       </div>
       <Input label="Next due" type="date" value={form.next_due} onChange={set('next_due')} />
       <Textarea label="Notes (optional)" value={form.notes} onChange={set('notes')} placeholder="Anything the caretaker should know…" style={{ minHeight: 70 }} />
@@ -302,7 +316,7 @@ function CompleteTaskModal({ task, onClose, onDone }) {
         <button className="btn ghost" onClick={onClose}>Cancel</button>
         <button className="btn ok" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Log as done'}</button>
       </>}>
-      <p className="muted" style={{ marginTop: 0, fontSize: '0.86rem' }}>{task.task} · next due will move {task.interval_months} month{task.interval_months > 1 ? 's' : ''} on.</p>
+      <p className="muted" style={{ marginTop: 0, fontSize: '0.86rem' }}>{task.task} · next due will move {task.interval_months} {task.interval_unit === 'weeks' ? 'week' : 'month'}{task.interval_months > 1 ? 's' : ''} on.</p>
       <div className="field-row">
         <Input label="Done on" type="date" value={form.done_at} onChange={set('done_at')} />
         <Input label="Cost (USD, optional)" type="number" min="0" step="0.01" value={form.cost} onChange={set('cost')} />
@@ -314,9 +328,10 @@ function CompleteTaskModal({ task, onClose, onDone }) {
 }
 
 // Month calendar for the facilities diary. Dots mark diary due-dates — red for
-// overdue, amber due within 14 days, azure later. Tap a day to see its tasks
-// and mark them done right there.
-function DiaryCalendar({ tasks, propName, onMarkDone }) {
+// overdue, amber due within 14 days, azure later — and GREEN dots are history:
+// services already done stay on the day they happened, so past months read as a
+// service record. Tap any day to see its tasks/history, or add a task for it.
+function DiaryCalendar({ tasks, history = [], propName, onMarkDone, onAddOn }) {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
   const [picked, setPicked] = useState(null) // ISO day whose tasks are shown
 
@@ -324,6 +339,9 @@ function DiaryCalendar({ tasks, propName, onMarkDone }) {
   const todayIso = iso(new Date())
   const byDay = {}
   for (const t of tasks) (byDay[t.next_due] = byDay[t.next_due] || []).push(t)
+  const doneByDay = {}
+  for (const l of history) (doneByDay[l.done_at] = doneByDay[l.done_at] || []).push(l)
+  const taskById = (id) => tasks.find((t) => t.id === id)
 
   // Monday-first grid covering the whole month.
   const first = new Date(month)
@@ -339,6 +357,7 @@ function DiaryCalendar({ tasks, propName, onMarkDone }) {
   const label = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   const move = (n) => { setPicked(null); setMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1)) }
   const pickedTasks = picked ? (byDay[picked] || []) : []
+  const pickedDone = picked ? (doneByDay[picked] || []) : []
 
   return (
     <div className="card pad" style={{ marginBottom: 22 }}>
@@ -357,15 +376,17 @@ function DiaryCalendar({ tasks, propName, onMarkDone }) {
           if (!d) return <div key={`e${i}`} className="cal-cell empty" />
           const dayIso = iso(d)
           const due = byDay[dayIso] || []
+          const done = doneByDay[dayIso] || []
           const isToday = dayIso === todayIso
           return (
             <button key={dayIso} type="button"
-              className={`cal-cell ${isToday ? 'today' : ''} ${picked === dayIso ? 'picked' : ''} ${due.length ? 'has' : ''}`}
-              onClick={() => setPicked(due.length ? (picked === dayIso ? null : dayIso) : null)}>
+              className={`cal-cell ${isToday ? 'today' : ''} ${picked === dayIso ? 'picked' : ''} ${(due.length || done.length) ? 'has' : ''}`}
+              onClick={() => setPicked(picked === dayIso ? null : dayIso)}>
               <span className="cal-n">{d.getDate()}</span>
-              {due.length > 0 && (
+              {(due.length > 0 || done.length > 0) && (
                 <span className="cal-dots">
-                  {due.slice(0, 3).map((t) => <span key={t.id} className="cal-dot" style={{ background: dotColor(dayIso) }} />)}
+                  {due.slice(0, 2).map((t) => <span key={t.id} className="cal-dot" style={{ background: dotColor(dayIso) }} />)}
+                  {done.slice(0, 2).map((l) => <span key={l.id} className="cal-dot" style={{ background: 'var(--green)' }} />)}
                 </span>
               )}
             </button>
@@ -373,18 +394,37 @@ function DiaryCalendar({ tasks, propName, onMarkDone }) {
         })}
       </div>
 
-      {picked && pickedTasks.length > 0 && (
+      {picked && (
         <div style={{ marginTop: 12, borderTop: '1px solid var(--line-soft)', paddingTop: 12 }}>
-          <div className="muted" style={{ fontSize: '0.78rem', marginBottom: 8 }}>Due {fmtDate(picked)}</div>
+          <div className="spread" style={{ marginBottom: 8 }}>
+            <div className="muted" style={{ fontSize: '0.78rem' }}>{fmtDate(picked)}</div>
+            <button className="btn sm ghost" onClick={() => onAddOn(picked)}>+ Add equipment task on this day</button>
+          </div>
           {pickedTasks.map((t) => (
             <div key={t.id} className="spread wrap" style={{ gap: 8, padding: '8px 0' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{t.asset}</div>
-                <div className="muted" style={{ fontSize: '0.78rem' }}>{t.task} · {propName(t.property_id)}</div>
+                <div className="muted" style={{ fontSize: '0.78rem' }}>{t.task} · {propName(t.property_id)} · due</div>
               </div>
               <button className="btn sm ok" onClick={() => onMarkDone(t)}>Mark done</button>
             </div>
           ))}
+          {pickedDone.map((l) => {
+            const t = taskById(l.task_id)
+            return (
+              <div key={l.id} className="spread wrap" style={{ gap: 8, padding: '8px 0' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--green)' }}>✓ {t ? t.asset : 'Equipment'}</div>
+                  <div className="muted" style={{ fontSize: '0.78rem' }}>
+                    {t ? `${t.task} · ` : ''}done{l.done_by ? ` by ${l.done_by}` : ''}{Number(l.cost) > 0 ? ` · ${money(Number(l.cost))}` : ''}{l.note ? ` · ${l.note}` : ''}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+          {pickedTasks.length === 0 && pickedDone.length === 0 && (
+            <div className="muted" style={{ fontSize: '0.8rem' }}>Nothing scheduled or done on this day.</div>
+          )}
         </div>
       )}
 
@@ -392,6 +432,7 @@ function DiaryCalendar({ tasks, propName, onMarkDone }) {
         <span className="row" style={{ gap: 5, alignItems: 'center' }}><span className="cal-dot" style={{ background: 'var(--danger)' }} /> Overdue</span>
         <span className="row" style={{ gap: 5, alignItems: 'center' }}><span className="cal-dot" style={{ background: 'var(--warn)' }} /> Due soon</span>
         <span className="row" style={{ gap: 5, alignItems: 'center' }}><span className="cal-dot" style={{ background: 'var(--accent)' }} /> Scheduled</span>
+        <span className="row" style={{ gap: 5, alignItems: 'center' }}><span className="cal-dot" style={{ background: 'var(--green)' }} /> Done (history)</span>
       </div>
 
       <style>{`
@@ -408,7 +449,7 @@ function DiaryCalendar({ tasks, propName, onMarkDone }) {
         .cal-cell.picked { background: var(--accent-bg); border-color: var(--accent); }
         .cal-n { font-size: 0.8rem; line-height: 1; }
         .cal-dots { display: flex; gap: 3px; }
-        .cal-dot { width: 6px; height: 6px; border-radius: 99px; display: inline-block; }
+        .cal-dot { width: 10px; height: 10px; border-radius: 99px; display: inline-block; }
         @media (max-width: 560px) { .cal-cell { min-height: 38px; } }
       `}</style>
     </div>
