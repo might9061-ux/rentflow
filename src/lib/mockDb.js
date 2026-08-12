@@ -326,7 +326,7 @@ export const mockApi = {
       'late_fee_enabled', 'late_fee_type', 'late_fee_amount', 'late_fee_grace_days',
       'reminders_enabled', 'reminder_channel', 'reminder_rules', 'refunds_enabled',
       'plan_capacity', 'plan_price', 'plan_active', 'plan_started_at', 'onboarded', 'billing_card',
-      'brand_name', 'brand_logo', 'brand_color']
+      'brand_name', 'brand_logo', 'brand_color', 'lease_template']
     keys.forEach((k) => { if (k in patch) m[k] = patch[k] })
     save(d); return stripSecret(m)
   },

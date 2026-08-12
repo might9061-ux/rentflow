@@ -30,6 +30,12 @@ export function leaseHtml({ lease, tenant, manager, property }) {
     ? `<div class="sigval">${esc(lease.manager_signed_name)}</div><div class="sigcap">Landlord — signed electronically ${fmtDate(lease.manager_signed_at)}</div>`
     : `<div class="sigline"></div><div class="sigcap">Landlord — ${esc(landlord)}</div>`
 
+  // CUSTOM lease: the manager's own wording (placeholders already filled) IS the
+  // agreement — render it verbatim with just the signature blocks appended.
+  const customBody = lease.kind === 'custom'
+    ? `<div class="cl" style="white-space:pre-wrap; text-align:left;">${esc(lease.terms || '')}</div>`
+    : null
+
   return `<!doctype html><html><head><meta charset="utf-8"><title>Lease Agreement — ${esc(fullName(tenant))}</title>
   <style>
     @page { size: A4; margin: 22mm 18mm; }
@@ -48,7 +54,7 @@ export function leaseHtml({ lease, tenant, manager, property }) {
     .sigcap { color: #6b6258; font-size: .78rem; margin-top: 4px; }
     .foot { margin-top: 30px; color: #6b6258; font-size: .72rem; text-align: center; }
   </style></head><body>
-  <h1>Residential Lease Agreement</h1>
+  ${customBody ?? `<h1>Residential Lease Agreement</h1>
   <div class="sub">${esc(brandName)}</div>
 
   <table class="meta">
@@ -68,7 +74,7 @@ export function leaseHtml({ lease, tenant, manager, property }) {
   ${clause(6, 'Maintenance', `The Tenant shall report faults promptly. The Landlord is responsible for structural repairs; the Tenant for damage they or their guests cause.`)}
   ${clause(7, 'Utilities', `Unless agreed otherwise in writing, the Tenant is responsible for utilities consumed at the Premises.`)}
   ${clause(8, 'Termination', `Either party may end this lease by giving one calendar month&rsquo;s written notice, subject to the term above and applicable law.`)}
-  ${lease.terms?.trim() ? `<h3>Additional terms</h3><div class="cl">${esc(lease.terms).replace(/\n/g, '<br/>')}</div>` : ''}
+  ${lease.terms?.trim() ? `<h3>Additional terms</h3><div class="cl">${esc(lease.terms).replace(/\n/g, '<br/>')}</div>` : ''}`}
 
   <div class="sigs">
     <div class="sig">${landlordSig}</div>
