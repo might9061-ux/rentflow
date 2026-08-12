@@ -67,7 +67,7 @@ export default function Maintenance() {
     </button>
   )
 
-  const listItems = listView === 'open' ? openList : listView === 'in_progress' ? inProgList : []
+  const listItems = listView === 'open' ? openList : listView === 'in_progress' ? inProgList : listView === 'resolved' ? resolvedList : []
 
   return (
     <div className="page">
@@ -85,7 +85,7 @@ export default function Maintenance() {
       <div className="grid stats" style={{ marginBottom: 22 }}>
         <StatCard label="Open" value={openList.length} sub="Not yet started" icon={<IconWrench size={18} />} onClick={() => setListView('open')} />
         <StatCard label="In progress" value={inProgList.length} sub="Being worked on" icon={<IconClock size={18} />} onClick={() => setListView('in_progress')} />
-        <StatCard label="Resolved" value={resolvedList.length} sub="Closed out" icon={<IconCheckCircle size={18} />} />
+        <StatCard label="Resolved" value={resolvedList.length} sub="Closed out" icon={<IconCheckCircle size={18} />} onClick={() => setListView('resolved')} />
       </div>
 
       {/* ── Facilities diary — recurring plant & machinery upkeep ─────────── */}
@@ -99,37 +99,42 @@ export default function Maintenance() {
       {tasks.length === 0 ? (
         <div className="card"><EmptyState icon="🛠️" title="No scheduled tasks yet">Add your equipment — e.g. “Service the borehole pump every 3 months”.</EmptyState></div>
       ) : (
-        <div className="mnt-cards">
+        /* Executive rows — one joined list with a status dot per task, matching
+           the Properties page. Row click edits; Done ✓ logs a completion. */
+        <div className="card">
           {tasks.map((t) => {
             const days = Math.ceil((new Date(t.next_due) - new Date().setHours(0, 0, 0, 0)) / 86400000)
-            const state = days < 0 ? ['Overdue', 'overdue'] : days <= 14 ? [days === 0 ? 'Due today' : `Due in ${days}d`, 'pending'] : [`Due ${fmtDate(t.next_due)}`, 'neutral']
+            const dot = days < 0 ? 'var(--danger)' : days <= 14 ? 'var(--warn)' : 'var(--accent)'
+            const when = days < 0 ? ['Overdue', 'var(--danger)'] : days === 0 ? ['Due today', 'var(--warn)']
+              : days <= 14 ? [`In ${days}d`, 'var(--warn)'] : [fmtDate(t.next_due), 'var(--text-dim)']
             return (
-              <div key={t.id} className="card pad">
-                <div className="spread wrap" style={{ gap: 8, alignItems: 'flex-start' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600 }}>{t.asset}</div>
-                    <div className="muted" style={{ fontSize: '0.8rem' }}>{t.task} · every {t.interval_months} month{t.interval_months > 1 ? 's' : ''} · {propName(t.property_id)}</div>
-                  </div>
-                  <span className={`pill ${state[1]}`}>{state[0]}</span>
+              <div key={t.id} className="fac-row" role="button" tabIndex={0}
+                onClick={() => setEditingTask(t)}
+                onKeyDown={(e) => { if (e.key === 'Enter') setEditingTask(t) }}>
+                <span className="fac-dot" style={{ background: dot }} />
+                <div className="fac-main">
+                  <span style={{ fontWeight: 600 }}>{t.asset}</span>
+                  <span className="muted"> · {t.task}</span>
+                  <div className="muted fac-sub">every {t.interval_months} mo · {propName(t.property_id)}{t.last_done ? ` · last ${fmtDate(t.last_done)}` : ''}</div>
                 </div>
-                <div className="spread wrap" style={{ gap: 8, marginTop: 10, fontSize: '0.8rem' }}>
-                  <span className="muted">{t.last_done ? `Last done ${fmtDate(t.last_done)}` : 'Never done yet'}</span>
-                  <span className="row gap">
-                    <button className="btn sm ghost" onClick={() => setEditingTask(t)}>Edit</button>
-                    <button className="btn sm ok" onClick={() => setCompleting(t)}>Mark done</button>
-                  </span>
-                </div>
+                <span className="fac-when" style={{ color: when[1] }}>{when[0]}</span>
+                <button className="btn sm ok" onClick={(e) => { e.stopPropagation(); setCompleting(t) }}>Done ✓</button>
               </div>
             )
           })}
+          <style>{`
+            .fac-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+              border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.13s; }
+            .fac-row:last-of-type { border-bottom: none; }
+            .fac-row:hover { background: var(--accent-bg); }
+            .fac-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+            .fac-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; }
+            .fac-main { flex: 1; min-width: 0; font-size: 0.92rem; }
+            .fac-sub { font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .fac-when { font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+            @media (max-width: 560px) { .fac-sub { white-space: normal; } }
+          `}</style>
         </div>
-      )}
-
-      <h3 style={{ margin: '26px 0 12px' }}>Resolved requests</h3>
-      {resolvedList.length === 0 ? (
-        <div className="card"><EmptyState icon="✅" title="Nothing resolved yet">Resolved requests show up here.</EmptyState></div>
-      ) : (
-        <div className="mnt-cards">{resolvedList.map(RequestCard)}</div>
       )}
 
       {editingTask && (
@@ -149,7 +154,7 @@ export default function Maintenance() {
       `}</style>
 
       {listView && (
-        <Modal title={listView === 'open' ? 'Open requests' : 'In progress requests'} onClose={() => setListView(null)}
+        <Modal title={listView === 'open' ? 'Open requests' : listView === 'in_progress' ? 'In progress requests' : 'Resolved requests'} onClose={() => setListView(null)}
           footer={<button className="btn ghost" onClick={() => setListView(null)}>Close</button>}>
           {listItems.length === 0 ? (
             <EmptyState icon="✅" title="Nothing here">No requests in this state.</EmptyState>
