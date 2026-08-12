@@ -587,7 +587,9 @@ const sb = {
       task_id: task.id, manager_id: task.manager_id, done_at: done,
       cost: Number(cost) || 0, note: note || null, done_by: done_by || null,
     }))
-    const d = new Date(done); d.setMonth(d.getMonth() + (Number(task.interval_months) || 1))
+    const d = new Date(done)
+    if (task.interval_unit === 'weeks') d.setDate(d.getDate() + 7 * (Number(task.interval_months) || 1))
+    else d.setMonth(d.getMonth() + (Number(task.interval_months) || 1))
     const next = d.toISOString().slice(0, 10)
     if (Number(cost) > 0) {
       ok(await supabase.from('expenses').insert({
@@ -599,6 +601,8 @@ const sb = {
     return ok(await supabase.from('facility_tasks').update({ last_done: done, next_due: next }).eq('id', task.id).select().single())
   },
   async listFacilityLogs(taskId) { return ok(await supabase.from('facility_logs').select('*').eq('task_id', taskId).order('done_at', { ascending: false })) },
+  // Every completion in the workspace — the calendar's history dots.
+  async listFacilityHistory(_userId) { return ok(await supabase.from('facility_logs').select('*').order('done_at', { ascending: false })) },
 
   async listMaintenance(_userId) { return ok(await supabase.from('maintenance').select('*').order('created_at', { ascending: false })) },
   async listTenantMaintenance(tenantId) { return ok(await supabase.from('maintenance').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false })) },

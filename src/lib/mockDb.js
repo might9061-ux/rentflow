@@ -1013,13 +1013,14 @@ export const mockApi = {
     d.facility_tasks = d.facility_tasks || []
     const t = { id: uid(), manager_id: ownerId, property_id: data.property_id || null,
       asset: data.asset, task: data.task, interval_months: Number(data.interval_months) || 3,
+      interval_unit: data.interval_unit === 'weeks' ? 'weeks' : 'months',
       next_due: data.next_due, last_done: null, notes: data.notes || '', created_at: new Date().toISOString() }
     d.facility_tasks.push(t); save(d); return clone(t)
   },
   async updateFacilityTask(id, patch) {
     await delay(); const d = db(); const t = (d.facility_tasks || []).find((x) => x.id === id)
     if (!t) throw new Error('Task not found.')
-    ;['asset', 'task', 'interval_months', 'next_due', 'notes', 'property_id'].forEach((k) => { if (k in patch) t[k] = patch[k] })
+    ;['asset', 'task', 'interval_months', 'interval_unit', 'next_due', 'notes', 'property_id'].forEach((k) => { if (k in patch) t[k] = patch[k] })
     save(d); return clone(t)
   },
   async deleteFacilityTask(id) {
@@ -1041,13 +1042,20 @@ export const mockApi = {
         category: 'Maintenance', amount: Number(cost), spent_on: done,
         note: `${t.asset} — ${t.task}${done_by ? ` (${done_by})` : ''}`, created_at: new Date().toISOString() })
     }
-    const dt = new Date(done); dt.setMonth(dt.getMonth() + (Number(t.interval_months) || 1))
+    const dt = new Date(done)
+    if (t.interval_unit === 'weeks') dt.setDate(dt.getDate() + 7 * (Number(t.interval_months) || 1))
+    else dt.setMonth(dt.getMonth() + (Number(t.interval_months) || 1))
     t.last_done = done; t.next_due = dt.toISOString().slice(0, 10)
     save(d); return clone(t)
   },
   async listFacilityLogs(taskId) {
     await delay(30); const d = db()
     return (d.facility_logs || []).filter((l) => l.task_id === taskId)
+      .sort((a, b) => (b.done_at || '').localeCompare(a.done_at || '')).map(clone)
+  },
+  async listFacilityHistory(userId) {
+    await delay(30); const d = db(); const { ownerId } = scopeOf(d, userId)
+    return (d.facility_logs || []).filter((l) => l.manager_id === ownerId)
       .sort((a, b) => (b.done_at || '').localeCompare(a.done_at || '')).map(clone)
   },
 
