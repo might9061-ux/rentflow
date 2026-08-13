@@ -21,6 +21,15 @@ export default function Properties() {
   const [tenants, setTenants] = useState([])
   const [payments, setPayments] = useState([])
   const [editing, setEditing] = useState(null) // property | {} (new) | null
+  const [menuFor, setMenuFor] = useState(null) // property id whose ⋯ menu is open
+
+  // Any click outside closes an open row menu.
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [menuFor])
 
   const load = async () => {
     const [p, t, pays] = await Promise.all([db.listProperties(userId), db.listTenants(userId), db.listPayments(userId)])
@@ -86,10 +95,17 @@ export default function Properties() {
                   </div>
                   <span className="mono pr-count" title="Occupied / total units">{occ.count}/{p.units}</span>
                   <span className={`pill ${occ.cls} pr-status`}><span className="dot" />{occ.label}</span>
-                  <span className="row" style={{ gap: 4 }}>
-                    <button className="btn sm ghost" title="Edit" onClick={(e) => { e.stopPropagation(); setEditing(p) }}><IconEdit size={14} /></button>
-                    <button className="btn sm ghost danger" title="Delete" onClick={(e) => { e.stopPropagation(); remove(p) }}><IconTrash size={14} /></button>
+                  <span className="row" style={{ gap: 4, position: 'relative' }}>
+                    {/* Edit/Delete live behind the ⋯ menu to keep rows clean. */}
+                    <button className="btn sm ghost" title="More" aria-label="More actions"
+                      onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === p.id ? null : p.id) }}>⋯</button>
                     <span style={{ color: 'var(--accent)', display: 'inline-flex', padding: '0 4px' }}><IconArrowRight size={16} /></span>
+                    {menuFor === p.id && (
+                      <div className="pr-menu" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => { setMenuFor(null); setEditing(p) }}><IconEdit size={13} /> Edit</button>
+                        <button className="danger" onClick={() => { setMenuFor(null); remove(p) }}><IconTrash size={13} /> Delete</button>
+                      </div>
+                    )}
                   </span>
                 </div>
               )
@@ -107,6 +123,14 @@ export default function Properties() {
               .pr-pill { font-size: 0.66rem; padding: 2px 8px; }
               .pr-sub { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
               .pr-count { font-weight: 600; font-size: 0.9rem; }
+              .pr-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 140px;
+                background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+                box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
+              .pr-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px;
+                background: none; border: none; border-radius: 7px; color: var(--text); font-size: 0.86rem;
+                cursor: pointer; text-align: left; }
+              .pr-menu button:hover { background: var(--accent-bg); }
+              .pr-menu button.danger { color: var(--danger); }
               @media (max-width: 640px) {
                 .prop-row { flex-wrap: wrap; }
                 .pr-sub { white-space: normal; }
