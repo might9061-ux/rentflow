@@ -65,35 +65,46 @@ export default function ManagerNotifications() {
         : items.length === 0 ? (
           <div className="card"><EmptyState icon="🔔" title="No notifications sent">Compose your first notice to tenants.</EmptyState></div>
         ) : (
-          <div className="col" style={{ gap: 14 }}>
+          /* Read-rate rings — each notice leads with a % read donut, so delivery
+             coverage is the first thing you see. */
+          <div className="nf-grid">
             {items.map((n) => {
               const pr = PRIORITY[n.priority] || PRIORITY.normal
               const PrIcon = pr.icon
               const st = stats[n.id] || { read: 0, total: 0 }
               const ScopeIcon = n.recipient_scope === 'all' ? IconUsers : n.recipient_scope === 'property' ? IconBuilding : IconUsers
               return (
-                <div key={n.id} className="card pad">
-                  <div className="spread wrap" style={{ gap: 12 }}>
-                    <div className="row gap">
-                      <span className={`pill ${pr.cls}`}><PrIcon size={12} /> {pr.label}</span>
-                      <span className="pill neutral"><ScopeIcon size={12} /> {scopeLabel(n)}</span>
+                <div key={n.id} className="card pad nf-card">
+                  <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
+                    <ReadRing read={st.read} total={st.total} />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: '1.02rem', color: 'var(--text)' }}>{n.subject}</div>
+                      <div className="row gap wrap" style={{ marginTop: 6 }}>
+                        <span className={`pill ${pr.cls}`} style={{ fontSize: '0.68rem', padding: '2px 9px' }}><PrIcon size={11} /> {pr.label}</span>
+                        <span className="pill neutral" style={{ fontSize: '0.68rem', padding: '2px 9px' }}><ScopeIcon size={11} /> {scopeLabel(n)}</span>
+                        <span className="muted" style={{ fontSize: '0.74rem' }}>{timeAgo(n.created_at)}</span>
+                      </div>
                     </div>
-                    <span className="muted" style={{ fontSize: '0.8rem' }}>{timeAgo(n.created_at)}</span>
                   </div>
-                  <h3 style={{ marginTop: 12, fontSize: '1.2rem' }}>{n.subject}</h3>
-                  <p className="muted" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{n.message}</p>
-                  <div className="divider" />
-                  <div className="spread wrap" style={{ gap: 10, fontSize: '0.84rem' }}>
-                    <div className="grow" style={{ minWidth: 180 }}><ReadBar read={st.read} total={st.total} /></div>
+                  <p className="muted nf-snip">{n.message}</p>
+                  <div className="spread wrap" style={{ gap: 8, marginTop: 'auto', paddingTop: 10 }}>
+                    <span className="muted mono" style={{ fontSize: '0.78rem' }}>{st.total ? `${st.read} of ${st.total} read` : 'no recipients yet'}</span>
                     <button className="btn ghost sm wa" onClick={() => setDelivery({
                       subject: n.subject, message: n.message, priority: n.priority,
                       channels: { whatsapp: true, sms: true },
                       recipients: recipientsFor(n.recipient_scope, n.property_id, n.tenant_id),
-                    })}><IconWhatsapp size={14} /> Send via WhatsApp / SMS</button>
+                    })}><IconWhatsapp size={14} /> WhatsApp / SMS</button>
                   </div>
                 </div>
               )
             })}
+            <style>{`
+              .nf-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+              @media (min-width: 760px) { .nf-grid { grid-template-columns: 1fr 1fr; } }
+              .nf-card { display: flex; flex-direction: column; }
+              .nf-snip { margin-top: 10px; font-size: 0.86rem; white-space: pre-wrap; overflow: hidden;
+                display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+            `}</style>
           </div>
         )}
 
@@ -211,15 +222,24 @@ function DeliveryModal({ subject, message, priority, channels, recipients, manag
   )
 }
 
-function ReadBar({ read, total }) {
-  const pct = total ? Math.round((read / total) * 100) : 0
+// The % of recipients who have read a notice, as a small donut — green once
+// most have seen it, amber part-way, red when nobody has, grey dash with no
+// recipients. Conic-gradient, no chart library.
+function ReadRing({ read, total }) {
+  const pct = total ? Math.round((read / total) * 100) : null
+  const color = pct == null ? 'var(--line)' : pct === 0 ? 'var(--danger)' : pct < 50 ? 'var(--warn)' : 'var(--green)'
+  const deg = (pct || 0) * 3.6
   return (
-    <div className="row gap" style={{ width: '100%' }}>
-      <div style={{ flex: 1, height: 7, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden', maxWidth: 220 }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--gold)' }} />
-      </div>
-      <span className="muted mono">{read} of {total} read</span>
-    </div>
+    <span title={total ? `${read} of ${total} read` : 'No recipients yet'} style={{
+      width: 54, height: 54, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center',
+      background: `conic-gradient(${color} 0 ${deg}deg, var(--surface-2) ${deg}deg 360deg)`,
+      border: '1px solid var(--line-soft)',
+    }}>
+      <span style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--surface)', display: 'grid', placeItems: 'center',
+        fontSize: '0.74rem', fontWeight: 700, color: pct == null ? 'var(--text-faint)' : color }}>
+        {pct == null ? '—' : `${pct}%`}
+      </span>
+    </span>
   )
 }
 
