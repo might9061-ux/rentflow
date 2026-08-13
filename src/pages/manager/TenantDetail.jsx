@@ -185,6 +185,10 @@ export default function TenantDetail() {
           <span className="pill neutral">Due day {tenant.due_day}</span>
           <span className="pill neutral">{tenant.email_verified ? '✓ Email' : '✗ Email'}</span>
           <span className="pill neutral">{tenant.phone_verified ? '✓ Phone' : '✗ Phone'}</span>
+          {/* Manager-defined extras (National ID, next of kin…) show right here. */}
+          {Object.entries(tenant.details || {}).map(([k, v]) => (
+            <span key={k} className="pill neutral" title={k}><b style={{ fontWeight: 600 }}>{k}:</b>&nbsp;{String(v)}</span>
+          ))}
         </div>
       </div>
 

@@ -55,6 +55,7 @@ router.post('/tenants', h(async (req, res) => {
     id: tenantId, manager_id: ownerId, property_id: b.property_id ?? null,
     first_name: b.first_name, last_name: b.last_name, email: String(b.email).toLowerCase(),
     phone: b.phone ?? null, unit: b.unit ?? null, rent: Number(b.rent) || 0,
+    details: b.details ?? {},
     due_day: Number(b.due_day) || 1, lease_start: b.lease_start ?? null,
     status: 'pending', account_status: 'pending_verification',
     first_login: true, email_verified: false, phone_verified: false,

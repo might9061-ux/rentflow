@@ -36,6 +36,12 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
     lease_doc: tenant?.lease_doc || null, lease_doc_name: tenant?.lease_doc_name || null,
   })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  // Free-form extra details — whatever the manager wants to keep on record
+  // (National ID, passport, student number, next of kin…), as label/value rows.
+  const [extras, setExtras] = useState(() =>
+    Object.entries(tenant?.details || {}).map(([k, v]) => ({ k, v: String(v) })))
+  const setExtra = (i, field, value) => setExtras((xs) => xs.map((x, idx) => (idx === i ? { ...x, [field]: value } : x)))
+  const removeExtra = (i) => setExtras((xs) => xs.filter((_, idx) => idx !== i))
   const fileRef = useRef(null)
 
   // Tenants are placed in one of the property's real houses/units, picked from a
@@ -105,6 +111,8 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
         // Date columns reject "" — send null when a lease date is left blank.
         lease_start: form.lease_start || null,
         lease_end: form.lease_end || null,
+        // Extra details → {label: value}, skipping rows with an empty label.
+        details: Object.fromEntries(extras.filter((x) => x.k.trim()).map((x) => [x.k.trim(), x.v.trim()])),
       }
       if (isNew) {
         const { tenant: created, tempPassword } = await db.createTenant(userId, payload)
@@ -192,6 +200,24 @@ export default function TenantModal({ tenant, properties, tenants = [], userId, 
           </button>
           {form.lease_doc && <span className="hint" style={{ color: 'var(--green)' }}>Attached — tenants can download it.</span>}
         </div>
+
+        {/* Free-form extra details — the manager decides what to keep on record. */}
+        <div className="field" style={{ marginBottom: 6 }}>
+          <label>Extra details <span className="muted" style={{ fontWeight: 400 }}>(optional — ID, passport, next of kin…)</span></label>
+        </div>
+        {extras.map((x, i) => (
+          <div key={i} className="row gap" style={{ marginBottom: 8, alignItems: 'center' }}>
+            <input className="input" style={{ flex: 1 }} placeholder="Label — e.g. National ID"
+              value={x.k} onChange={(e) => setExtra(i, 'k', e.target.value)} />
+            <input className="input" style={{ flex: 1.4 }} placeholder="Value — e.g. 63-123456A70"
+              value={x.v} onChange={(e) => setExtra(i, 'v', e.target.value)} />
+            <button type="button" className="btn sm ghost danger" title="Remove" onClick={() => removeExtra(i)}>✕</button>
+          </div>
+        ))}
+        <button type="button" className="btn ghost sm" style={{ marginBottom: 14 }}
+          onClick={() => setExtras((xs) => [...xs, { k: '', v: '' }])}>
+          + Add detail
+        </button>
 
         {!isNew && (
           <Row>

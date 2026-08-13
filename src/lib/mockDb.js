@@ -1131,6 +1131,7 @@ export const mockApi = {
       unit: data.unit || '', rent: Number(data.rent) || 0,
       due_day: Number(data.due_day) || 1, lease_start: data.lease_start || null,
       lease_end: data.lease_end || null, lease_doc: data.lease_doc || null, lease_doc_name: data.lease_doc_name || null,
+      details: data.details || {},
       status: 'pending', account_status: 'pending_verification',
       total_paid: 0, credit_balance: 0,
       first_login: true, email_verified: false, phone_verified: false,
@@ -1147,7 +1148,7 @@ export const mockApi = {
     if (!canSeeTenant(d, t)) throw new Error('Not found in your workspace.')
     const allowed = ['property_id', 'first_name', 'last_name', 'email', 'phone', 'unit',
       'rent', 'due_day', 'lease_start', 'lease_end', 'lease_doc', 'lease_doc_name',
-      'status', 'credit_balance', 'account_status', 'avatar', 'vacated_at']
+      'status', 'credit_balance', 'account_status', 'avatar', 'vacated_at', 'details']
     allowed.forEach((k) => { if (k in patch) t[k] = patch[k] })
     if ('rent' in patch) t.rent = Number(patch.rent) || 0
     if ('credit_balance' in patch) t.credit_balance = Number(patch.credit_balance) || 0
