@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, fmtDate, fullName } from '../../lib/format.js'
 import { WORKER_CATEGORIES, monthlyEstimate, thisPeriodLabel, inThisMonth, workerKey } from '../../lib/payroll.js'
-import { StatCard, Spinner, EmptyState } from '../../components/ui.jsx'
-import { IconCash, IconUsers, IconWallet, IconArrowRight } from '../../components/icons.jsx'
+import { Spinner, EmptyState } from '../../components/ui.jsx'
+import { IconUsers } from '../../components/icons.jsx'
 
 export default function Payroll() {
   const { userId } = useAuth()
@@ -35,47 +35,49 @@ export default function Payroll() {
 
   return (
     <div className="page" style={{ maxWidth: 940 }}>
-      <div className="spread page-head">
-        <div>
-          <div className="eyebrow">Wages</div>
-          <h1>Payroll</h1>
-          <p>What you spend on staff each month, and every salary payment you’ve made — all logged to Finances as a salary expense.</p>
-        </div>
-        <Link className="btn primary" to="/manager/workers"><IconUsers size={16} /> Manage workers</Link>
+      <div className="page-head">
+        <div className="eyebrow">Wages</div>
+        <h1>Payroll</h1>
+        <p>What you spend on staff each month, and every salary payment you’ve made — all logged to Finances as a salary expense.</p>
       </div>
 
-      <div className="grid stats" style={{ marginBottom: 22 }}>
-        <StatCard label="Est. monthly payroll" value={money(monthlyTotal)} sub="Fixed wages (excl. per-task)" icon={<IconCash size={18} />} />
-        <StatCard label="Paid this month" value={money(paidThisMonth)} sub={thisPeriodLabel()} icon={<IconWallet size={18} />} />
-        <StatCard label="Workers" value={workerCount} sub={team.length ? `Incl. ${team.length} agent${team.length === 1 ? '' : 's'}` : `${usedCategories.length} categories`} icon={<IconUsers size={18} />} />
-      </div>
-
-      <div className="card">
-        <div className="spread" style={{ padding: '16px 18px 12px' }}>
-          <h3>Payment history</h3>
-          <Link className="btn sm ghost" to="/manager/workers">Workers <IconArrowRight size={14} /></Link>
+      {/* Executive summary bar — the three stat cards folded into one line. */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="spread wrap" style={{ padding: '14px 18px', gap: 10 }}>
+          <div className="row gap wrap" style={{ alignItems: 'baseline' }}>
+            <b style={{ fontSize: '1.05rem' }}>{money(monthlyTotal)}/mo fixed</b>
+            <span className="muted" style={{ fontSize: '0.84rem' }}>
+              · {money(paidThisMonth)} paid in {thisPeriodLabel()} · {workerCount} worker{workerCount === 1 ? '' : 's'}
+              {team.length ? ` (incl. ${team.length} agent${team.length === 1 ? '' : 's'})` : usedCategories.length ? ` · ${usedCategories.length} categories` : ''}
+            </span>
+          </div>
+          <Link className="btn primary sm" to="/manager/workers"><IconUsers size={15} /> Pay workers</Link>
         </div>
         <div className="divider" style={{ margin: 0 }} />
+
         {payroll.length === 0 ? (
           <EmptyState icon="🧾" title="No payments yet">Pay a worker from the <Link to="/manager/workers">Workers</Link> page and it will appear here.</EmptyState>
         ) : (
-          <div className="table-wrap">
-            <table className="data">
-              <thead><tr><th>Date</th><th>Person</th><th>For</th><th>Method</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
-              <tbody>
-                {payroll.slice(0, 20).map((p) => (
-                  <tr key={p.id}>
-                    <td className="nowrap">{fmtDate(p.paid_on)}</td>
-                    <td><div style={{ fontWeight: 600 }}>{p.name}</div><div className="muted" style={{ fontSize: '0.78rem' }}>{p.category || p.role || ''}</div></td>
-                    <td className="muted">{p.period || '—'}</td>
-                    <td>{p.method}</td>
-                    <td className="mono" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--danger)' }}>−{money(p.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          payroll.slice(0, 20).map((p) => (
+            <div key={p.id} className="pay-row">
+              <span className="pay-avatar">{(p.name || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontWeight: 600 }}>{p.name}</span>
+                {(p.category || p.role) && <span className="muted"> · {p.category || p.role}</span>}
+                <div className="muted pay-sub">{p.period || '—'} · {p.method} · {fmtDate(p.paid_on)}</div>
+              </div>
+              <span className="mono" style={{ fontWeight: 600, color: 'var(--danger)', whiteSpace: 'nowrap' }}>−{money(p.amount)}</span>
+            </div>
+          ))
         )}
+        <style>{`
+          .pay-row { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line-soft); transition:background 0.13s; }
+          .pay-row:last-child { border-bottom:none; }
+          .pay-row:hover { background:var(--accent-bg); }
+          .pay-avatar { width:32px; height:32px; border-radius:99px; flex-shrink:0; display:grid; place-items:center;
+            background:var(--accent-bg); color:var(--accent); font-size:0.72rem; font-weight:700; border:1px solid var(--accent-line); }
+          .pay-sub { font-size:0.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        `}</style>
       </div>
     </div>
   )
