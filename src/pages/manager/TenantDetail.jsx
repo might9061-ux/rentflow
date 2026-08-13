@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, fullName, fmtDate } from '../../lib/format.js'
 import { prettyPhone } from '../../lib/phone.js'
-import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
+import { StatusPill, Spinner, EmptyState } from '../../components/ui.jsx'
 import ReceiptModal from '../../components/Receipt.jsx'
 import Modal from '../../components/Modal.jsx'
 import TenantModal from './TenantModal.jsx'
@@ -32,7 +32,7 @@ export default function TenantDetail() {
   const [editing, setEditing] = useState(false)
   const [creds, setCreds] = useState(null)
   const [recording, setRecording] = useState(false)
-  const [stmtOpen, setStmtOpen] = useState(false)
+  const [stmtOpen, setStmtOpen] = useState(false) // ⋯ menu (statement, credentials, vacate…)
   const [showVacate, setShowVacate] = useState(false)
   const [leases, setLeases] = useState([])
   const [leaseModal, setLeaseModal] = useState(false)
@@ -149,38 +149,32 @@ export default function TenantDetail() {
               </div>
             </div>
           </div>
-          <div className="row gap wrap">
-            <div className="stmt-wrap">
-              <button className="btn ghost" onClick={() => setStmtOpen((o) => !o)}><IconDownload size={15} /> Statement</button>
-              {stmtOpen && (
-                <>
-                  <div className="stmt-back" onClick={() => setStmtOpen(false)} />
-                  <div className="stmt-menu">
-                    <button onClick={printPdf}><IconReceipt size={15} /> Print / Save as PDF</button>
-                    <button onClick={downloadCsv}><IconDownload size={15} /> Download CSV (Excel)</button>
-                  </div>
-                </>
-              )}
-            </div>
-            {/* The temporary key is only for the first-login handover. Once the
-                tenant has set their own password, they sign in with it (and can
-                self-reset via "Forgot password?"), so the credentials button is
-                hidden. */}
-            {/* Deleted tenants are read-only "past residents": only the statement /
-                receipts remain. Everything else is hidden. */}
-            {!deletedAt && (<>
-              {!vacatedAt && tenant.first_login && (
-                <button className="btn ghost" onClick={resend}><IconKey size={15} /> Resend credentials</button>
-              )}
-              {!vacatedAt && <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>}
-              <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>
-              {!vacatedAt
-                ? <button className="btn ghost danger" onClick={() => setShowVacate(true)}>Vacate</button>
-                : (<>
-                    <button className="btn ghost" onClick={restore}>Restore</button>
-                    <button className="btn ghost danger" onClick={() => { if (window.confirm(`Permanently delete ${fullName(tenant)}? Their login and record are removed, but their payment history stays in your Finances.`)) deleteNow() }}>Delete permanently</button>
+          {/* Executive toolbar: the two everyday actions stay visible; statement,
+              credentials and the archive actions live behind ⋯. Deleted tenants
+              are read-only, so only the statement remains in the menu. */}
+          <div className="row gap wrap" style={{ position: 'relative' }}>
+            {!deletedAt && !vacatedAt && <button className="btn ok" onClick={() => setRecording(true)}><IconWallet size={15} /> Record payment</button>}
+            {!deletedAt && <button className="btn primary" onClick={() => setEditing(true)}><IconEdit size={15} /> Edit</button>}
+            <button className="btn ghost" aria-label="More actions" onClick={(e) => { e.stopPropagation(); setStmtOpen((o) => !o) }}>⋯</button>
+            {stmtOpen && (
+              <>
+                <div className="stmt-back" onClick={() => setStmtOpen(false)} />
+                <div className="stmt-menu">
+                  <button onClick={printPdf}><IconReceipt size={15} /> Print statement / PDF</button>
+                  <button onClick={downloadCsv}><IconDownload size={15} /> Download CSV (Excel)</button>
+                  {!deletedAt && !vacatedAt && tenant.first_login && (
+                    <button onClick={() => { setStmtOpen(false); resend() }}><IconKey size={15} /> Resend credentials</button>
+                  )}
+                  {!deletedAt && !vacatedAt && (
+                    <button className="danger" onClick={() => { setStmtOpen(false); setShowVacate(true) }}>Vacate</button>
+                  )}
+                  {!deletedAt && vacatedAt && (<>
+                    <button onClick={() => { setStmtOpen(false); restore() }}>Restore</button>
+                    <button className="danger" onClick={() => { setStmtOpen(false); if (window.confirm(`Permanently delete ${fullName(tenant)}? Their login and record are removed, but their payment history stays in your Finances.`)) deleteNow() }}>Delete permanently</button>
                   </>)}
-            </>)}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -206,10 +200,11 @@ export default function TenantDetail() {
         </div>
       )}
 
-      <div className="grid stats" style={{ marginBottom: 24 }}>
-        <StatCard label="Monthly rent" value={money(tenant.rent)} icon={<IconWallet size={18} />} />
-        <StatCard label="Total paid" value={money(totalPaid)} sub={`${approved.length} payments`} />
-        <StatCard label="Credit balance" value={money(credit)} sub={credit > 0 ? 'Carried forward' : '—'} />
+      {/* Compact KPI strip — three cells side by side at every width. */}
+      <div className="td-kpis" style={{ marginBottom: 24 }}>
+        <div><span className="tk-l">Monthly rent</span><span className="tk-v">{money(tenant.rent)}</span><span className="tk-s">due day {tenant.due_day}</span></div>
+        <div><span className="tk-l">Total paid</span><span className="tk-v" style={{ color: totalPaid > 0 ? 'var(--green)' : undefined }}>{money(totalPaid)}</span><span className="tk-s">{approved.length} payments</span></div>
+        <div><span className="tk-l">Credit</span><span className="tk-v" style={{ color: credit > 0 ? 'var(--green)' : undefined }}>{money(credit)}</span><span className="tk-s">{credit > 0 ? 'carried forward' : 'none'}</span></div>
       </div>
 
       {!deletedAt && (
@@ -253,27 +248,27 @@ export default function TenantDetail() {
       {payments.length === 0 ? (
         <div className="card"><EmptyState icon="🧾" title="No payments yet" /></div>
       ) : (
-        <div className="table-wrap">
-          <table className="data">
-            <thead><tr><th>Date</th><th>Billing period</th><th>Amount</th><th>Method</th><th>Status</th><th>Receipt</th><th></th></tr></thead>
-            <tbody>
-              {payments.map((p) => (
-                <tr key={p.id}>
-                  <td className="nowrap">{fmtDate(p.paid_date)}</td>
-                  <td><PeriodTag from={p.period_from} to={p.period_to} /></td>
-                  <td className="mono" style={{ fontWeight: 600, color: p.status === 'approved' ? 'var(--green)' : undefined }}>{money(p.amount)}</td>
-                  <td>{p.method}</td>
-                  <td><StatusPill status={p.status} /></td>
-                  <td className="mono muted">{p.receipt_no || '—'}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    {p.status === 'approved' && (
-                      <button className="btn sm ghost" onClick={() => setViewing(p)}><IconReceipt size={14} /></button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        /* Executive rows — approved rows open their receipt. */
+        <div className="card">
+          {payments.map((p) => {
+            const dot = p.status === 'approved' ? 'var(--green)' : p.status === 'rejected' ? 'var(--danger)' : 'var(--warn)'
+            const open = p.status === 'approved' ? () => setViewing(p) : undefined
+            return (
+              <div key={p.id} className={`td-row ${open ? 'click' : ''}`} role={open ? 'button' : undefined} tabIndex={open ? 0 : undefined}
+                onClick={open} onKeyDown={open ? (e) => { if (e.key === 'Enter') open() } : undefined}>
+                <span className="td-dot" style={{ background: dot }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span className="mono" style={{ fontWeight: 700, color: p.status === 'approved' ? 'var(--green)' : 'var(--text)' }}>{money(p.amount)}</span>
+                  <span className="muted"> · {p.method}</span>
+                  <div className="muted td-sub">
+                    {fmtDate(p.paid_date)} · {formatPeriod({ from: p.period_from, to: p.period_to })}{p.receipt_no ? ` · ${p.receipt_no}` : ''}
+                  </div>
+                </div>
+                <StatusPill status={p.status} />
+                {open && <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><IconReceipt size={15} /></span>}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -325,15 +320,30 @@ export default function TenantDetail() {
       )}
 
       <style>{`
-        .stmt-wrap { position: relative; }
         .stmt-back { position: fixed; inset: 0; z-index: 40; }
-        .stmt-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 41; min-width: 220px;
-          background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-          box-shadow: var(--shadow-soft); padding: 5px; }
+        .stmt-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 41; min-width: 220px;
+          background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+          box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
         .stmt-menu button { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
           background: transparent; border: none; color: var(--text); padding: 10px 11px; border-radius: 7px;
           font-size: 0.88rem; cursor: pointer; }
-        .stmt-menu button:hover { background: var(--surface-2); }
+        .stmt-menu button:hover { background: var(--accent-bg); }
+        .stmt-menu button.danger { color: var(--danger); }
+        .td-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+          background: var(--line-soft); border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; }
+        .td-kpis > div { background: var(--surface); padding: 12px 16px; }
+        .tk-l { display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+        .tk-v { display: block; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; margin-top: 3px; }
+        .tk-s { display: block; font-size: 0.74rem; color: var(--text-faint); margin-top: 2px; }
+        @media (max-width: 480px) { .tk-v { font-size: 1.1rem; } }
+        .td-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+          border-bottom: 1px solid var(--line-soft); transition: background 0.13s; }
+        .td-row:last-of-type { border-bottom: none; }
+        .td-row.click { cursor: pointer; }
+        .td-row.click:hover { background: var(--accent-bg); }
+        .td-row.click:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+        .td-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; }
+        .td-sub { font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       `}</style>
     </div>
   )
