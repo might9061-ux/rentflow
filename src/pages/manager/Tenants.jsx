@@ -26,6 +26,14 @@ export default function Tenants() {
   const [editing, setEditing] = useState(null)
   const [creds, setCreds] = useState(null) // { tenant, tempPassword }
   const [showPast, setShowPast] = useState(false) // active vs vacated tenants
+  const [menuFor, setMenuFor] = useState(null) // tenant id whose ⋯ menu is open
+
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [menuFor])
 
   const load = async () => {
     const [t, p, m, pays] = await Promise.all([
@@ -156,14 +164,19 @@ export default function Tenants() {
                     </td>
                     <td><StatusPill status={t.account_status} /></td>
                     <td>
-                      <div className="row gap" style={{ justifyContent: 'flex-end' }}>
-                        <button className="btn sm ghost" title="Payment history" onClick={(e) => { e.stopPropagation(); nav(`/manager/tenants/${t.id}`) }}><IconReceipt size={14} /></button>
-                        <button className="btn sm ghost" title="Edit" onClick={(e) => { e.stopPropagation(); setEditing(t) }}><IconEdit size={14} /></button>
-                        {/* The temp key is only for the first-login handover. Once the
-                            tenant has set their own password, they sign in with it (and
-                            reset it via "Forgot password?"), so hide the key. */}
-                        {t.first_login && (
-                          <button className="btn sm ghost" title="Resend credentials" onClick={(e) => { e.stopPropagation(); resend(t) }}><IconKey size={14} /></button>
+                      {/* Actions live behind a ⋯ menu to keep rows clean (the
+                          temp key only appears until they set their own password). */}
+                      <div className="row" style={{ justifyContent: 'flex-end', position: 'relative' }}>
+                        <button className="btn sm ghost" title="More" aria-label="More actions"
+                          onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === t.id ? null : t.id) }}>⋯</button>
+                        {menuFor === t.id && (
+                          <div className="tn-menu" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => { setMenuFor(null); nav(`/manager/tenants/${t.id}`) }}><IconReceipt size={13} /> Payment history</button>
+                            <button onClick={() => { setMenuFor(null); setEditing(t) }}><IconEdit size={13} /> Edit</button>
+                            {t.first_login && (
+                              <button onClick={() => { setMenuFor(null); resend(t) }}><IconKey size={13} /> Resend credentials</button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -173,6 +186,16 @@ export default function Tenants() {
             </table>
           </div>
         )}
+
+      <style>{`
+        .tn-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 186px;
+          background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+          box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
+        .tn-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px;
+          background: none; border: none; border-radius: 7px; color: var(--text); font-size: 0.86rem;
+          cursor: pointer; text-align: left; }
+        .tn-menu button:hover { background: var(--accent-bg); }
+      `}</style>
 
       {editing && (
         <TenantModal tenant={editing} properties={properties} tenants={tenants} userId={userId}
