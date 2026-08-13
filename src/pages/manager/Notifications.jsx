@@ -26,6 +26,15 @@ export default function ManagerNotifications() {
   const [composing, setComposing] = useState(false)
   const [delivery, setDelivery] = useState(null) // { subject, message, priority, channels, recipients }
   const [stats, setStats] = useState({}) // id -> {read,total}
+  const [viewing, setViewing] = useState(null) // notice opened for full detail
+  const [menuFor, setMenuFor] = useState(null) // notice id whose ⋯ menu is open
+
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [menuFor])
 
   // Tenants (with a phone) targeted by a notification's scope.
   const recipientsFor = (scope, propertyId, tenantId) => {
@@ -65,48 +74,93 @@ export default function ManagerNotifications() {
         : items.length === 0 ? (
           <div className="card"><EmptyState icon="🔔" title="No notifications sent">Compose your first notice to tenants.</EmptyState></div>
         ) : (
-          /* Read-rate rings — each notice leads with a % read donut, so delivery
-             coverage is the first thing you see. */
-          <div className="nf-grid">
+          /* Executive rows — one joined list: priority dot, subject · audience,
+             read count, ⋯ for actions. Row click opens the full notice. */
+          <div className="card">
             {items.map((n) => {
-              const pr = PRIORITY[n.priority] || PRIORITY.normal
-              const PrIcon = pr.icon
               const st = stats[n.id] || { read: 0, total: 0 }
-              const ScopeIcon = n.recipient_scope === 'all' ? IconUsers : n.recipient_scope === 'property' ? IconBuilding : IconUsers
+              const pct = st.total ? Math.round((st.read / st.total) * 100) : null
+              const readColor = pct == null ? 'var(--text-faint)' : pct === 0 ? 'var(--danger)' : pct < 50 ? 'var(--warn)' : 'var(--green)'
+              const dot = n.priority === 'urgent' ? 'var(--danger)' : n.priority === 'info' ? 'var(--warn)' : 'var(--accent)'
               return (
-                <div key={n.id} className="card pad nf-card">
-                  <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
-                    <ReadRing read={st.read} total={st.total} />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: '1.02rem', color: 'var(--text)' }}>{n.subject}</div>
-                      <div className="row gap wrap" style={{ marginTop: 6 }}>
-                        <span className={`pill ${pr.cls}`} style={{ fontSize: '0.68rem', padding: '2px 9px' }}><PrIcon size={11} /> {pr.label}</span>
-                        <span className="pill neutral" style={{ fontSize: '0.68rem', padding: '2px 9px' }}><ScopeIcon size={11} /> {scopeLabel(n)}</span>
-                        <span className="muted" style={{ fontSize: '0.74rem' }}>{timeAgo(n.created_at)}</span>
+                <div key={n.id} className="ntf-row" role="button" tabIndex={0}
+                  onClick={() => setViewing(n)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setViewing(n) }}>
+                  <span className="ntf-dot" style={{ background: dot }} />
+                  <div className="ntf-main">
+                    <span style={{ fontWeight: 600 }}>{n.subject}</span>
+                    <div className="muted ntf-sub">{scopeLabel(n)} · {timeAgo(n.created_at)}{n.priority === 'urgent' ? ' · urgent' : ''}</div>
+                  </div>
+                  <span className="mono ntf-read" style={{ color: readColor }}>{st.total ? `${st.read}/${st.total} read` : '—'}</span>
+                  <span style={{ position: 'relative' }}>
+                    <button className="btn sm ghost" aria-label="More actions"
+                      onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === n.id ? null : n.id) }}>⋯</button>
+                    {menuFor === n.id && (
+                      <div className="ntf-menu" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => { setMenuFor(null); setViewing(n) }}><IconBell size={13} /> View notice</button>
+                        <button onClick={() => { setMenuFor(null); setDelivery({
+                          subject: n.subject, message: n.message, priority: n.priority,
+                          channels: { whatsapp: true, sms: true },
+                          recipients: recipientsFor(n.recipient_scope, n.property_id, n.tenant_id),
+                        }) }}><IconWhatsapp size={13} /> WhatsApp / SMS</button>
                       </div>
-                    </div>
-                  </div>
-                  <p className="muted nf-snip">{n.message}</p>
-                  <div className="spread wrap" style={{ gap: 8, marginTop: 'auto', paddingTop: 10 }}>
-                    <span className="muted mono" style={{ fontSize: '0.78rem' }}>{st.total ? `${st.read} of ${st.total} read` : 'no recipients yet'}</span>
-                    <button className="btn ghost sm wa" onClick={() => setDelivery({
-                      subject: n.subject, message: n.message, priority: n.priority,
-                      channels: { whatsapp: true, sms: true },
-                      recipients: recipientsFor(n.recipient_scope, n.property_id, n.tenant_id),
-                    })}><IconWhatsapp size={14} /> WhatsApp / SMS</button>
-                  </div>
+                    )}
+                  </span>
                 </div>
               )
             })}
             <style>{`
-              .nf-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-              @media (min-width: 760px) { .nf-grid { grid-template-columns: 1fr 1fr; } }
-              .nf-card { display: flex; flex-direction: column; }
-              .nf-snip { margin-top: 10px; font-size: 0.86rem; white-space: pre-wrap; overflow: hidden;
-                display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+              .ntf-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+                border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.13s; }
+              .ntf-row:last-of-type { border-bottom: none; }
+              .ntf-row:hover { background: var(--accent-bg); }
+              .ntf-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+              .ntf-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; }
+              .ntf-main { flex: 1; min-width: 0; font-size: 0.94rem; }
+              .ntf-sub { font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+              .ntf-read { font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+              .ntf-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 176px;
+                background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+                box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
+              .ntf-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px;
+                background: none; border: none; border-radius: 7px; color: var(--text); font-size: 0.86rem;
+                cursor: pointer; text-align: left; }
+              .ntf-menu button:hover { background: var(--accent-bg); }
             `}</style>
           </div>
         )}
+
+      {viewing && (() => {
+        const pr = PRIORITY[viewing.priority] || PRIORITY.normal
+        const PrIcon = pr.icon
+        const st = stats[viewing.id] || { read: 0, total: 0 }
+        const ScopeIcon = viewing.recipient_scope === 'all' ? IconUsers : viewing.recipient_scope === 'property' ? IconBuilding : IconUsers
+        return (
+          <Modal title={viewing.subject} onClose={() => setViewing(null)}
+            footer={<>
+              <button className="btn ghost" onClick={() => setViewing(null)}>Close</button>
+              <button className="btn wa" onClick={() => { setViewing(null); setDelivery({
+                subject: viewing.subject, message: viewing.message, priority: viewing.priority,
+                channels: { whatsapp: true, sms: true },
+                recipients: recipientsFor(viewing.recipient_scope, viewing.property_id, viewing.tenant_id),
+              }) }}><IconWhatsapp size={15} /> Send via WhatsApp / SMS</button>
+            </>}>
+            <div className="row gap wrap" style={{ marginBottom: 12, alignItems: 'center' }}>
+              <ReadRing read={st.read} total={st.total} />
+              <div>
+                <div className="row gap wrap">
+                  <span className={`pill ${pr.cls}`}><PrIcon size={12} /> {pr.label}</span>
+                  <span className="pill neutral"><ScopeIcon size={12} /> {scopeLabel(viewing)}</span>
+                </div>
+                <div className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>
+                  Sent {timeAgo(viewing.created_at)} · {st.total ? `${st.read} of ${st.total} read` : 'no recipients yet'}
+                </div>
+              </div>
+            </div>
+            <p style={{ whiteSpace: 'pre-wrap' }}>{viewing.message}</p>
+          </Modal>
+        )
+      })()}
 
       {composing && (
         <ComposeModal userId={userId} tenants={tenants} properties={properties}
