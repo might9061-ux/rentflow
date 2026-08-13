@@ -91,30 +91,31 @@ export default function Finances() {
 
   return (
     <div className="page" id="statement">
-      <div className="spread page-head wrap" style={{ gap: 12 }}>
-        <div>
-          <div className="eyebrow">Finances</div>
-          <h1>Statements</h1>
-          <p>Rent collected against expenses, per property — your bottom line.</p>
+      <div className="page-head no-print">
+        <div className="eyebrow">Finances</div>
+        <h1>Statements</h1>
+        <p>Rent collected against expenses, per property — your bottom line.</p>
+      </div>
+
+      {/* One toolbar line: period picker + actions together (Executive). */}
+      <div className="spread wrap no-print" style={{ gap: 10, marginBottom: 18 }}>
+        <div className="seg">
+          {PERIODS.map((p) => <button key={p.id} className={period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>{p.label}</button>)}
         </div>
-        <div className="row gap wrap no-print">
-          <button className="btn ghost" onClick={() => exportFinances(rows, unassignedExp, periodLabel)}><IconReceipt size={15} /> Excel</button>
-          <button className="btn ghost" onClick={() => window.print()}><IconReceipt size={15} /> Print</button>
-          <button className="btn primary" onClick={() => setAdding(true)}><IconPlus size={16} /> Add expense</button>
+        <div className="row gap wrap">
+          <button className="btn ghost sm" onClick={() => exportFinances(rows, unassignedExp, periodLabel)}><IconReceipt size={14} /> Excel</button>
+          <button className="btn ghost sm" onClick={() => window.print()}><IconReceipt size={14} /> Print</button>
+          <button className="btn primary sm" onClick={() => setAdding(true)}><IconPlus size={15} /> Add expense</button>
         </div>
       </div>
 
-      <div className="seg no-print" style={{ marginBottom: 18 }}>
-        {PERIODS.map((p) => <button key={p.id} className={period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>{p.label}</button>)}
+      <div className="grid stats no-print" style={{ marginBottom: 22 }}>
+        <StatCard label="Collected" value={<span style={{ color: totalCollected > 0 ? 'var(--green)' : undefined }}>{money(totalCollected)}</span>} sub={`${periodLabel} · view`} icon={<IconWallet size={18} />} onClick={() => setCard('collected')} />
+        <StatCard label="Expenses" value={<span style={{ color: totalExpenses > 0 ? 'var(--danger)' : undefined }}>{totalExpenses > 0 ? `−${money(totalExpenses)}` : money(0)}</span>} sub={`${periodLabel} · view`} icon={<IconClock size={18} />} onClick={() => setCard('expenses')} />
+        <StatCard label="Net" value={<span style={{ color: net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{money(net)}</span>} sub={net >= 0 ? 'Profit · view' : 'Loss · view'} icon={<IconChart size={18} />} onClick={() => setCard('net')} />
       </div>
 
-      <div className="grid stats" style={{ marginBottom: 22 }}>
-        <StatCard label="Collected" value={money(totalCollected)} sub={`${periodLabel} · view`} icon={<IconWallet size={18} />} onClick={() => setCard('collected')} />
-        <StatCard label="Expenses" value={money(totalExpenses)} sub={`${periodLabel} · view`} icon={<IconClock size={18} />} onClick={() => setCard('expenses')} />
-        <StatCard label="Net" value={money(net)} sub={net >= 0 ? 'Profit · view' : 'Loss · view'} icon={<IconChart size={18} />} onClick={() => setCard('net')} />
-      </div>
-
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card no-print" style={{ marginBottom: 20 }}>
         <div className="spread" style={{ padding: '16px 18px 12px' }}>
           <h3>Per property · {periodLabel}</h3>
           <span className="muted no-print" style={{ fontSize: '0.8rem' }}>Tap a property to see where it comes from</span>
@@ -156,6 +157,40 @@ export default function Finances() {
         </div>
       </div>
 
+      {/* Print output — a formal P&L letterhead (design #3). Hidden on screen;
+          when printing, the interactive page hides and only this renders. */}
+      <div className="print-only pl-report">
+        <div className="plr-head">
+          <div>
+            <div className="plr-title">Statement of income — {periodLabel}</div>
+            <div className="plr-sub">RentLoja · prepared {fmtDate(new Date().toISOString())}</div>
+          </div>
+          <div className="plr-sub">{properties.length} propert{properties.length === 1 ? 'y' : 'ies'}</div>
+        </div>
+
+        <table className="plr-table">
+          <thead><tr><th>Property</th><th>Collected</th><th>Expenses</th><th>Net</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.prop.id}>
+                <td>{r.prop.name}</td>
+                <td>{r.collected.toFixed(2)}</td>
+                <td>{r.expenses > 0 ? `(${r.expenses.toFixed(2)})` : '0.00'}</td>
+                <td>{r.net < 0 ? `(${Math.abs(r.net).toFixed(2)})` : r.net.toFixed(2)}</td>
+              </tr>
+            ))}
+            {unassignedExp > 0 && (
+              <tr><td>General (no property)</td><td>0.00</td><td>({unassignedExp.toFixed(2)})</td><td>({unassignedExp.toFixed(2)})</td></tr>
+            )}
+          </tbody>
+        </table>
+
+        <div className="plr-line"><span>Rent collected</span><span>{totalCollected.toFixed(2)}</span></div>
+        <div className="plr-line"><span>Operating expenses</span><span>({totalExpenses.toFixed(2)})</span></div>
+        <div className="plr-net"><span>Net income</span><span>{net < 0 ? `($${Math.abs(net).toFixed(2)})` : `$${net.toFixed(2)}`}</span></div>
+        <div className="plr-foot">Generated by RentLoja · rentloja.com</div>
+      </div>
+
       {adding && <ExpenseModal userId={userId} properties={properties} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load() }} />}
       {drill && (
         <PropertyBreakdownModal prop={drill} range={range} periodLabel={periodLabel}
@@ -171,7 +206,29 @@ export default function Finances() {
           onClose={() => setCard(null)} />
       )}
 
-      <style>{`@media print { .no-print { display:none !important; } .sidebar, .topbar, .ai-fab { display:none !important; } }`}</style>
+      <style>{`
+        .print-only { display: none; }
+        @media print {
+          .no-print, .sidebar, .topbar, .ai-fab { display: none !important; }
+          .print-only { display: block; }
+          @page { margin: 22mm 18mm; }
+          .pl-report { font-family: Georgia, 'Times New Roman', serif; color: #1a1714; max-width: 720px; }
+          .plr-head { display: flex; justify-content: space-between; align-items: flex-end;
+            border-bottom: 2px solid #1a1714; padding-bottom: 8px; margin-bottom: 14px; }
+          .plr-title { font-size: 1.4rem; font-weight: 700; }
+          .plr-sub { color: #6b6258; font-size: 0.82rem; }
+          .plr-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 0.92rem; }
+          .plr-table th { text-align: right; font-size: 0.72rem; letter-spacing: 1px; text-transform: uppercase;
+            color: #6b6258; border-bottom: 1px solid #1a1714; padding: 6px 0; }
+          .plr-table th:first-child, .plr-table td:first-child { text-align: left; }
+          .plr-table td { text-align: right; padding: 7px 0; border-bottom: 1px solid #e5ded4; font-variant-numeric: tabular-nums; }
+          .plr-line { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.95rem;
+            border-bottom: 1px solid #e5ded4; font-variant-numeric: tabular-nums; }
+          .plr-net { display: flex; justify-content: space-between; padding: 10px 0; font-size: 1.2rem; font-weight: 700;
+            border-bottom: 3px double #1a1714; }
+          .plr-foot { margin-top: 26px; text-align: center; color: #6b6258; font-size: 0.72rem; }
+        }
+      `}</style>
     </div>
   )
 }
