@@ -8,10 +8,10 @@ import { sendWhatsApp, receiptMessage } from '../../lib/whatsapp.js'
 import { downloadCSV } from '../../lib/csv.js'
 import { downloadExcel } from '../../lib/excel.js'
 import { Input, Select, Textarea } from '../../components/Field.jsx'
-import { PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
+import { Spinner, EmptyState } from '../../components/ui.jsx'
 import Modal from '../../components/Modal.jsx'
 import ReceiptModal from '../../components/Receipt.jsx'
-import { IconReceipt, IconWhatsapp, IconSparkle, IconWarn, IconArrowRight } from '../../components/icons.jsx'
+import { IconReceipt, IconWhatsapp, IconSparkle } from '../../components/icons.jsx'
 import Arrears from './Arrears.jsx'
 import Advance from './Advance.jsx'
 
@@ -36,6 +36,14 @@ export default function Payments() {
   const [properties, setProperties] = useState([])
   const [viewing, setViewing] = useState(null)
   const [query, setQuery] = useState('')
+  const [menuFor, setMenuFor] = useState(null) // payment id whose ⋯ menu is open
+
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [menuFor])
 
   // The Rejected tab badge is a notification: it counts only rejections the
   // manager hasn't seen yet, and clears once they open the tab (persisted).
@@ -130,6 +138,25 @@ export default function Payments() {
         ))}
       </div>
 
+      <style>{`
+        .pmt-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+          border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.13s; }
+        .pmt-row:last-of-type { border-bottom: none; }
+        .pmt-row:hover { background: var(--accent-bg); }
+        .pmt-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+        .pmt-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; }
+        .pmt-pill { font-size: 0.64rem; padding: 1px 8px; margin-left: 8px; }
+        .pmt-sub { font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pmt-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 196px;
+          background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+          box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
+        .pmt-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px;
+          background: none; border: none; border-radius: 7px; color: var(--text); font-size: 0.86rem;
+          cursor: pointer; text-align: left; }
+        .pmt-menu button:hover { background: var(--accent-bg); }
+        .pmt-menu button.danger { color: var(--danger); }
+      `}</style>
+
       {tab === 'owing' && <Arrears />}
       {tab === 'advance' && <Advance />}
 
@@ -138,35 +165,20 @@ export default function Payments() {
           : rejected.length === 0 ? (
             <div className="card"><EmptyState icon="✅" title="No rejected payments">Payments you decline from the Approvals queue appear here with the reason.</EmptyState></div>
           ) : (
-            <div className="table-wrap">
-              <table className="data">
-                <thead>
-                  <tr><th>Date</th><th>Tenant</th><th>Billing period</th><th>Amount</th><th>Method</th><th>Reason for rejection</th><th></th></tr>
-                </thead>
-                <tbody>
-                  {rejected.map((p) => {
-                    const t = tenantOf(p.tenant_id)
-                    return (
-                      <tr key={p.id}>
-                        <td className="nowrap">{fmtDate(p.created_at || p.paid_date)}</td>
-                        <td>{fullName(t)}</td>
-                        <td><PeriodTag from={p.period_from} to={p.period_to} /></td>
-                        <td className="mono" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
-                        <td>{p.method}</td>
-                        <td>
-                          <span className="row gap" style={{ color: 'var(--danger)' }}>
-                            <IconWarn size={14} />
-                            <span style={{ color: 'var(--text)' }}>{p.rejected_reason || 'Not specified'}</span>
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button className="btn sm ghost wa" title="Tell tenant why" onClick={() => notifyRejection(p)}><IconWhatsapp size={14} /></button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+            <div className="card">
+              {rejected.map((p) => (
+                <div key={p.id} className="pmt-row" style={{ cursor: 'default' }}>
+                  <span className="pmt-dot" style={{ background: 'var(--danger)' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontWeight: 600 }}>{fullName(tenantOf(p.tenant_id))}</span>
+                    <span className="muted"> · {money(p.amount)} · {p.method}</span>
+                    <div className="muted pmt-sub">
+                      {fmtDate(p.created_at || p.paid_date)} · {formatPeriod({ from: p.period_from, to: p.period_to })} · <span style={{ color: 'var(--danger)' }}>{p.rejected_reason || 'No reason given'}</span>
+                    </div>
+                  </div>
+                  <button className="btn sm ghost wa" title="Tell tenant why" onClick={() => notifyRejection(p)}><IconWhatsapp size={14} /></button>
+                </div>
+              ))}
             </div>
           )
       )}
@@ -180,21 +192,17 @@ export default function Payments() {
           ) : refunds.length === 0 ? (
             <div className="card"><EmptyState icon="↩️" title="No refunds yet">Refund an approved payment from the Received tab and it will appear here.</EmptyState></div>
           ) : (
-            <div className="table-wrap">
-              <table className="data">
-                <thead><tr><th>Date</th><th>Tenant</th><th>Amount</th><th>Method</th><th>Reason</th></tr></thead>
-                <tbody>
-                  {refunds.map((r) => (
-                    <tr key={r.id}>
-                      <td className="nowrap">{fmtDate(r.refunded_on || r.created_at)}</td>
-                      <td>{fullName(tenantOf(r.tenant_id))}</td>
-                      <td className="mono" style={{ fontWeight: 600, color: 'var(--danger)' }}>−{money(r.amount)}</td>
-                      <td>{r.method}</td>
-                      <td className="muted">{r.reason || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="card">
+              {refunds.map((r) => (
+                <div key={r.id} className="pmt-row" style={{ cursor: 'default' }}>
+                  <span className="pmt-dot" style={{ background: 'var(--danger)' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontWeight: 600 }}>{fullName(tenantOf(r.tenant_id))}</span>
+                    <div className="muted pmt-sub">{fmtDate(r.refunded_on || r.created_at)} · {r.method}{r.reason ? ` · ${r.reason}` : ''}</div>
+                  </div>
+                  <span className="mono" style={{ fontWeight: 700, color: 'var(--danger)', whiteSpace: 'nowrap' }}>−{money(r.amount)}</span>
+                </div>
+              ))}
             </div>
           )
       )}
@@ -208,51 +216,43 @@ export default function Payments() {
         : filtered.length === 0 ? (
           <div className="card"><EmptyState icon="🧾" title="No payments yet">Approved payments will be listed here.</EmptyState></div>
         ) : (
-          <div className="table-wrap">
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>Date</th><th>Tenant</th><th>Billing period</th><th>Amount</th>
-                  <th>Method</th><th>Reference</th><th>Type</th><th>Receipt</th><th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => {
-                  const t = tenantOf(p.tenant_id)
-                  return (
-                    <tr key={p.id} className="clickable-row" onClick={() => setViewing(p)}>
-                      <td className="nowrap">{fmtDate(p.approved_at || p.paid_date)}</td>
-                      <td>{fullName(t)}</td>
-                      <td><PeriodTag from={p.period_from} to={p.period_to} /></td>
-                      <td className="mono" style={{ fontWeight: 600, color: 'var(--green)' }}>{money(p.amount)}</td>
-                      <td>
-                        <div className="row gap">{p.method}
-                          {p.paid_online && <span className="pill green" title="Paid online via gateway"><span className="dot" />Online</span>}
-                        </div>
-                      </td>
-                      <td className="muted">{p.reference || '—'}</td>
-                      <td>
-                        {p.refunded
-                          ? <span className="pill rejected" title={`Refunded ${money(p.refunded_amount)}`}>Refunded</span>
-                          : p.is_advance
-                            ? <span className="pill green"><IconSparkle size={12} /> Advance</span>
-                            : <span className="pill neutral">Regular</span>}
-                      </td>
-                      <td className="mono muted">{p.receipt_no}</td>
-                      <td>
-                        <div className="row gap" style={{ justifyContent: 'flex-end' }}>
-                          <button className="btn sm ghost" title="View receipt" onClick={(e) => { e.stopPropagation(); setViewing(p) }}><IconReceipt size={14} /></button>
-                          <button className="btn sm ghost wa" title="Resend on WhatsApp" onClick={(e) => { e.stopPropagation(); resend(p) }}><IconWhatsapp size={14} /></button>
-                          {refundsOn && !p.refunded && (
-                            <button className="btn sm ghost danger" title="Refund" onClick={(e) => { e.stopPropagation(); setRefunding(p) }}>Refund</button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          /* Executive rows — amount leads, details in the subline, ⋯ for actions. */
+          <div className="card">
+            {filtered.map((p) => {
+              const t = tenantOf(p.tenant_id)
+              const dot = p.refunded ? 'var(--danger)' : p.is_advance ? 'var(--accent)' : 'var(--green)'
+              return (
+                <div key={p.id} className="pmt-row" role="button" tabIndex={0}
+                  onClick={() => setViewing(p)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setViewing(p) }}>
+                  <span className="pmt-dot" style={{ background: dot }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontWeight: 600 }}>{fullName(t)}</span>
+                    {p.paid_online && <span className="pill green pmt-pill"><span className="dot" />Online</span>}
+                    {p.refunded && <span className="pill rejected pmt-pill" title={`Refunded ${money(p.refunded_amount)}`}>Refunded</span>}
+                    {!p.refunded && p.is_advance && <span className="pill green pmt-pill"><IconSparkle size={11} /> Advance</span>}
+                    <div className="muted pmt-sub">
+                      {fmtDate(p.approved_at || p.paid_date)} · {p.method} · {formatPeriod({ from: p.period_from, to: p.period_to })}
+                      {p.receipt_no ? ` · ${p.receipt_no}` : ''}{p.reference ? ` · ref ${p.reference}` : ''}
+                    </div>
+                  </div>
+                  <span className="mono" style={{ fontWeight: 700, color: 'var(--green)', whiteSpace: 'nowrap' }}>{money(p.amount)}</span>
+                  <span style={{ position: 'relative' }}>
+                    <button className="btn sm ghost" aria-label="More actions"
+                      onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === p.id ? null : p.id) }}>⋯</button>
+                    {menuFor === p.id && (
+                      <div className="pmt-menu" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => { setMenuFor(null); setViewing(p) }}><IconReceipt size={13} /> View receipt</button>
+                        <button onClick={() => { setMenuFor(null); resend(p) }}><IconWhatsapp size={13} /> Resend on WhatsApp</button>
+                        {refundsOn && !p.refunded && (
+                          <button className="danger" onClick={() => { setMenuFor(null); setRefunding(p) }}>↩ Refund</button>
+                        )}
+                      </div>
+                    )}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
 
