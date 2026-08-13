@@ -8,11 +8,9 @@ import { sendWhatsApp } from '../../lib/whatsapp.js'
 import { sendSMS } from '../../lib/sms.js'
 import { currentPeriod } from '../../lib/billing.js'
 import { reminderRules, reminderChannel, remindersEnabled, computeDueReminders, SNOOZE_RULE } from '../../lib/reminders.js'
-import { StatCard, Spinner, EmptyState } from '../../components/ui.jsx'
+import { Spinner, EmptyState } from '../../components/ui.jsx'
 import Modal from '../../components/Modal.jsx'
 import { IconClock, IconWhatsapp, IconSend, IconCheck, IconEdit, IconBell, IconX } from '../../components/icons.jsx'
-
-const KIND_PILL = { upcoming: 'neutral', due: 'gold', overdue: 'overdue' }
 
 export default function Reminders() {
   const { userId, profile } = useAuth()
@@ -33,6 +31,14 @@ export default function Reminders() {
   const [editRule, setEditRule] = useState(null)
   const [busy, setBusy] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [menuFor, setMenuFor] = useState(null) // tenant id whose ⋯ menu is open
+
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [menuFor])
 
   const load = useCallback(async () => {
     // Always clear loading, even if a call fails, so the page can never hang on a
@@ -124,20 +130,14 @@ export default function Reminders() {
         <p>Automatic WhatsApp / SMS reminders before rent is due and as it falls overdue — using each tenant’s real balance.</p>
       </div>
 
-      <div className="grid stats" style={{ marginBottom: 22 }}>
-        <StatCard label="Due to send now" value={due.length} sub={enabled ? 'Ready to go out' : 'Reminders are off'} icon={<IconClock size={18} />} />
-        <StatCard label="Sent" value={sentLog.length} sub="All time" icon={<IconSend size={18} />} />
-        <StatCard label="Channel" value={channel === 'sms' ? 'SMS' : 'WhatsApp'} sub="Delivery method" icon={<IconWhatsapp size={18} />} />
-      </div>
-
-      {/* Due queue */}
+      {/* Executive summary bar — the three stat cards folded into one line. */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="spread" style={{ padding: '16px 18px 12px' }}>
-          <div>
-            <h3>Due to send {due.length > 0 && <span className="seg-count" style={{ position: 'static' }}>{due.length}</span>}</h3>
-            <p className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>One reminder per tenant — the current stage they’ve reached.</p>
+        <div className="spread wrap" style={{ padding: '14px 18px', gap: 10 }}>
+          <div className="row gap wrap" style={{ alignItems: 'baseline' }}>
+            <b style={{ fontSize: '1.05rem' }}>{enabled ? `${due.length} due now` : 'Reminders off'}</b>
+            <span className="muted" style={{ fontSize: '0.84rem' }}>· {channel === 'sms' ? 'SMS' : 'WhatsApp'} · {sentLog.length} sent all-time</span>
           </div>
-          {due.length > 0 && <button className="btn primary" onClick={sendAll}><IconSend size={15} /> Send all</button>}
+          {due.length > 0 && enabled && <button className="btn primary sm" onClick={sendAll}><IconSend size={14} /> Send all</button>}
         </div>
         <div className="divider" style={{ margin: 0 }} />
         {!enabled ? (
@@ -145,28 +145,32 @@ export default function Reminders() {
         ) : due.length === 0 ? (
           <EmptyState icon="✅" title="Nothing due right now">Everyone’s either paid or already reminded this stage.</EmptyState>
         ) : (
-          <div style={{ padding: '6px 8px' }}>
-            {due.map((item) => (
-              <div key={item.tenant.id} className="rem-row">
-                <div style={{ minWidth: 0 }}>
-                  <div className="row gap" style={{ flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 600 }}>{fullName(item.tenant)}</span>
-                    <span className={`pill ${KIND_PILL[item.rule.kind] || 'neutral'}`}>{item.rule.label}</span>
-                  </div>
-                  <div className="muted" style={{ fontSize: '0.8rem', marginTop: 2 }}>
-                    {prettyPhone(item.tenant.phone)} · {money(item.amount)} outstanding{item.daysOverdue > 0 ? ` · ${item.daysOverdue} days overdue` : ''}
-                  </div>
+          due.map((item) => {
+            const dot = item.rule.kind === 'overdue' ? 'var(--danger)' : item.rule.kind === 'due' ? 'var(--warn)' : 'var(--accent)'
+            return (
+              <div key={item.tenant.id} className="rem-xrow">
+                <span className="rem-dot" style={{ background: dot }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontWeight: 600 }}>{fullName(item.tenant)}</span>
+                  <span className="muted"> · {money(item.amount)}{item.daysOverdue > 0 ? ` · ${item.daysOverdue}d overdue` : ''}</span>
+                  <div className="muted rem-sub">{item.rule.label} · {prettyPhone(item.tenant.phone)}</div>
                 </div>
-                <div className="row gap" style={{ flexShrink: 0 }}>
-                  <button className="btn sm ghost" title="Skip this month" onClick={() => skip(item)}>Skip</button>
-                  <button className="btn sm ghost" title="Mute this tenant" onClick={() => mute(item)}>Mute</button>
-                  <button className={`btn sm ${channel === 'whatsapp' ? 'wa' : 'primary'}`} onClick={() => sendOne(item)}>
-                    {channel === 'whatsapp' ? <IconWhatsapp size={14} /> : <IconSend size={14} />} Send
-                  </button>
-                </div>
+                <button className={`btn sm ${channel === 'whatsapp' ? 'wa' : 'primary'}`} onClick={() => sendOne(item)}>
+                  {channel === 'whatsapp' ? <IconWhatsapp size={14} /> : <IconSend size={14} />} Send
+                </button>
+                <span style={{ position: 'relative' }}>
+                  <button className="btn sm ghost" aria-label="More actions"
+                    onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === item.tenant.id ? null : item.tenant.id) }}>⋯</button>
+                  {menuFor === item.tenant.id && (
+                    <div className="rem-menu" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => { setMenuFor(null); skip(item) }}>Skip this month</button>
+                      <button onClick={() => { setMenuFor(null); mute(item) }}>Mute this tenant</button>
+                    </div>
+                  )}
+                </span>
               </div>
-            ))}
-          </div>
+            )
+          })
         )}
       </div>
 
@@ -267,6 +271,18 @@ export default function Reminders() {
       )}
 
       <style>{`
+        .rem-xrow { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line-soft); transition:background 0.13s; }
+        .rem-xrow:last-child { border-bottom:none; }
+        .rem-xrow:hover { background:var(--accent-bg); }
+        .rem-dot { width:9px; height:9px; border-radius:99px; flex-shrink:0; }
+        .rem-sub { font-size:0.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .rem-menu { position:absolute; right:0; top:calc(100% + 6px); z-index:20; min-width:170px;
+          background:var(--surface); border:1px solid var(--line); border-radius:10px;
+          box-shadow:0 10px 28px -12px rgba(13,27,46,0.35); padding:5px; }
+        .rem-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:9px 11px;
+          background:none; border:none; border-radius:7px; color:var(--text); font-size:0.86rem;
+          cursor:pointer; text-align:left; }
+        .rem-menu button:hover { background:var(--accent-bg); }
         .rem-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px; border-bottom:1px solid var(--line-soft); }
         .rem-row:last-child { border-bottom:none; }
         .rem-toggle { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:13px 15px; border:1px solid var(--line); border-radius:var(--radius); cursor:pointer; }
