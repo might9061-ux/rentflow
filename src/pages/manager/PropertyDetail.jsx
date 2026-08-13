@@ -7,8 +7,8 @@ import { money, fullName, fmtDate } from '../../lib/format.js'
 import { AMENITY_GROUPS, dwellingNoun, propertyUnitSlots } from '../../lib/propertyOptions.js'
 import { tenantLedger } from '../../lib/ledger.js'
 import { sendWhatsApp, listingMessage } from '../../lib/whatsapp.js'
-import { StatCard, StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
-import { IconArrowRight, IconBuilding, IconUsers, IconWallet, IconClock, IconEdit, IconWhatsapp, IconCheck, IconEye, IconShare } from '../../components/icons.jsx'
+import { StatusPill, Spinner, EmptyState } from '../../components/ui.jsx'
+import { IconArrowRight, IconBuilding, IconUsers, IconEdit, IconWhatsapp, IconCheck, IconEye, IconShare } from '../../components/icons.jsx'
 import { PropertyModal } from './Properties.jsx'
 
 export default function PropertyDetail() {
@@ -22,6 +22,14 @@ export default function PropertyDetail() {
   const [payments, setPayments] = useState([])
   const [editing, setEditing] = useState(false)
   const [activePhoto, setActivePhoto] = useState(0)
+  const [moreMenu, setMoreMenu] = useState(false) // ⋯ menu for share/public-page actions
+
+  useEffect(() => {
+    if (!moreMenu) return
+    const close = () => setMoreMenu(false)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [moreMenu])
 
   const load = async () => {
     const [props, t, p] = await Promise.all([db.listProperties(userId), db.listTenants(userId), db.listPayments(userId)])
@@ -77,13 +85,22 @@ export default function PropertyDetail() {
         <button className="btn ghost sm" onClick={() => nav('/manager/properties')}>
           <IconArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> Properties
         </button>
-        <div className="row gap">
-          {P.is_advertised && <>
-            <a className="btn ghost sm" href={publicUrl} target="_blank" rel="noopener noreferrer"><IconEye size={14} /> View public page</a>
-            <button className="btn ghost sm" onClick={copyLink}><IconShare size={14} /> Copy link</button>
-            <button className="btn wa sm" onClick={shareListing}><IconWhatsapp size={14} /> Share on WhatsApp</button>
-          </>}
+        <div className="row gap" style={{ position: 'relative' }}>
           <button className="btn primary sm" onClick={() => setEditing(true)}><IconEdit size={14} /> Edit</button>
+          {P.is_advertised && (
+            <>
+              {/* Listing/share actions live behind ⋯ to keep the toolbar clean. */}
+              <button className="btn ghost sm" aria-label="More actions"
+                onClick={(e) => { e.stopPropagation(); setMoreMenu((v) => !v) }}>⋯</button>
+              {moreMenu && (
+                <div className="pd-menu" onClick={(e) => e.stopPropagation()}>
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer" onClick={() => setMoreMenu(false)}><IconEye size={13} /> View public page</a>
+                  <button onClick={() => { setMoreMenu(false); copyLink() }}><IconShare size={13} /> Copy link</button>
+                  <button onClick={() => { setMoreMenu(false); shareListing() }}><IconWhatsapp size={13} /> Share on WhatsApp</button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -125,13 +142,36 @@ export default function PropertyDetail() {
         {P.description && <p className="muted" style={{ marginTop: 14, whiteSpace: 'pre-wrap' }}>{P.description}</p>}
       </div>
 
-      {/* Stats */}
-      <div className="grid stats" style={{ marginBottom: 24 }}>
-        <StatCard label="Occupancy" value={`${P.units ? Math.round((active.length / P.units) * 100) : 0}%`} sub={`${active.length} of ${P.units} units`} icon={<IconBuilding size={18} />} />
-        <StatCard label="Tenants" value={tenants.length} sub="On this property" icon={<IconUsers size={18} />} />
-        <StatCard label="Collected" value={money(collected)} sub={`${approved.length} payments`} icon={<IconWallet size={18} />} />
-        <StatCard label="Outstanding" value={money(outstanding)} sub="Unpaid tenants" icon={<IconClock size={18} />} />
+      {/* Compact KPI strip — four cells that never stack into tall cards. */}
+      <div className="pd-kpis" style={{ marginBottom: 24 }}>
+        <div><span className="pk-l">Occupancy</span><span className="pk-v">{P.units ? Math.round((active.length / P.units) * 100) : 0}%</span><span className="pk-s">{active.length} of {P.units} units</span></div>
+        <div><span className="pk-l">Tenants</span><span className="pk-v">{tenants.length}</span><span className="pk-s">on this property</span></div>
+        <div><span className="pk-l">Collected</span><span className="pk-v" style={{ color: collected > 0 ? 'var(--green)' : undefined }}>{money(collected)}</span><span className="pk-s">{approved.length} payments</span></div>
+        <div><span className="pk-l">Owed</span><span className="pk-v" style={{ color: outstanding > 0 ? 'var(--danger)' : undefined }}>{money(outstanding)}</span><span className="pk-s">{outstanding > 0 ? 'unpaid balance' : 'nothing owed'}</span></div>
       </div>
+      <style>{`
+        .pd-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+          background: var(--line-soft); border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; }
+        .pd-kpis > div { background: var(--surface); padding: 12px 16px; }
+        .pk-l { display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+        .pk-v { display: block; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; margin-top: 3px; }
+        .pk-s { display: block; font-size: 0.74rem; color: var(--text-faint); margin-top: 2px; }
+        @media (max-width: 640px) { .pd-kpis { grid-template-columns: 1fr 1fr; } }
+        .pd-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 196px;
+          background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+          box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
+        .pd-menu button, .pd-menu a { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px;
+          background: none; border: none; border-radius: 7px; color: var(--text); font-size: 0.86rem;
+          cursor: pointer; text-align: left; text-decoration: none; box-sizing: border-box; }
+        .pd-menu button:hover, .pd-menu a:hover { background: var(--accent-bg); }
+        .pd-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+          border-bottom: 1px solid var(--line-soft); transition: background 0.13s; }
+        .pd-row:last-of-type { border-bottom: none; }
+        .pd-row.click { cursor: pointer; }
+        .pd-row.click:hover { background: var(--accent-bg); }
+        .pd-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; }
+        .pd-sub { font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      `}</style>
 
       {/* Specs + Amenities + Terms */}
       <div className="grid" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', marginBottom: 24, alignItems: 'start' }}>
@@ -186,63 +226,80 @@ export default function PropertyDetail() {
         </div>
       )}
 
-      {/* Units — each dwelling with its tenant or vacancy at a glance */}
-      {slots.length > 0 && (
-        <>
-          <h3 style={{ marginBottom: 12 }}>{noun === 'House' ? 'Houses' : 'Units'} <span className="muted" style={{ fontWeight: 400, fontSize: '0.9rem' }}>· {slots.length - vacantCount} of {slots.length} occupied</span></h3>
-          <div className="card pad" style={{ marginBottom: 24 }}>
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
+      {/* Units — executive rows. Tenants NOT linked to a unit get their own row,
+          so the occupancy figure and this list can never silently disagree. */}
+      {slots.length > 0 && (() => {
+        const unassigned = active.filter((t) => !slots.some((s) => String(t.unit) === String(s)))
+        return (
+          <>
+            <h3 style={{ marginBottom: 12 }}>
+              {noun === 'House' ? 'Houses' : 'Units'}
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.9rem' }}> · {slots.length - vacantCount} of {slots.length} assigned{unassigned.length ? ` · ${unassigned.length} tenant${unassigned.length === 1 ? '' : 's'} without a ${noun.toLowerCase()}` : ''}</span>
+            </h3>
+            <div className="card" style={{ marginBottom: 24 }}>
               {slots.map((slot) => {
-                // A shared unit can hold several roommates; show all of them.
                 const occupants = active.filter((x) => String(x.unit) === String(slot))
                 const t = occupants[0]
                 const cap = P.shared ? (Number(P.shared_capacity) || 0) : 1
                 return (
-                  <div key={slot} onClick={t ? () => nav(`/manager/tenants/${t.id}`) : undefined}
-                    style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '12px 14px',
-                      background: occupants.length ? 'var(--bg)' : 'var(--surface)', cursor: t ? 'pointer' : 'default' }}>
-                    <div className="spread" style={{ gap: 8 }}>
-                      <b style={{ fontSize: '0.9rem' }}>{slot}</b>
-                      {occupants.length
-                        ? (P.shared ? <span className="pill neutral">{occupants.length}{cap ? `/${cap}` : ''} sharing</span> : <StatusPill status={t.status} />)
-                        : <span className="pill neutral">Vacant</span>}
+                  <div key={slot} className={`pd-row ${t ? 'click' : ''}`} role={t ? 'button' : undefined} tabIndex={t ? 0 : undefined}
+                    onClick={t ? () => nav(`/manager/tenants/${t.id}`) : undefined}
+                    onKeyDown={t ? (e) => { if (e.key === 'Enter') nav(`/manager/tenants/${t.id}`) } : undefined}>
+                    <span className="pd-dot" style={{ background: occupants.length ? 'var(--green)' : 'var(--line)' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontWeight: 600 }}>{slot}</span>
+                      {occupants.length > 0 && <span className="muted"> · {occupants.map((o) => fullName(o)).join(', ')}</span>}
+                      <div className="muted pd-sub">
+                        {occupants.length === 0 ? 'Vacant — no tenant assigned'
+                          : P.shared ? `${occupants.length}${cap ? ` of ${cap}` : ''} sharing`
+                            : `rent ${money(t.rent)}/mo`}
+                      </div>
                     </div>
-                    <div className="muted" style={{ fontSize: '0.82rem', marginTop: 6 }}>
-                      {occupants.length === 0 ? 'No tenant assigned'
-                        : occupants.map((o) => (
-                          <span key={o.id} className="row gap" style={{ marginTop: 2 }} onClick={(e) => { e.stopPropagation(); nav(`/manager/tenants/${o.id}`) }}>
-                            <IconUsers size={13} /> {fullName(o)}
-                          </span>
-                        ))}
-                    </div>
+                    {occupants.length > 0
+                      ? (P.shared ? <span className="pill neutral">{occupants.length}{cap ? `/${cap}` : ''}</span> : <StatusPill status={t.status} />)
+                      : <span className="pill neutral">Vacant</span>}
+                    {t && <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><IconArrowRight size={15} /></span>}
                   </div>
                 )
               })}
+              {unassigned.map((t) => (
+                <div key={t.id} className="pd-row click" role="button" tabIndex={0}
+                  onClick={() => nav(`/manager/tenants/${t.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') nav(`/manager/tenants/${t.id}`) }}>
+                  <span className="pd-dot" style={{ background: 'var(--warn)' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontWeight: 600 }}>{fullName(t)}</span>
+                    <span className="muted"> · no {noun.toLowerCase()} assigned</span>
+                    <div className="muted pd-sub">rent {money(t.rent)}/mo · open and set their {noun === 'House' ? 'house' : 'unit'} under Edit</div>
+                  </div>
+                  <StatusPill status={t.status} />
+                  <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><IconArrowRight size={15} /></span>
+                </div>
+              ))}
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )
+      })()}
 
-      {/* Tenants */}
+      {/* Tenants — executive rows */}
       <h3 style={{ marginBottom: 12 }}>Tenants</h3>
       {tenants.length === 0 ? (
         <div className="card" style={{ marginBottom: 24 }}><EmptyState icon="👤" title="No tenants here yet">Assign tenants to this property from the Tenants page.</EmptyState></div>
       ) : (
-        <div className="table-wrap" style={{ marginBottom: 24 }}>
-          <table className="data">
-            <thead><tr><th>Tenant</th><th>Unit</th><th>Rent</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              {tenants.map((t) => (
-                <tr key={t.id} className="clickable-row" onClick={() => nav(`/manager/tenants/${t.id}`)}>
-                  <td style={{ fontWeight: 600 }}>{fullName(t)}</td>
-                  <td>{t.unit || '—'}</td>
-                  <td className="mono">{money(t.rent)}</td>
-                  <td><StatusPill status={t.status} /></td>
-                  <td style={{ textAlign: 'right', color: 'var(--accent)' }}><IconArrowRight size={15} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card" style={{ marginBottom: 24 }}>
+          {tenants.map((t) => (
+            <div key={t.id} className="pd-row click" role="button" tabIndex={0}
+              onClick={() => nav(`/manager/tenants/${t.id}`)}
+              onKeyDown={(e) => { if (e.key === 'Enter') nav(`/manager/tenants/${t.id}`) }}>
+              <span className="pd-dot" style={{ background: t.status === 'paid' ? 'var(--green)' : t.status === 'overdue' ? 'var(--danger)' : 'var(--warn)' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontWeight: 600 }}>{fullName(t)}</span>
+                <div className="muted pd-sub">{noun === 'House' ? 'House' : 'Unit'} {t.unit || '—'} · {money(t.rent)}/mo</div>
+              </div>
+              <StatusPill status={t.status} />
+              <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><IconArrowRight size={15} /></span>
+            </div>
+          ))}
         </div>
       )}
 
