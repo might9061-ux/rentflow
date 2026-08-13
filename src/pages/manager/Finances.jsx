@@ -109,52 +109,72 @@ export default function Finances() {
         </div>
       </div>
 
-      <div className="grid stats" style={{ marginBottom: 22 }}>
-        <StatCard label="Collected" value={<span style={{ color: totalCollected > 0 ? 'var(--green)' : undefined }}>{money(totalCollected)}</span>} sub={`${periodLabel} · view`} icon={<IconWallet size={18} />} onClick={() => setCard('collected')} />
-        <StatCard label="Expenses" value={<span style={{ color: totalExpenses > 0 ? 'var(--danger)' : undefined }}>{totalExpenses > 0 ? `−${money(totalExpenses)}` : money(0)}</span>} sub={`${periodLabel} · view`} icon={<IconClock size={18} />} onClick={() => setCard('expenses')} />
-        <StatCard label="Net" value={<span style={{ color: net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{money(net)}</span>} sub={net >= 0 ? 'Profit · view' : 'Loss · view'} icon={<IconChart size={18} />} onClick={() => setCard('net')} />
+      {/* Compact KPI strip — three cells side by side at every width, exactly
+          like the chosen mockup. Tap a cell for its breakdown. */}
+      <div className="fin-kpis" style={{ marginBottom: 18 }}>
+        <button type="button" onClick={() => setCard('collected')}>
+          <span className="fk-l">Collected</span>
+          <span className="fk-v" style={{ color: totalCollected > 0 ? 'var(--green)' : 'var(--text)' }}>{money(totalCollected)}</span>
+        </button>
+        <button type="button" onClick={() => setCard('expenses')}>
+          <span className="fk-l">Expenses</span>
+          <span className="fk-v" style={{ color: totalExpenses > 0 ? 'var(--danger)' : 'var(--text)' }}>{totalExpenses > 0 ? `−${money(totalExpenses)}` : money(0)}</span>
+        </button>
+        <button type="button" onClick={() => setCard('net')}>
+          <span className="fk-l">Net</span>
+          <span className="fk-v" style={{ color: net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{money(net)}</span>
+        </button>
       </div>
 
+      {/* Per-property ledger rows with ⋯ — tap a row for the breakdown. */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="spread" style={{ padding: '16px 18px 12px' }}>
-          <h3>Per property · {periodLabel}</h3>
-          <span className="muted no-print" style={{ fontSize: '0.8rem' }}>Tap a property to see where it comes from</span>
+        <div className="spread" style={{ padding: '14px 16px 10px' }}>
+          <h3 style={{ fontSize: '1.05rem' }}>Per property · {periodLabel}</h3>
         </div>
         <div className="divider" style={{ margin: 0 }} />
-        <div className="table-wrap">
-          <table className="data">
-            <thead><tr><th>Property</th><th style={{ textAlign: 'right' }}>Collected</th><th style={{ textAlign: 'right' }}>Expenses</th><th style={{ textAlign: 'right' }}>Net</th><th className="no-print"></th></tr></thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.prop.id} className="clickable-row" onClick={() => setDrill(r.prop)}>
-                  <td style={{ fontWeight: 600 }}>{r.prop.name}</td>
-                  <td className="mono" style={{ textAlign: 'right', color: r.collected > 0 ? 'var(--green)' : undefined }}>{money(r.collected)}</td>
-                  <td className="mono" style={{ textAlign: 'right', color: 'var(--danger)' }}>{r.expenses > 0 ? `−${money(r.expenses)}` : money(0)}</td>
-                  <td className="mono" style={{ textAlign: 'right', fontWeight: 700, color: r.net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{money(r.net)}</td>
-                  <td className="no-print muted" style={{ textAlign: 'right' }}><IconArrowRight size={14} /></td>
-                </tr>
-              ))}
-              {unassignedExp > 0 && (
-                <tr>
-                  <td className="muted">General (no property)</td>
-                  <td className="mono" style={{ textAlign: 'right' }}>{money(0)}</td>
-                  <td className="mono" style={{ textAlign: 'right', color: 'var(--danger)' }}>−{money(unassignedExp)}</td>
-                  <td className="mono" style={{ textAlign: 'right', color: 'var(--danger)' }}>−{money(unassignedExp)}</td>
-                  <td className="no-print"></td>
-                </tr>
-              )}
-            </tbody>
-            <tfoot>
-              <tr style={{ borderTop: '2px solid var(--line)' }}>
-                <td style={{ fontWeight: 700 }}>Total</td>
-                <td className="mono" style={{ textAlign: 'right', fontWeight: 700, color: totalCollected > 0 ? 'var(--green)' : undefined }}>{money(totalCollected)}</td>
-                <td className="mono" style={{ textAlign: 'right', fontWeight: 700, color: 'var(--danger)' }}>−{money(totalExpenses)}</td>
-                <td className="mono" style={{ textAlign: 'right', fontWeight: 800, color: net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{money(net)}</td>
-                <td className="no-print"></td>
-              </tr>
-            </tfoot>
-          </table>
+        {rows.map((r) => (
+          <div key={r.prop.id} className="fin-row" role="button" tabIndex={0}
+            onClick={() => setDrill(r.prop)}
+            onKeyDown={(e) => { if (e.key === 'Enter') setDrill(r.prop) }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontWeight: 600 }}>{r.prop.name}</span>
+              <div className="muted fin-sub">collected {money(r.collected)}{r.expenses > 0 ? ` · expenses −${money(r.expenses)}` : ''}</div>
+            </div>
+            <span className="mono" style={{ fontWeight: 700, whiteSpace: 'nowrap', color: r.net >= 0 ? 'var(--green)' : 'var(--danger)' }}>
+              {r.net >= 0 ? '+' : '−'}{money(Math.abs(r.net))}
+            </span>
+            <span className="muted no-print" style={{ display: 'inline-flex' }}><IconArrowRight size={15} /></span>
+          </div>
+        ))}
+        {unassignedExp > 0 && (
+          <div className="fin-row" style={{ cursor: 'default' }}>
+            <div style={{ flex: 1 }}><span className="muted">General (no property)</span></div>
+            <span className="mono" style={{ fontWeight: 700, color: 'var(--danger)' }}>−{money(unassignedExp)}</span>
+            <span style={{ width: 15 }} className="no-print" />
+          </div>
+        )}
+        <div className="fin-row fin-total" style={{ cursor: 'default' }}>
+          <div style={{ flex: 1 }}><b>Total</b></div>
+          <span className="mono" style={{ fontWeight: 800, color: net >= 0 ? 'var(--green)' : 'var(--danger)' }}>{net >= 0 ? '+' : '−'}{money(Math.abs(net))}</span>
+          <span style={{ width: 15 }} className="no-print" />
         </div>
+        <style>{`
+          .fin-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+            background: var(--line-soft); border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; }
+          .fin-kpis button { background: var(--surface); border: none; padding: 12px 16px; text-align: left;
+            cursor: pointer; font-family: inherit; transition: background 0.13s; }
+          .fin-kpis button:hover { background: var(--accent-bg); }
+          .fk-l { display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-dim); }
+          .fk-v { display: block; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; margin-top: 3px; }
+          .fin-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+            border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.13s; }
+          .fin-row:hover { background: var(--accent-bg); }
+          .fin-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+          .fin-row.fin-total { border-bottom: none; border-top: 2px solid var(--line); background: transparent; }
+          .fin-sub { font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          @media (max-width: 480px) { .fk-v { font-size: 1.1rem; } }
+        `}</style>
       </div>
 
       {adding && <ExpenseModal userId={userId} properties={properties} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load() }} />}
