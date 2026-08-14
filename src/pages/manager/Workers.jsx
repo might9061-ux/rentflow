@@ -24,6 +24,14 @@ export default function Workers() {
   const [editing, setEditing] = useState(null) // payee or {} for new
   const [paying, setPaying] = useState(null)    // payee being paid
   const [catFilter, setCatFilter] = useState('all')
+  const [menuFor, setMenuFor] = useState(null)  // worker id whose ⋯ menu is open
+
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [menuFor])
 
   const load = useCallback(async () => {
     const [p, r, t] = await Promise.all([
@@ -50,6 +58,24 @@ export default function Workers() {
   const shownCats = catFilter === 'all' ? usedCategories : usedCategories.filter((c) => c === catFilter)
   const showAgents = team.length > 0 && catFilter === 'all'
   const isEmpty = active.length === 0 && team.length === 0
+
+  // "paid 12 Jul 2026 · 3d ago" — but timeAgo falls back to the date itself
+  // after a month, which would print the same date twice.
+  const paidLabel = (last) => {
+    const ago = timeAgo(last.paid_on)
+    return `paid ${fmtDate(last.paid_on)}${ago.includes('ago') || ago === 'just now' ? ` · ${ago}` : ''}`
+  }
+
+  // Header summary for a role section: the fixed monthly wage bill, plus a
+  // note when anyone in it is on commission or per-job rates instead.
+  const sectionTotal = (people) => {
+    const real = people.filter(Boolean)
+    const fixed = real.filter((p) => p.pay_type === 'monthly').reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    const variable = real.some((p) => p.pay_type !== 'monthly')
+    if (fixed > 0) return `${money(fixed)}/mo${variable ? ' + variable' : ''}`
+    if (variable) return 'variable pay'
+    return ''
+  }
 
   const remove = async (p) => {
     if (!window.confirm(`Remove ${p.name} from payroll? Their past payments stay in Finances.`)) return
@@ -94,80 +120,107 @@ export default function Workers() {
         {isEmpty ? (
           <EmptyState icon="🧑‍🔧" title="No workers yet">Add an agent, caretaker, cleaner or guard to start paying them. Agents you invite on the <Link to="/manager/team">Agents</Link> page show up here too.</EmptyState>
         ) : (
-          <div className="table-wrap">
-            <table className="data">
-              <thead><tr><th>Worker</th><th>How they’re paid</th><th>Last paid</th><th></th></tr></thead>
-              <tbody>
-                {showAgents && (
-                  <Fragment>
-                    <tr className="cat-row"><td colSpan={4}><span className="row gap"><IconShield size={13} /> <b>Agents</b> <span className="muted">· {team.length} · manage access on the Agents page</span></span></td></tr>
-                    {team.map((a) => {
-                      const payee = payeeForAgent(a)
-                      const last = lastPaidOf(payee?.id)
-                      return (
-                        <tr key={a.id}>
-                          <td>
-                            <div className="row gap">
-                              <div className="avatar" style={{ width: 34, height: 34, fontSize: '0.78rem' }}>{initials(a.first_name, a.last_name)}</div>
-                              <div>
-                                <div style={{ fontWeight: 600 }}>{fullName(a)}</div>
-                                <div className="muted" style={{ fontSize: '0.78rem' }}>{[a.email, a.phone && prettyPhone(a.phone)].filter(Boolean).join(' · ') || '—'}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="pill gold">Agent</span>
-                            {payee ? <span className="mono" style={{ marginLeft: 4 }}>{payStructure(payee)}</span> : <span className="muted" style={{ marginLeft: 4, fontSize: '0.82rem' }}>Set on first pay</span>}
-                          </td>
-                          <td className="muted nowrap">{last ? <>{fmtDate(last.paid_on)} <span style={{ fontSize: '0.76rem' }}>· {timeAgo(last.paid_on)}</span></> : 'Never'}</td>
-                          <td>
-                            <div className="row gap" style={{ justifyContent: 'flex-end' }}>
-                              <button className="btn sm ok" onClick={() => payAgent(a)}><IconCash size={14} /> Pay</button>
-                              <Link className="btn sm ghost" to="/manager/team" title="Edit on the Agents page"><IconEdit size={14} /></Link>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </Fragment>
-                )}
-
-                {shownCats.map((cat) => {
-                  const people = active.filter((p) => !agentPayeeIds.has(p.id) && (p.category || 'Other') === cat)
-                  if (people.length === 0) return null
+          <div>
+            {showAgents && (
+              <Fragment>
+                <div className="wk-cat">
+                  <span className="row" style={{ gap: 6, alignItems: 'center' }}><IconShield size={12} /> Agents · {team.length}</span>
+                  <span className="wk-cat-total">{sectionTotal(team.map(payeeForAgent))}</span>
+                </div>
+                {team.map((a) => {
+                  const payee = payeeForAgent(a)
+                  const last = lastPaidOf(payee?.id)
                   return (
-                    <Fragment key={cat}>
-                      <tr className="cat-row"><td colSpan={4}><span className="row gap"><IconUsers size={13} /> <b>{cat}</b> <span className="muted">· {people.length}</span></span></td></tr>
-                      {people.map((p) => {
-                        const last = lastPaidOf(p.id)
-                        return (
-                          <tr key={p.id}>
-                            <td>
-                              <div className="row gap">
-                                <div className="avatar" style={{ width: 34, height: 34, fontSize: '0.78rem' }}>{initials(...(p.name || ' ').split(' '))}</div>
-                                <div>
-                                  <div style={{ fontWeight: 600 }}>{p.name}</div>
-                                  <div className="muted" style={{ fontSize: '0.78rem' }}>{[p.title, p.phone && prettyPhone(p.phone)].filter(Boolean).join(' · ') || '—'}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td><span className="pill neutral">{payTypeOf(p.pay_type).label}</span> <span className="mono" style={{ marginLeft: 4 }}>{payStructure(p)}</span></td>
-                            <td className="muted nowrap">{last ? <>{fmtDate(last.paid_on)} <span style={{ fontSize: '0.76rem' }}>· {timeAgo(last.paid_on)}</span></> : 'Never'}</td>
-                            <td>
-                              <div className="row gap" style={{ justifyContent: 'flex-end' }}>
-                                <button className="btn sm ok" onClick={() => setPaying(p)}><IconCash size={14} /> Pay</button>
-                                <button className="btn sm ghost" title="Edit" onClick={() => setEditing(p)}><IconEdit size={14} /></button>
-                                <button className="btn sm ghost danger" title="Remove" onClick={() => remove(p)}><IconTrash size={14} /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </Fragment>
+                    <div key={a.id} className="wk-row">
+                      <div className="avatar" style={{ width: 34, height: 34, fontSize: '0.78rem', flexShrink: 0 }}>{initials(a.first_name, a.last_name)}</div>
+                      <div className="wk-main">
+                        <div className="wk-name">{fullName(a)} <span className="muted" style={{ fontWeight: 400 }}>· {payee ? payStructure(payee) : 'pay set on first pay'}</span></div>
+                        <div className="muted wk-sub">
+                          {[a.email, a.phone && prettyPhone(a.phone)].filter(Boolean).join(' · ')}
+                          {(a.email || a.phone) ? ' · ' : ''}
+                          {last ? paidLabel(last) : <span style={{ color: 'var(--warn)' }}>never paid</span>}
+                        </div>
+                      </div>
+                      <button className="btn sm ok" onClick={() => payAgent(a)}><IconCash size={14} /> Pay</button>
+                      <span style={{ position: 'relative' }}>
+                        <button className="btn sm ghost" title="More" aria-label="More actions"
+                          onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === a.id ? null : a.id) }}>⋯</button>
+                        {menuFor === a.id && (
+                          <div className="wk-menu" onClick={(e) => e.stopPropagation()}>
+                            <Link to="/manager/team"><IconEdit size={13} /> Edit on Agents page</Link>
+                          </div>
+                        )}
+                      </span>
+                    </div>
                   )
                 })}
-              </tbody>
-            </table>
+              </Fragment>
+            )}
+
+            {shownCats.map((cat) => {
+              const people = active.filter((p) => !agentPayeeIds.has(p.id) && (p.category || 'Other') === cat)
+              if (people.length === 0) return null
+              return (
+                <Fragment key={cat}>
+                  <div className="wk-cat">
+                    <span className="row" style={{ gap: 6, alignItems: 'center' }}><IconUsers size={12} /> {cat} · {people.length}</span>
+                    <span className="wk-cat-total">{sectionTotal(people)}</span>
+                  </div>
+                  {people.map((p) => {
+                    const last = lastPaidOf(p.id)
+                    return (
+                      <div key={p.id} className="wk-row">
+                        <div className="avatar" style={{ width: 34, height: 34, fontSize: '0.78rem', flexShrink: 0 }}>{initials(...(p.name || ' ').split(' '))}</div>
+                        <div className="wk-main">
+                          <div className="wk-name">{p.name} <span className="muted" style={{ fontWeight: 400 }}>· {payStructure(p)}</span></div>
+                          <div className="muted wk-sub">
+                            {[p.title, p.phone && prettyPhone(p.phone)].filter(Boolean).join(' · ')}
+                            {(p.title || p.phone) ? ' · ' : ''}
+                            {last ? paidLabel(last) : <span style={{ color: 'var(--warn)' }}>never paid</span>}
+                          </div>
+                        </div>
+                        <button className="btn sm ok" onClick={() => setPaying(p)}><IconCash size={14} /> Pay</button>
+                        <span style={{ position: 'relative' }}>
+                          <button className="btn sm ghost" title="More" aria-label="More actions"
+                            onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === p.id ? null : p.id) }}>⋯</button>
+                          {menuFor === p.id && (
+                            <div className="wk-menu" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => { setMenuFor(null); setEditing(p) }}><IconEdit size={13} /> Edit</button>
+                              <button className="danger" onClick={() => { setMenuFor(null); remove(p) }}><IconTrash size={13} /> Remove</button>
+                            </div>
+                          )}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </Fragment>
+              )
+            })}
+
+            <style>{`
+              .wk-cat { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 18px;
+                background: var(--surface-2); border-bottom: 1px solid var(--line-soft); font-size: 0.7rem;
+                letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-faint); font-weight: 600; }
+              .wk-cat-total { text-transform: none; letter-spacing: 0; font-weight: 500; }
+              .wk-row { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line-soft); }
+              .wk-row:last-child { border-bottom: none; }
+              .wk-main { flex: 1; min-width: 0; }
+              .wk-name { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .wk-sub { font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .wk-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 170px;
+                background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+                box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
+              .wk-menu button, .wk-menu a { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px;
+                background: none; border: none; border-radius: 7px; color: var(--text); font-size: 0.86rem;
+                cursor: pointer; text-align: left; text-decoration: none; }
+              .wk-menu button:hover, .wk-menu a:hover { background: var(--accent-bg); }
+              .wk-menu button.danger { color: var(--danger); }
+              @media (max-width: 560px) {
+                .wk-row { flex-wrap: wrap; }
+                .wk-main { flex-basis: calc(100% - 46px); }
+                .wk-sub { white-space: normal; }
+              }
+            `}</style>
           </div>
         )}
       </div>
