@@ -343,8 +343,19 @@ function DiaryCalendar({ tasks, history = [], propName, onMarkDone, onAddOn, onE
 
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const todayIso = iso(new Date())
+  // Project each task's RECURRING occurrences forward from next_due by its
+  // interval, so browsing ahead shows the whole schedule continuously — not
+  // just the single next date that appears after each completion.
+  const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0)
   const byDay = {}
-  for (const t of tasks) (byDay[t.next_due] = byDay[t.next_due] || []).push(t)
+  for (const t of tasks) {
+    let d = new Date(t.next_due)
+    for (let k = 0; k < 240 && d <= monthEnd; k++) {
+      (byDay[iso(d)] = byDay[iso(d)] || []).push(t)
+      if (t.interval_unit === 'weeks') d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7 * (Number(t.interval_months) || 1))
+      else d = new Date(d.getFullYear(), d.getMonth() + (Number(t.interval_months) || 1), d.getDate())
+    }
+  }
   const doneByDay = {}
   for (const l of history) (doneByDay[l.done_at] = doneByDay[l.done_at] || []).push(l)
   const taskById = (id) => tasks.find((t) => t.id === id)
