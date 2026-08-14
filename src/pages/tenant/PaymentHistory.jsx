@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { money, monthYear } from '../../lib/format.js'
 import { buildLedger } from '../../lib/ledger.js'
-import { StatusPill, PeriodTag, Spinner } from '../../components/ui.jsx'
+import { Spinner } from '../../components/ui.jsx'
 import ReceiptModal from '../../components/Receipt.jsx'
 import { IconReceipt } from '../../components/icons.jsx'
 
@@ -93,87 +93,99 @@ export default function PaymentHistory() {
       </div>
 
       {view === 'monthly' ? (
-      <div className="table-wrap">
-        <table className="data">
-          <thead><tr><th>Month</th><th>Billing period</th><th>Status</th><th>Amount</th><th>Method</th><th>Receipt</th></tr></thead>
-          <tbody>
-            {months.map((m) => {
-              const rent = Number(t?.rent || 0)
-              const pay = m.pays.length ? m.pays[m.pays.length - 1] : null // most recent contributor
-              const method = methodLabel(m.pays) || (m.pending ? m.pending.method : null)
-              const timeSrc = pay?.created_at || pay?.paid_date
-              const clickable = !!pay
-              const advance = m.kind === 'advance' || m.kind === 'advance_partial'
-              const overdue = m.kind === 'overdue' || m.kind === 'overdue_partial'
-              const partial = m.kind === 'partial' || m.kind === 'advance_partial' || m.kind === 'overdue_partial'
-              const blank = m.kind === 'not_paid' || m.kind === 'overdue' // no amount to show
-              const amount = m.kind === 'pending' ? Number(m.pending.amount) : m.allocated
+      <div className="card" style={{ overflow: 'hidden' }}>
+        {months.map((m) => {
+          const rent = Number(t?.rent || 0)
+          const pay = m.pays.length ? m.pays[m.pays.length - 1] : null // most recent contributor
+          const method = methodLabel(m.pays) || (m.pending ? m.pending.method : null)
+          const timeSrc = pay?.created_at || pay?.paid_date
+          const advance = m.kind === 'advance' || m.kind === 'advance_partial'
+          const overdue = m.kind === 'overdue' || m.kind === 'overdue_partial'
+          const partial = m.kind === 'partial' || m.kind === 'advance_partial' || m.kind === 'overdue_partial'
+          const blank = m.kind === 'not_paid' || m.kind === 'overdue' // no amount to show
+          const amount = m.kind === 'pending' ? Number(m.pending.amount) : m.allocated
 
-              const pill = overdue
-                ? <StatusPill status="overdue" />
-                : advance
-                  ? <span className="pill" style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>● {partial ? 'Advance (part)' : 'Advance'}</span>
-                  : m.kind === 'partial'
-                    ? <span className="pill" style={{ background: 'var(--gold-bg)', border: '1px solid var(--gold-line)', color: 'var(--gold)' }}>● Partial</span>
-                    : <StatusPill status={m.kind === 'paid' ? 'paid' : m.kind === 'pending' ? 'pending' : 'not_paid'} />
+          const dot = overdue ? 'var(--danger)'
+            : m.kind === 'pending' ? 'var(--warn)'
+            : advance || partial ? 'var(--gold)'
+            : m.kind === 'paid' ? 'var(--green)' : 'var(--line)'
+          const status = overdue ? <span style={{ color: 'var(--danger)' }}>overdue — owes {money(rent - m.allocated)}</span>
+            : m.kind === 'pending' ? <span style={{ color: 'var(--warn)' }}>awaiting approval</span>
+            : advance ? (partial ? `advance — ${money(amount)} of ${money(rent)}` : 'paid in advance')
+            : partial ? `partial — of ${money(rent)}`
+            : m.kind === 'paid' ? 'paid in full' : 'not paid yet'
 
-              return (
-                <tr key={m.key} className={clickable ? 'clickable-row' : ''} onClick={clickable ? () => setViewing(pay) : undefined}>
-                  <td style={{ fontWeight: 600 }}>{monthYear(m.period.from, true)}</td>
-                  <td><PeriodTag period={m.period} /></td>
-                  <td>{pill}</td>
-                  <td className="mono">
-                    {blank ? <span className="faint">—</span> : money(amount)}
-                    {partial && <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>of {money(rent)}{advance ? ' · in advance' : ''}</div>}
-                    {overdue && <div style={{ fontSize: '0.72rem', fontWeight: 400, color: 'var(--danger)' }}>owes {money(rent - m.allocated)}</div>}
-                    {m.kind === 'advance' && <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>paid in advance</div>}
-                    {timeSrc && !blank && <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 400 }}>{fmtDateTime(timeSrc)}</div>}
-                  </td>
-                  <td>{blank && !method ? <span className="faint">—</span> : (method || <span className="faint">—</span>)}</td>
-                  <td>
-                    {pay
-                      ? <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); setViewing(pay) }}><IconReceipt size={14} /> Receipt</button>
-                      : <span className="faint">—</span>}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+          return (
+            <div key={m.key} className={`tph-row ${pay ? 'click' : ''}`}
+              onClick={pay ? () => setViewing(pay) : undefined}
+              role={pay ? 'button' : undefined} tabIndex={pay ? 0 : undefined}
+              onKeyDown={pay ? (e) => { if (e.key === 'Enter') setViewing(pay) } : undefined}>
+              <span className="tph-dot" style={{ background: dot }} />
+              <div className="tph-main">
+                <div className="tph-name">{monthYear(m.period.from, true)} <span className="muted" style={{ fontWeight: 400 }}>· {monthYear(m.period.from)} → {monthYear(m.period.to)}</span></div>
+                <div className="muted tph-sub">{status}{method ? ` · ${method}` : ''}{timeSrc && !blank ? ` · ${fmtDateTime(timeSrc)}` : ''}</div>
+              </div>
+              <div className="tph-side">
+                <span className="mono" style={{ fontWeight: 600, fontSize: '0.9rem', color: overdue ? 'var(--danger)' : m.kind === 'paid' || advance ? 'var(--green)' : 'inherit' }}>
+                  {blank ? '—' : money(amount)}
+                </span>
+                {pay && <span className="tph-go"><IconReceipt size={13} /> Receipt</span>}
+              </div>
+            </div>
+          )
+        })}
       </div>
       ) : (
-      <div className="table-wrap">
-        <table className="data">
-          <thead><tr><th>Date &amp; time</th><th>Amount</th><th>Method</th><th>Reference</th><th>For period</th><th>Status</th><th>Receipt</th></tr></thead>
-          <tbody>
-            {payments.length === 0 ? (
-              <tr><td colSpan={7}><span className="faint">No payments yet.</span></td></tr>
-            ) : (
-              [...payments]
-                .sort((a, b) => new Date(b.created_at || b.paid_date || 0) - new Date(a.created_at || a.paid_date || 0))
-                .map((p) => {
-                  const approved = p.status === 'approved'
-                  return (
-                    <tr key={p.id} className={approved ? 'clickable-row' : ''} onClick={approved ? () => setViewing(p) : undefined}>
-                      <td className="nowrap">{fmtDateTime(p.created_at || p.paid_date)}</td>
-                      <td className="mono" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
-                      <td>{p.method || <span className="faint">—</span>}</td>
-                      <td className="muted mono" style={{ fontSize: '0.8rem' }}>{p.reference || <span className="faint">—</span>}</td>
-                      <td><PeriodTag from={p.period_from} to={p.period_to} /></td>
-                      <td><StatusPill status={approved ? 'paid' : p.status} /></td>
-                      <td>
-                        {approved
-                          ? <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); setViewing(p) }}><IconReceipt size={14} /> Receipt</button>
-                          : <span className="faint">—</span>}
-                      </td>
-                    </tr>
-                  )
-                })
-            )}
-          </tbody>
-        </table>
+      <div className="card" style={{ overflow: 'hidden' }}>
+        {payments.length === 0 ? (
+          <div style={{ padding: 18 }}><span className="faint">No payments yet.</span></div>
+        ) : (
+          [...payments]
+            .sort((a, b) => new Date(b.created_at || b.paid_date || 0) - new Date(a.created_at || a.paid_date || 0))
+            .map((p) => {
+              const approved = p.status === 'approved'
+              const rejected = p.status === 'rejected'
+              const ref = p.reference ? `ref …${String(p.reference).slice(-8)}` : null
+              return (
+                <div key={p.id} className={`tph-row ${approved ? 'click' : ''}`}
+                  onClick={approved ? () => setViewing(p) : undefined}
+                  role={approved ? 'button' : undefined} tabIndex={approved ? 0 : undefined}
+                  onKeyDown={approved ? (e) => { if (e.key === 'Enter') setViewing(p) } : undefined}>
+                  <span className="tph-dot" style={{ background: approved ? 'var(--green)' : rejected ? 'var(--danger)' : 'var(--warn)' }} />
+                  <div className="tph-main">
+                    <div className="tph-name">{money(p.amount)} <span className="muted" style={{ fontWeight: 400 }}>· {p.method || '—'} · {monthYear(p.period_from)} → {monthYear(p.period_to)}</span></div>
+                    <div className="muted tph-sub">
+                      {fmtDateTime(p.created_at || p.paid_date)}{ref ? ` · ${ref}` : ''}
+                      {!approved && !rejected && <span style={{ color: 'var(--warn)' }}> · awaiting manager approval</span>}
+                      {rejected && <span style={{ color: 'var(--danger)' }}> · rejected</span>}
+                    </div>
+                  </div>
+                  {approved
+                    ? <span className="tph-go"><IconReceipt size={13} /> Receipt</span>
+                    : <span className="muted" style={{ fontSize: '0.76rem' }}>{rejected ? 'Rejected' : 'Pending'}</span>}
+                </div>
+              )
+            })
+        )}
       </div>
       )}
+
+      <style>{`
+        .tph-row { display: flex; align-items: center; gap: 11px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+        .tph-row:last-child { border-bottom: none; }
+        .tph-row.click { cursor: pointer; transition: background 0.13s; }
+        .tph-row.click:hover { background: var(--accent-bg); }
+        .tph-row.click:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+        .tph-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; }
+        .tph-main { flex: 1; min-width: 0; }
+        .tph-name { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tph-sub { font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tph-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+        .tph-go { display: inline-flex; align-items: center; gap: 4px; font-size: 0.76rem; color: var(--accent); white-space: nowrap; }
+        @media (max-width: 560px) {
+          .tph-sub { white-space: normal; }
+        }
+      `}</style>
 
       {viewing && (
         <ReceiptModal payment={viewing} tenant={profile} manager={manager} property={property} payments={payments}
