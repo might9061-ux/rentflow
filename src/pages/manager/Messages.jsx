@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../lib/db.js'
 import { fullName, timeAgo } from '../../lib/format.js'
@@ -11,14 +12,23 @@ import { IconChevron, IconShield } from '../../components/icons.jsx'
 export default function ManagerMessages() {
   const { userId, profile } = useAuth()
   const isOwner = profile?.role !== 'staff'
+  const nav = useNavigate()
 
   const [loading, setLoading] = useState(true)
+  const [menuFor, setMenuFor] = useState(null) // party id whose ⋯ menu is open
   const [threads, setThreads] = useState([])
   const [tenants, setTenants] = useState([])
   const [team, setTeam] = useState([])
   const [owner, setOwner] = useState(null)   // for an agent: who they report to
   const [open, setOpen] = useState(null)      // { id, kind }
   const [items, setItems] = useState([])
+
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [menuFor])
 
   const loadThreads = useCallback(async () => {
     const [th, ts, tm, own] = await Promise.all([
@@ -57,22 +67,44 @@ export default function ManagerMessages() {
   const newTenants = tenants.filter((t) => t.account_status === 'active' && !started.has(t.id))
   const newAgents = team.filter((s) => !started.has(s.id))
 
-  const Row = ({ id, sub, unread, preview, when, agent }) => (
-    <button className={`msg-row ${open?.id === id ? 'on' : ''}`} onClick={() => openThread(id, agent ? 'staff' : 'tenant')}>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div className="spread" style={{ gap: 8 }}>
-          <span className="row gap" style={{ fontWeight: 600, minWidth: 0 }}>
-            {agent && <span style={{ color: 'var(--accent)' }} title="Agent"><IconShield size={12} /></span>}
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameOf(id)}</span>
-          </span>
-          {unread > 0 && <CountBadge n={unread} />}
+  const initials = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?'
+
+  // Executive row: initials avatar (role-tinted), name · role inline, one-line
+  // preview, right-aligned time + unread badge. Tenants get a ⋯ menu.
+  const Row = ({ id, unread, preview, when, agent, roleLabel, fresh }) => {
+    const p = personOf(id)
+    const name = nameOf(id)
+    const go = () => openThread(id, agent ? 'staff' : 'tenant')
+    return (
+      <div className={`msgx-row ${open?.id === id ? 'on' : ''}`} role="button" tabIndex={0}
+        onClick={go} onKeyDown={(e) => { if (e.key === 'Enter') go() }}>
+        <span className={`msgx-ava ${agent ? 'agent' : ''}`}>
+          {agent ? <IconShield size={15} /> : initials(name)}
+        </span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="msgx-name">
+            {name} <span className="muted" style={{ fontWeight: 400 }}>· {roleLabel || (agent ? 'Agent' : p?.unit || 'Tenant')}</span>
+          </div>
+          <div className="muted msg-preview">{preview || 'No messages yet'}</div>
         </div>
-        {preview && <div className="muted msg-preview">{preview}</div>}
-        {sub && !preview && <div className="muted" style={{ fontSize: '0.76rem' }}>{sub}</div>}
-        {when && <div className="muted" style={{ fontSize: '0.7rem', marginTop: 2 }}>{when}</div>}
+        <div className="msgx-side">
+          {when && <span className="msgx-when">{when}</span>}
+          {unread > 0 ? <CountBadge n={unread} /> : fresh ? <span className="msgx-go">Message</span> : null}
+        </div>
+        {!agent && !fresh && p && (
+          <span style={{ position: 'relative' }}>
+            <button className="btn sm ghost" title="More" aria-label="More actions"
+              onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === id ? null : id) }}>⋯</button>
+            {menuFor === id && (
+              <div className="msgx-menu" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => nav(`/manager/tenants/${id}`)}>View tenant</button>
+              </div>
+            )}
+          </span>
+        )}
       </div>
-    </button>
-  )
+    )
+  }
 
   return (
     <div className="page" style={{ maxWidth: 1040 }}>
@@ -101,15 +133,15 @@ export default function ManagerMessages() {
               {!isOwner && (
                 <div className="msg-start">
                   <div className="msg-start-head">Property owner</div>
-                  <Row id={owner?.id || profile?.owner_id} sub="Message the owner" agent />
+                  <Row id={owner?.id || profile?.owner_id} roleLabel="Owner" agent fresh />
                 </div>
               )}
 
               {(newTenants.length > 0 || newAgents.length > 0) && (
                 <div className="msg-start">
                   <div className="msg-start-head">Start a conversation</div>
-                  {newAgents.map((s) => <Row key={s.id} id={s.id} sub="Agent" agent />)}
-                  {newTenants.map((t) => <Row key={t.id} id={t.id} sub={t.unit || '—'} />)}
+                  {newAgents.map((s) => <Row key={s.id} id={s.id} agent fresh />)}
+                  {newTenants.map((t) => <Row key={t.id} id={t.id} fresh />)}
                 </div>
               )}
             </>
@@ -145,14 +177,32 @@ export default function ManagerMessages() {
       </div>
 
       <style>{`
-        .msg-grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
-        .msg-list { max-height: min(620px, calc(100vh - 260px)); overflow-y: auto; padding: 6px; }
-        .msg-row { display: flex; width: 100%; text-align: left; gap: 10px; padding: 11px 12px; background: transparent;
-          border: none; border-radius: 10px; color: var(--text); }
-        .msg-row:hover { background: var(--surface-2); }
-        .msg-row.on { background: var(--accent-bg); border: 1px solid var(--accent-line); }
+        .msg-grid { display: grid; grid-template-columns: 330px 1fr; gap: 16px; align-items: start; }
+        .msg-list { max-height: min(620px, calc(100vh - 260px)); overflow-y: auto; padding: 0; }
+        .msgx-row { position: relative; display: flex; align-items: center; gap: 11px; padding: 12px 14px;
+          border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.13s; color: var(--text); }
+        .msgx-row:last-child { border-bottom: none; }
+        .msgx-row:hover { background: var(--accent-bg); }
+        .msgx-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+        .msgx-row.on { background: var(--accent-bg); box-shadow: inset 2px 0 0 var(--accent); }
+        .msgx-ava { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center;
+          justify-content: center; background: var(--accent-bg); color: var(--accent); font-weight: 700;
+          font-size: 0.76rem; letter-spacing: 0.02em; }
+        .msgx-ava.agent { background: var(--green-bg); color: var(--green); }
+        .msgx-name { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .msgx-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+        .msgx-when { font-size: 0.68rem; color: var(--text-faint); }
+        .msgx-go { font-size: 0.72rem; color: var(--accent); border: 1px solid var(--accent-line);
+          border-radius: 99px; padding: 2px 10px; white-space: nowrap; }
+        .msgx-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 150px;
+          background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+          box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
+        .msgx-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px;
+          background: none; border: none; border-radius: 7px; color: var(--text); font-size: 0.86rem;
+          cursor: pointer; text-align: left; }
+        .msgx-menu button:hover { background: var(--accent-bg); }
         .msg-preview { font-size: 0.78rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .msg-start { border-top: 1px solid var(--line-soft); margin-top: 6px; }
+        .msg-start { border-top: 1px solid var(--line-soft); }
         .msg-start-head { padding: 10px 12px 6px; font-size: 0.74rem; color: var(--text-faint);
           text-transform: uppercase; letter-spacing: .05em; }
         .msg-head { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line-soft); }
