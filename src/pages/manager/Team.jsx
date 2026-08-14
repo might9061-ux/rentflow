@@ -8,8 +8,8 @@ import { prettyPhone } from '../../lib/phone.js'
 import { sendWhatsApp } from '../../lib/whatsapp.js'
 import Modal from '../../components/Modal.jsx'
 import PhoneInput from '../../components/PhoneInput.jsx'
-import { StatCard, StatusPill, Spinner, EmptyState } from '../../components/ui.jsx'
-import { IconShield, IconBuilding, IconUsers, IconPlus, IconEdit, IconKey, IconTrash, IconWhatsapp, IconMail } from '../../components/icons.jsx'
+import { Spinner, EmptyState } from '../../components/ui.jsx'
+import { IconBuilding, IconPlus, IconEdit, IconKey, IconTrash, IconWhatsapp, IconMail } from '../../components/icons.jsx'
 
 export default function Team() {
   const { userId } = useAuth()
@@ -20,7 +20,15 @@ export default function Team() {
   const [editing, setEditing] = useState(null) // staff object or {} for new
   const [creds, setCreds] = useState(null)
   const [q, setQ] = useState('')
+  const [menuFor, setMenuFor] = useState(null) // agent id whose ⋯ menu is open
   const [params, setParams] = useSearchParams()
+
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [menuFor])
 
   const load = useCallback(async () => {
     const [t, p] = await Promise.all([db.listTeam(userId), db.listProperties(userId)])
@@ -75,10 +83,10 @@ export default function Team() {
         <button className="btn primary" onClick={() => setEditing({})}><IconPlus size={16} /> Add agent</button>
       </div>
 
-      <div className="grid stats" style={{ marginBottom: 24 }}>
-        <StatCard label="Agents" value={team.length} sub="Besides you" icon={<IconUsers size={18} />} />
-        <StatCard label="Properties covered" value={`${coveredCount}/${properties.length}`} sub="Assigned to agents" icon={<IconBuilding size={18} />} />
-        <StatCard label="Suspended" value={team.filter((s) => s.account_status === 'suspended').length} sub="No access" icon={<IconShield size={18} />} />
+      <div className="ag-kpis">
+        <div><b>{team.length}</b><span>Agents</span></div>
+        <div><b>{coveredCount}/{properties.length}</b><span>Covered</span></div>
+        <div><b>{team.filter((s) => s.account_status === 'suspended').length}</b><span>Suspended</span></div>
       </div>
 
       {team.length === 0 ? (
@@ -92,54 +100,72 @@ export default function Team() {
         {filtered.length === 0 ? (
           <div className="card"><EmptyState icon="🔍" title="No matches">No agent matches “{q.trim()}”.</EmptyState></div>
         ) : (
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr><th>Agent</th><th>Contact</th><th>Assigned properties</th><th>Status</th><th></th></tr>
-            </thead>
-            <tbody>
-              {filtered.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <div className="row gap">
-                      <div className="avatar" style={{ width: 36, height: 36, fontSize: '0.8rem' }}>{initials(s.first_name, s.last_name)}</div>
-                      <div style={{ fontWeight: 600 }}>{fullName(s)}</div>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '0.84rem' }}>{s.email}</div>
-                    <div className="muted" style={{ fontSize: '0.8rem' }}>{s.phone ? prettyPhone(s.phone) : '—'}</div>
-                  </td>
-                  <td>
-                    {(s.assigned_property_ids || []).length === 0
-                      ? <span className="muted">None</span>
-                      : <div className="row gap wrap">{(s.assigned_property_ids || []).map((id) => <span key={id} className="pill neutral">{propName(id)}</span>)}</div>}
-                  </td>
-                  <td>
-                    <div className="row gap wrap">
-                      <StatusPill status={s.account_status === 'suspended' ? 'suspended' : 'active'} />
-                      {s.can_payroll && <span className="pill gold" title="Can manage payroll">Payroll</span>}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="row gap" style={{ justifyContent: 'flex-end' }}>
-                      <button className="btn sm ghost" title="Edit access" onClick={() => setEditing(s)}><IconEdit size={14} /></button>
+        <div className="card" style={{ overflow: 'visible' }}>
+          {filtered.map((s) => {
+            const suspended = s.account_status === 'suspended'
+            const props = (s.assigned_property_ids || []).map(propName).filter((n) => n !== '—')
+            return (
+              <div key={s.id} className="ag-row">
+                <span className="ag-dot" style={{ background: suspended ? 'var(--danger)' : 'var(--green)' }} />
+                <div className="avatar" style={{ width: 36, height: 36, fontSize: '0.8rem', flexShrink: 0 }}>{initials(s.first_name, s.last_name)}</div>
+                <div className="ag-main">
+                  <div className="ag-name">
+                    {fullName(s)}
+                    <span className="muted" style={{ fontWeight: 400 }}> · {props.length ? props.join(' · ') : <span style={{ color: 'var(--warn)' }}>no properties assigned</span>}</span>
+                    {suspended && <span className="pill overdue" style={{ marginLeft: 8, fontSize: '0.66rem', padding: '2px 8px' }}>Suspended</span>}
+                    {s.can_payroll && <span className="pill gold" style={{ marginLeft: 8, fontSize: '0.66rem', padding: '2px 8px' }} title="Can manage payroll">Payroll</span>}
+                  </div>
+                  <div className="muted ag-sub">{[s.email, s.phone && prettyPhone(s.phone)].filter(Boolean).join(' · ') || '—'}</div>
+                </div>
+                <button className="btn sm ghost" onClick={() => setEditing(s)}><IconEdit size={14} /> Edit</button>
+                <span style={{ position: 'relative' }}>
+                  <button className="btn sm ghost" title="More" aria-label="More actions"
+                    onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === s.id ? null : s.id) }}>⋯</button>
+                  {menuFor === s.id && (
+                    <div className="ag-menu" onClick={(e) => e.stopPropagation()}>
                       {/* The temporary key is only for the first-login handover. Once
                           the agent has set their own password, they sign in with it
                           (and can self-serve via "Forgot password?"), so there's no
                           temp key to hand out — hide it. */}
                       {s.first_login && (
-                        <button className="btn sm ghost" title="Resend temp password" onClick={() => resend(s)}><IconKey size={14} /></button>
+                        <button onClick={() => { setMenuFor(null); resend(s) }}><IconKey size={13} /> Resend temp password</button>
                       )}
-                      <button className="btn sm ghost danger" title="Remove" onClick={() => remove(s)}><IconTrash size={14} /></button>
+                      <button className="danger" onClick={() => { setMenuFor(null); remove(s) }}><IconTrash size={13} /> Remove</button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  )}
+                </span>
+              </div>
+            )
+          })}
         </div>
         )}
+
+        <style>{`
+          .ag-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line-soft);
+            border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; margin-bottom: 24px; }
+          .ag-kpis > div { background: var(--surface); padding: 12px 14px; text-align: center; }
+          .ag-kpis b { display: block; font-size: 1.15rem; font-weight: 700; }
+          .ag-kpis span { font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
+          .ag-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line-soft); }
+          .ag-row:last-child { border-bottom: none; }
+          .ag-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; }
+          .ag-main { flex: 1; min-width: 0; }
+          .ag-name { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .ag-sub { font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .ag-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 190px;
+            background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+            box-shadow: 0 10px 28px -12px rgba(13,27,46,0.35); padding: 5px; }
+          .ag-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px;
+            background: none; border: none; border-radius: 7px; color: var(--text); font-size: 0.86rem;
+            cursor: pointer; text-align: left; }
+          .ag-menu button:hover { background: var(--accent-bg); }
+          .ag-menu button.danger { color: var(--danger); }
+          @media (max-width: 560px) {
+            .ag-row { flex-wrap: wrap; }
+            .ag-main { flex-basis: calc(100% - 60px); }
+            .ag-name, .ag-sub { white-space: normal; }
+          }
+        `}</style>
         </>
       )}
 
