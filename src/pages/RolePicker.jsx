@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DEMO_MODE, db, resetDemo } from '../lib/db.js'
+import { priceForCapacity, tierForCapacity, MAX_CAPACITY, MAX_TYPED } from '../lib/pricing.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
   IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart, IconCheck, IconSparkle, IconWrench,
@@ -33,6 +34,7 @@ export default function RolePicker() {
   const { refresh } = useAuth()
   const [openFaq, setOpenFaq] = useState(0)
   const [demoLoading, setDemoLoading] = useState(false)
+  const [cap, setCap] = useState(20) // hero price calculator — tenants managed
   const goEnter = () => document.getElementById('enter')?.scrollIntoView({ behavior: 'smooth' })
 
   // "Try the demo": switch this browser into the seeded demo engine, then reload
@@ -109,7 +111,29 @@ export default function RolePicker() {
           <button className="btn primary lg" onClick={() => nav('/manager/auth')}>Start your free month <IconArrowRight size={16} /></button>
           <button className="btn ghost lg" onClick={() => nav('/rent')}>Browse rooms &amp; houses</button>
         </div>
-        <div className="lp-trust"><IconCheck size={14} /> 1 month free · no card · cancel anytime</div>
+        {/* Price calculator — the pricing question answered before scrolling. */}
+        <div className="lp-calc">
+          <div className="lp-calc-row">
+            <span className="lp-calc-l">I manage</span>
+            <input className="lp-calc-n" type="number" min="1" max={MAX_TYPED} value={cap} aria-label="How many tenants you manage"
+              onChange={(e) => setCap(Math.max(1, Math.min(MAX_TYPED, Math.round(Number(e.target.value) || 1))))} />
+            <span className="lp-calc-l">tenants</span>
+            <span className="lp-calc-p">${priceForCapacity(cap)}<small>/mo</small></span>
+          </div>
+          <input className="lp-calc-slider" type="range" min="1" max="500" step="1" value={Math.min(cap, 500)}
+            aria-label="Number of tenants" onChange={(e) => setCap(Number(e.target.value))} />
+          <div className="lp-calc-sub">
+            {cap > MAX_CAPACITY
+              ? `$70 + $0.30 per tenant above 200 — priced to your exact count`
+              : `${tierForCapacity(cap).name} plan · up to ${tierForCapacity(cap).upTo} tenants`}
+            {' '}· first month free
+          </div>
+        </div>
+        <div className="lp-strip">
+          <div><b>1 month</b><span>free · no card</span></div>
+          <div><b>WhatsApp</b><span>receipts</span></div>
+          <div><b>EcoCash</b><span>+ card + cash</span></div>
+        </div>
         <div className="lp-demo">
           <span className="lp-demo-label"><IconSparkle size={14} /> Try the live demo — no sign-up:</span>
           <button className="btn ghost sm" onClick={() => enterDemo('manager')}>As a manager</button>
@@ -240,12 +264,14 @@ export default function RolePicker() {
       <section className="lp-section">
         <div className="eyebrow" style={{ color: 'var(--text-faint)' }}>Everything in one place</div>
         <h2>Run your rentals the easy way</h2>
-        <div className="lp-features">
+        <div className="lp-featrows">
           {FEATURES.map(({ icon: Icon, title, sub }) => (
-            <div key={title} className="lp-feature">
-              <div className="lp-feature-ico"><Icon size={20} /></div>
-              <div className="lp-feature-t">{title}</div>
-              <div className="lp-feature-s">{sub}</div>
+            <div key={title} className="lp-frow">
+              <div className="lp-frow-ico"><Icon size={17} /></div>
+              <div style={{ minWidth: 0 }}>
+                <div className="lp-frow-t">{title}</div>
+                <div className="lp-frow-s">{sub}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -323,8 +349,23 @@ export default function RolePicker() {
         .lp-hero .hl { color: var(--gold); font-style: italic; }
         .lp-sub { color: var(--text-dim); max-width: 60ch; margin: 20px auto 0; font-size: 1.08rem; line-height: 1.6; }
         .lp-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
-        .lp-trust { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--text-faint); font-size: 0.86rem; }
-        .lp-trust svg { color: var(--green); }
+        /* Hero price calculator + joined trust strip */
+        .lp-calc { max-width: 460px; margin: 22px auto 0; background: var(--surface); border: 1px solid var(--line-soft);
+          border-radius: 14px; padding: 14px 16px; text-align: left; }
+        .lp-calc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .lp-calc-l { color: var(--text-dim); font-size: 0.9rem; }
+        .lp-calc-n { width: 78px; text-align: center; background: var(--bg); border: 1px solid var(--line);
+          border-radius: 8px; padding: 7px 4px; color: var(--text); font: inherit; font-weight: 700; }
+        .lp-calc-n:focus { outline: none; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-bg); }
+        .lp-calc-p { margin-left: auto; font-family: var(--serif); font-weight: 700; font-size: 1.5rem; color: var(--accent); }
+        .lp-calc-p small { font-size: 0.8rem; color: var(--text-faint); font-weight: 500; }
+        .lp-calc-slider { width: 100%; margin-top: 12px; accent-color: var(--accent); }
+        .lp-calc-sub { margin-top: 7px; font-size: 0.76rem; color: var(--text-faint); }
+        .lp-strip { max-width: 460px; margin: 10px auto 0; display: grid; grid-template-columns: repeat(3, 1fr);
+          gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); border-radius: 12px; overflow: hidden; }
+        .lp-strip > div { background: var(--surface); padding: 10px 8px; text-align: center; }
+        .lp-strip b { display: block; font-size: 0.92rem; }
+        .lp-strip span { font-size: 0.64rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
         .lp-demo { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
           margin-top: 20px; padding: 10px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-soft); }
         .lp-demo-label { display: inline-flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 0.86rem; }
@@ -429,11 +470,15 @@ export default function RolePicker() {
         .lp-section { max-width: 1080px; margin: 0 auto; padding: 40px 22px; }
         .lp-section h2 { font-size: clamp(1.7rem, 4vw, 2.3rem); margin-top: 6px; }
 
-        .lp-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 22px; }
-        .lp-feature { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); padding: 20px; }
-        .lp-feature-ico { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; background: var(--gold-bg); border: 1px solid var(--gold-line); color: var(--gold); margin-bottom: 12px; }
-        .lp-feature-t { font-weight: 600; font-size: 1.05rem; }
-        .lp-feature-s { color: var(--text-dim); font-size: 0.9rem; margin-top: 5px; line-height: 1.5; }
+        .lp-featrows { margin-top: 22px; background: var(--surface); border: 1px solid var(--line-soft);
+          border-radius: var(--radius-lg); overflow: hidden; }
+        .lp-frow { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-bottom: 1px solid var(--line-soft); }
+        .lp-frow:last-child { border-bottom: none; }
+        .lp-frow:hover { background: var(--accent-bg); }
+        .lp-frow-ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
+          background: var(--gold-bg); border: 1px solid var(--gold-line); color: var(--gold); flex-shrink: 0; }
+        .lp-frow-t { font-weight: 600; font-size: 1rem; }
+        .lp-frow-s { color: var(--text-dim); font-size: 0.88rem; margin-top: 2px; line-height: 1.5; }
 
         .lp-pricing { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
           background: linear-gradient(135deg, var(--gold-bg), var(--surface)); border: 1px solid var(--gold-line);
