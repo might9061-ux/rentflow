@@ -275,7 +275,7 @@ export default function Plan() {
               <span>Tenant capacity</span>
               <span className="row gap" style={{ alignItems: 'center' }}>
                 {/* Type the exact count — goes beyond the slider's 200, and the
-                    price adjusts automatically ($0.10/tenant above 200). */}
+                    price adjusts automatically ($0.20/tenant above 200). */}
                 <input type="number" min={MIN_CAPACITY} max={MAX_TYPED} value={capacity}
                   onChange={(e) => setCapacity(Math.max(MIN_CAPACITY, Math.min(MAX_TYPED, Math.floor(Number(e.target.value) || MIN_CAPACITY))))}
                   className="input" style={{ width: 90, padding: '6px 10px', textAlign: 'right', fontWeight: 700 }} />
@@ -411,7 +411,7 @@ export default function Plan() {
               <td style={{ fontWeight: 600 }}>200+</td>
               <td>type your count</td>
               <td colSpan={2} className="mono" style={{ fontWeight: 600 }}>
-                $70 <span className="muted" style={{ fontWeight: 400 }}>+ $0.10/tenant above 200 — e.g. 1000 tenants = {money(priceForCapacity(1000))}/mo</span>
+                $70 <span className="muted" style={{ fontWeight: 400 }}>+ $0.20/tenant above 200 — e.g. 1000 tenants = {money(priceForCapacity(1000))}/mo</span>
               </td>
             </tr>
           </tbody>
