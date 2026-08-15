@@ -16,6 +16,7 @@ export default function TenantNotifications() {
   const { userId } = useAuth()
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState([])
+  const [open, setOpen] = useState(null) // notice id expanded in place
 
   useEffect(() => {
     (async () => {
@@ -41,24 +42,41 @@ export default function TenantNotifications() {
         : items.length === 0 ? (
           <div className="card"><EmptyState icon="🔔" title="Nothing here yet">Messages from your manager will show up here.</EmptyState></div>
         ) : (
-          <div className="col" style={{ gap: 14 }}>
+          <div className="card" style={{ overflow: 'hidden' }}>
             {items.map((n) => {
               const pr = PRIO[n.priority] || PRIO.normal
-              const Icon = pr.icon
+              // Urgent stays red; otherwise the dot marks what was unread when
+              // the page opened (everything is marked read on arrival).
+              const dot = n.priority === 'urgent' ? 'var(--danger)' : !n.read ? 'var(--accent)' : 'var(--line)'
+              const openMe = open === n.id
               return (
-                <div key={n.id} className="card pad">
-                  <div className="spread wrap" style={{ gap: 10 }}>
-                    <div className="row gap">
-                      <span style={{ color: pr.color }}><Icon size={16} /></span>
-                      <span className={`pill ${pr.cls}`}>{pr.label}</span>
-                    </div>
-                    <span className="muted" style={{ fontSize: '0.8rem' }}>{timeAgo(n.created_at)}</span>
+                <div key={n.id} className="ntx-row" role="button" tabIndex={0} aria-expanded={openMe}
+                  onClick={() => setOpen(openMe ? null : n.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setOpen(openMe ? null : n.id) }}>
+                  <span className="ntx-dot" style={{ background: dot }} />
+                  <div className="ntx-main">
+                    <div className="ntx-name">{n.subject} <span className="muted" style={{ fontWeight: 400 }}>· {pr.label}</span></div>
+                    {openMe
+                      ? <p className="ntx-full">{n.message}</p>
+                      : <div className="muted ntx-sub">{n.message}</div>}
                   </div>
-                  <h3 style={{ marginTop: 12, fontSize: '1.2rem' }}>{n.subject}</h3>
-                  <p className="muted" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{n.message}</p>
+                  <span className="ntx-when">{timeAgo(n.created_at)}</span>
                 </div>
               )
             })}
+            <style>{`
+              .ntx-row { display: flex; align-items: flex-start; gap: 11px; padding: 13px 16px;
+                border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.13s; }
+              .ntx-row:last-child { border-bottom: none; }
+              .ntx-row:hover { background: var(--accent-bg); }
+              .ntx-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+              .ntx-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; margin-top: 5px; }
+              .ntx-main { flex: 1; min-width: 0; }
+              .ntx-name { font-weight: 600; font-size: 0.92rem; }
+              .ntx-sub { font-size: 0.78rem; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .ntx-full { font-size: 0.86rem; margin: 6px 0 0; white-space: pre-wrap; line-height: 1.6; color: var(--text-dim); }
+              .ntx-when { font-size: 0.7rem; color: var(--text-faint); flex-shrink: 0; margin-top: 3px; }
+            `}</style>
           </div>
         )}
     </div>
