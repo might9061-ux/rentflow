@@ -120,7 +120,7 @@ export default function RolePicker() {
             <span className="lp-calc-l">tenants</span>
             <span className="lp-calc-p">${priceForCapacity(cap)}<small>/mo</small></span>
           </div>
-          <input className="lp-calc-slider" type="range" min="1" max="500" step="1" value={Math.min(cap, 500)}
+          <input className="lp-calc-slider" type="range" min="1" max={MAX_TYPED} step="1" value={cap}
             aria-label="Number of tenants" onChange={(e) => setCap(Number(e.target.value))} />
           <div className="lp-calc-sub">
             {cap > MAX_CAPACITY
