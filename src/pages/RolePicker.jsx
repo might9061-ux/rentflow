@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DEMO_MODE, db, resetDemo } from '../lib/db.js'
-import { priceForCapacity, tierForCapacity, MAX_CAPACITY, MAX_TYPED } from '../lib/pricing.js'
+import { priceForCapacity, tierForCapacity, MAX_CAPACITY, MAX_TYPED, EXTRA_PER_TENANT } from '../lib/pricing.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
   IconUsers, IconKey, IconArrowRight, IconShield, IconBuilding, IconWallet, IconBell, IconChart, IconCheck, IconSparkle, IconWrench,
@@ -124,7 +124,7 @@ export default function RolePicker() {
             aria-label="Number of tenants" onChange={(e) => setCap(Number(e.target.value))} />
           <div className="lp-calc-sub">
             {cap > MAX_CAPACITY
-              ? `$70 + $0.30 per tenant above 200 — priced to your exact count`
+              ? `$70 + $${EXTRA_PER_TENANT.toFixed(2)} per tenant above 200 — priced to your exact count`
               : `${tierForCapacity(cap).name} plan · up to ${tierForCapacity(cap).upTo} tenants`}
             {' '}· first month free
           </div>
