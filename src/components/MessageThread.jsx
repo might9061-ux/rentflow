@@ -15,6 +15,7 @@ import { IconSend, IconSparkle, IconEdit, IconTrash, IconX, IconCheck } from './
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const EDIT_WINDOW_MS = 15 * 60 * 1000
+const DELETE_WINDOW_MS = 24 * 60 * 60 * 1000 // mirrors delete_message() in the DB
 
 const ROLE_WORD = { manager: 'Manager', staff: 'Agent', tenant: 'Tenant' }
 // "Manager Might", "Agent Might", "Tenant Rudo" — role first so two people with
@@ -22,6 +23,10 @@ const ROLE_WORD = { manager: 'Manager', staff: 'Agent', tenant: 'Tenant' }
 // isn't available (e.g. the plain Supabase path with no server enrichment).
 function senderLabel(m) {
   return [ROLE_WORD[m.sender_role] || '', m.sender_name || ''].filter(Boolean).join(' ')
+}
+function senderInitials(m) {
+  const name = m.sender_name || ROLE_WORD[m.sender_role] || '?'
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('')
 }
 
 function sessionLabel(d) {
@@ -113,26 +118,27 @@ export default function MessageThread({
 
             const mine = m.sender_id === myId
             const deleted = !!m.deleted_at
-            const canEdit = mine && !deleted && Date.now() - new Date(m.created_at).getTime() < EDIT_WINDOW_MS
+            const age = Date.now() - new Date(m.created_at).getTime()
+            const canEdit = mine && !deleted && age < EDIT_WINDOW_MS
+            const canDelete = mine && !deleted && age < DELETE_WINDOW_MS
 
             if (editing === m.id) {
               return (
-                <div key={m.id} className={`msg ${mine ? 'mine' : 'theirs'}`}>
-                  <textarea className="msg-edit" value={editText} rows={2}
-                    onChange={(e) => setEditText(e.target.value)} autoFocus />
-                  <div className="row gap" style={{ justifyContent: 'flex-end', marginTop: 6 }}>
-                    <button className="btn sm ghost" onClick={() => setEditing(null)}><IconX size={12} /> Cancel</button>
-                    <button className="btn sm primary" disabled={busy} onClick={() => saveEdit(m.id)}><IconCheck size={12} /> Save</button>
+                <div key={m.id} className="msg-line mine">
+                  <div className="msg mine" style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--accent-line)' }}>
+                    <textarea className="msg-edit" value={editText} rows={2}
+                      onChange={(e) => setEditText(e.target.value)} autoFocus />
+                    <div className="row gap" style={{ justifyContent: 'flex-end', marginTop: 6 }}>
+                      <button className="btn sm ghost" onClick={() => setEditing(null)}><IconX size={12} /> Cancel</button>
+                      <button className="btn sm primary" disabled={busy} onClick={() => saveEdit(m.id)}><IconCheck size={12} /> Save</button>
+                    </div>
                   </div>
                 </div>
               )
             }
 
-            return (
-              <div key={m.id} className={`msg ${mine ? 'mine' : 'theirs'} ${deleted ? 'gone' : ''}`}>
-                {!mine && labelIds.has(m.id) && senderLabel(m) && (
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', marginBottom: 3 }}>{senderLabel(m)}</div>
-                )}
+            const bubble = (
+              <div className={`msg ${mine ? 'mine' : 'theirs'} ${deleted ? 'gone' : ''}`}>
                 {m.from_assistant && !deleted && (
                   <div className="msg-tag"><IconSparkle size={11} /> {mine ? 'Asked the Copilot first' : 'Copilot couldn’t answer this'}</div>
                 )}
@@ -142,7 +148,7 @@ export default function MessageThread({
                   {m.edited_at && !deleted && <span> · edited</span>}
                 </div>
 
-                {mine && !deleted && (
+                {(canEdit || canDelete) && (
                   <button className="msg-more" aria-label="Message options"
                     onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === m.id ? null : m.id) }}>⋯</button>
                 )}
@@ -155,9 +161,24 @@ export default function MessageThread({
                     ) : (
                       <span className="msg-menu-note">Editing closes 15 min after sending</span>
                     )}
-                    <button className="danger" onClick={() => remove(m.id)}><IconTrash size={13} /> Delete for everyone</button>
+                    {canDelete && (
+                      <button className="danger" onClick={() => remove(m.id)}><IconTrash size={13} /> Delete for everyone</button>
+                    )}
                   </div>
                 )}
+              </div>
+            )
+
+            if (mine) return <div key={m.id} className="msg-line mine">{bubble}</div>
+            return (
+              <div key={m.id} className="msg-line theirs">
+                <span className={`msg-ava ${labelIds.has(m.id) ? '' : 'ghost'}`} aria-hidden="true">
+                  {labelIds.has(m.id) ? senderInitials(m) : ''}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  {labelIds.has(m.id) && senderLabel(m) && <div className="msg-who">{senderLabel(m)}</div>}
+                  {bubble}
+                </div>
               </div>
             )
           })}
