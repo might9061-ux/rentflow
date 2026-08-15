@@ -9,8 +9,8 @@
 //   up to  50 tenants → $40  (Pro)
 //   up to 100 tenants → $50  (Portfolio)
 //   up to 200 tenants → $70  (Enterprise)
-//   200+ tenants      → type the exact count; $70 + $0.30 per tenant above 200
-//                       (e.g. 1000 tenants → 70 + 800×0.30 = $310/mo).
+//   200+ tenants      → type the exact count; $70 + $0.10 per tenant above 200
+//                       (e.g. 1000 tenants → 70 + 800×0.10 = $150/mo).
 //
 // Existing subscribers are NOT repriced: each manager's agreed price is stored
 // on their own row (plan_price), so changing this table only affects new
@@ -29,7 +29,7 @@ export const MIN_CAPACITY = 1
 export const MAX_CAPACITY = 200  // slider ceiling — type an exact count to go beyond
 export const MAX_TYPED = 5000    // sanity ceiling for typed tenant counts
 // Above the top tier, price grows with the count instead of needing a quote.
-export const EXTRA_PER_TENANT = 0.30 // $ per tenant beyond 200, on top of $70
+export const EXTRA_PER_TENANT = 0.10 // $ per tenant beyond 200, on top of $70
 
 // How many tenants a manager is allowed. WITHOUT an active (paid) plan the
 // capacity is 0 — they must subscribe and pay an installment before adding any

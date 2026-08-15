@@ -664,8 +664,8 @@ export const mockApi = {
     const TIERS = [[5, 10], [20, 20], [50, 40], [100, 50], [200, 70]]
     const wasActive = m.plan_active
     m.plan_capacity = cap
-    // 200+ scales with the exact count: $70 + $0.30/tenant above 200.
-    m.plan_price = cap > 200 ? 70 + Math.ceil((cap - 200) * 0.30)
+    // 200+ scales with the exact count: $70 + $0.10/tenant above 200.
+    m.plan_price = cap > 200 ? 70 + Math.ceil((cap - 200) * 0.10)
       : (TIERS.find(([upTo]) => cap <= upTo) || TIERS[TIERS.length - 1])[1]
     m.plan_active = true
     m.onboarded = true
