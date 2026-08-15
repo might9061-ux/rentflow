@@ -874,11 +874,15 @@ export const mockApi = {
     m.body = body.trim(); m.edited_at = new Date().toISOString(); save(d)
   },
   // Tombstone, not erasure — the row stays so the other side sees it existed.
+  // 24-hour window, mirroring delete_message() in the real database.
   async deleteMessage(userId, id) {
     const d = db()
     const m = (d.messages || []).find((x) => x.id === id)
     if (!m) throw new Error('Message not found')
     if (m.sender_id !== userId) throw new Error('You can only delete your own messages')
+    if (Date.now() - new Date(m.created_at).getTime() > 24 * 60 * 60 * 1000) {
+      throw new Error('Messages can only be deleted for 24 hours after sending')
+    }
     m.deleted_at = new Date().toISOString(); m.body = ''; save(d)
   },
   async markMessagesRead(userId, partyId) {
