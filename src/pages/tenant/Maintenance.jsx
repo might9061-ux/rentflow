@@ -7,7 +7,7 @@ import { fileToProof } from '../../lib/upload.js'
 import { Input, Select, Textarea } from '../../components/Field.jsx'
 import { Spinner, EmptyState } from '../../components/ui.jsx'
 import Modal from '../../components/Modal.jsx'
-import { IconWrench, IconPlus, IconReceipt, IconCheck, IconArrowRight } from '../../components/icons.jsx'
+import { IconPlus, IconReceipt, IconCheck, IconArrowRight } from '../../components/icons.jsx'
 
 export const CATEGORIES = ['Plumbing', 'Electrical', 'Appliance', 'Structural', 'Pest control', 'Security', 'General']
 
@@ -49,24 +49,46 @@ export default function TenantMaintenance() {
         : items.length === 0 ? (
           <div className="card"><EmptyState icon="🛠️" title="No requests yet">Tap “New request” to report a repair.</EmptyState></div>
         ) : (
-          <div className="col" style={{ gap: 12 }}>
-            {items.map((m) => (
-              <button key={m.id} type="button" className="card pad clickable-row" onClick={() => setViewing(m)}
-                style={{ textAlign: 'left', width: '100%', cursor: 'pointer' }}>
-                <div className="spread wrap" style={{ gap: 8 }}>
-                  <div className="row gap"><IconWrench size={16} style={{ color: 'var(--accent)' }} />
-                    <span style={{ fontWeight: 600 }}>{m.title}</span></div>
-                  <StatusTag status={m.status} />
+          <div className="card" style={{ overflow: 'hidden' }}>
+            {items.map((m) => {
+              const dot = m.status === 'resolved' ? 'var(--green)' : m.status === 'in_progress' ? 'var(--warn)' : 'var(--danger)'
+              const phase = m.status === 'resolved' ? 'resolved'
+                : m.status === 'in_progress' ? <span style={{ color: 'var(--warn)' }}>being worked on</span>
+                : 'waiting for your manager'
+              return (
+                <div key={m.id} className="tm-row" role="button" tabIndex={0}
+                  onClick={() => setViewing(m)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setViewing(m) }}>
+                  <span className="tm-dot" style={{ background: dot }} />
+                  <div className="tm-main">
+                    <div className="tm-name">
+                      {m.title} <span className="muted" style={{ fontWeight: 400 }}>· {m.category}</span>
+                      {m.priority === 'urgent' && m.status !== 'resolved' && <span className="pill overdue" style={{ marginLeft: 8, fontSize: '0.66rem', padding: '2px 8px' }}>Urgent</span>}
+                    </div>
+                    <div className="muted tm-sub">
+                      {timeAgo(m.created_at)} · {phase}
+                      {m.manager_note ? ' · manager replied' : ''}
+                    </div>
+                  </div>
+                  {m.status === 'resolved'
+                    ? <span className="tm-go" style={{ color: 'var(--green)' }}><IconCheck size={13} /> Resolved</span>
+                    : <span className="tm-go">View <IconArrowRight size={13} /></span>}
                 </div>
-                <div className="row gap wrap" style={{ marginTop: 8 }}>
-                  <span className="pill neutral">{m.category}</span>
-                  {m.priority === 'urgent' && <span className="pill overdue">Urgent</span>}
-                  <span className="muted" style={{ fontSize: '0.8rem' }}>{timeAgo(m.created_at)}</span>
-                  {m.manager_note && <span className="muted row gap" style={{ fontSize: '0.8rem' }}><IconReceipt size={12} /> Manager replied</span>}
-                  <span className="row gap muted" style={{ marginLeft: 'auto', fontSize: '0.82rem' }}>View <IconArrowRight size={13} /></span>
-                </div>
-              </button>
-            ))}
+              )
+            })}
+            <style>{`
+              .tm-row { display: flex; align-items: center; gap: 11px; padding: 13px 16px;
+                border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 0.13s; }
+              .tm-row:last-child { border-bottom: none; }
+              .tm-row:hover { background: var(--accent-bg); }
+              .tm-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+              .tm-dot { width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0; }
+              .tm-main { flex: 1; min-width: 0; }
+              .tm-name { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .tm-sub { font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .tm-go { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--accent); white-space: nowrap; flex-shrink: 0; }
+              @media (max-width: 560px) { .tm-sub { white-space: normal; } }
+            `}</style>
           </div>
         )}
 
