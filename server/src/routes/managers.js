@@ -59,9 +59,9 @@ const PLAN_TIERS = [
   { name: 'Enterprise', upTo: 200, price: 70 },
 ]
 const tierFor = (c) => PLAN_TIERS.find((t) => c <= t.upTo) || PLAN_TIERS[PLAN_TIERS.length - 1]
-// Above the top tier the price scales with the exact count ($0.10 per tenant
+// Above the top tier the price scales with the exact count ($0.20 per tenant
 // beyond 200 on top of $70) — the manager just types their number.
-const priceFor = (c) => c > 200 ? 70 + Math.ceil((c - 200) * 0.10) : tierFor(c).price
+const priceFor = (c) => c > 200 ? 70 + Math.ceil((c - 200) * 0.20) : tierFor(c).price
 
 // POST /api/managers/me/plan — a manager starts/changes their OWN plan.
 //
