@@ -9,9 +9,10 @@ import { downloadCSV } from '../../lib/csv.js'
 import { capacityFor } from '../../lib/pricing.js'
 import { tenantLedger, tenantTotalPaid } from '../../lib/ledger.js'
 import { StatusPill, PeriodTag, Spinner, EmptyState } from '../../components/ui.jsx'
-import { IconPlus, IconEdit, IconKey, IconReceipt, IconTag } from '../../components/icons.jsx'
+import { IconPlus, IconEdit, IconKey, IconReceipt, IconTag, IconBuilding } from '../../components/icons.jsx'
 import TenantModal from './TenantModal.jsx'
 import CredentialsModal from './CredentialsModal.jsx'
+import ChangeRoomModal from './ChangeRoomModal.jsx'
 
 export default function Tenants() {
   const { userId, profile } = useAuth()
@@ -27,6 +28,7 @@ export default function Tenants() {
   const [creds, setCreds] = useState(null) // { tenant, tempPassword }
   const [showPast, setShowPast] = useState(false) // active vs vacated tenants
   const [menuFor, setMenuFor] = useState(null) // tenant id whose ⋯ menu is open
+  const [movingRoom, setMovingRoom] = useState(null) // tenant being moved to another room
 
   useEffect(() => {
     if (!menuFor) return
@@ -173,6 +175,9 @@ export default function Tenants() {
                           <div className="tn-menu" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => { setMenuFor(null); nav(`/manager/tenants/${t.id}`) }}><IconReceipt size={13} /> Payment history</button>
                             <button onClick={() => { setMenuFor(null); setEditing(t) }}><IconEdit size={13} /> Edit</button>
+                            {t.property_id && (
+                              <button onClick={() => { setMenuFor(null); setMovingRoom(t) }}><IconBuilding size={13} /> Change room</button>
+                            )}
                             {t.first_login && (
                               <button onClick={() => { setMenuFor(null); resend(t) }}><IconKey size={13} /> Resend credentials</button>
                             )}
@@ -205,6 +210,12 @@ export default function Tenants() {
       )}
 
       {creds && <CredentialsModal tenant={creds.tenant} tempPassword={creds.tempPassword} onClose={() => setCreds(null)} />}
+
+      {movingRoom && (
+        <ChangeRoomModal tenant={movingRoom} userId={userId}
+          onClose={() => setMovingRoom(null)}
+          onSaved={() => { setMovingRoom(null); load() }} />
+      )}
     </div>
   )
 }
