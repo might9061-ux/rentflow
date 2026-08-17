@@ -11,7 +11,8 @@ import Modal from '../../components/Modal.jsx'
 import TenantModal from './TenantModal.jsx'
 import CredentialsModal from './CredentialsModal.jsx'
 import RecordPaymentModal from './RecordPaymentModal.jsx'
-import { IconArrowRight, IconEdit, IconKey, IconReceipt, IconMail, IconPhone, IconWallet, IconDownload, IconClock } from '../../components/icons.jsx'
+import { IconArrowRight, IconEdit, IconKey, IconReceipt, IconMail, IconPhone, IconWallet, IconDownload, IconClock, IconBuilding } from '../../components/icons.jsx'
+import ChangeRoomModal from './ChangeRoomModal.jsx'
 import { downloadStatementCsv, printStatement } from '../../lib/statement.js'
 import { sendWhatsApp, receiptMessage } from '../../lib/whatsapp.js'
 import { formatPeriod } from '../../lib/billing.js'
@@ -34,6 +35,7 @@ export default function TenantDetail() {
   const [recording, setRecording] = useState(false)
   const [stmtOpen, setStmtOpen] = useState(false) // ⋯ menu (statement, credentials, vacate…)
   const [showVacate, setShowVacate] = useState(false)
+  const [movingRoom, setMovingRoom] = useState(false) // Change room modal
   const [leases, setLeases] = useState([])
   const [leaseModal, setLeaseModal] = useState(false)
   const [confirmDelLease, setConfirmDelLease] = useState(null)
@@ -162,6 +164,9 @@ export default function TenantDetail() {
                 <div className="stmt-menu">
                   <button onClick={printPdf}><IconReceipt size={15} /> Print statement / PDF</button>
                   <button onClick={downloadCsv}><IconDownload size={15} /> Download CSV (Excel)</button>
+                  {!deletedAt && !vacatedAt && tenant.property_id && (
+                    <button onClick={() => { setStmtOpen(false); setMovingRoom(true) }}><IconBuilding size={15} /> Change room</button>
+                  )}
                   {!deletedAt && !vacatedAt && tenant.first_login && (
                     <button onClick={() => { setStmtOpen(false); resend() }}><IconKey size={15} /> Resend credentials</button>
                   )}
@@ -317,6 +322,11 @@ export default function TenantDetail() {
           onClose={() => setEditing(false)} onUpdated={() => { setEditing(false); load() }} onCreated={() => {}} />
       )}
       {creds && <CredentialsModal tenant={creds.tenant} tempPassword={creds.tempPassword} onClose={() => setCreds(null)} />}
+      {movingRoom && (
+        <ChangeRoomModal tenant={tenant} userId={userId}
+          onClose={() => setMovingRoom(false)}
+          onSaved={() => { setMovingRoom(false); load() }} />
+      )}
       {recording && (
         <RecordPaymentModal tenant={tenant} payments={payments}
           onClose={() => setRecording(false)}
