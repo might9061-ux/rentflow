@@ -26,9 +26,24 @@ function defaultCosts() {
     { id: 'supabase', name: 'Supabase Pro (database)', amount: 25, cycle: 'monthly', nextDue: m() },
     { id: 'render', name: 'Render (API server)', amount: 7, cycle: 'monthly', nextDue: m() },
     { id: 'vercel', name: 'Vercel (website hosting)', amount: 20, cycle: 'monthly', nextDue: m() },
+    { id: 'sentry', name: 'Sentry Team (error monitoring)', amount: 29, cycle: 'monthly', nextDue: m() },
     { id: 'email', name: 'Email (Resend / Postmark)', amount: 10, cycle: 'monthly', nextDue: m() },
     { id: 'domain', name: 'Domain — rentloja.com', amount: 12, cycle: 'yearly', nextDue: y() },
   ]
+}
+
+// Bills added to the app AFTER a user first saved their list get seeded into it
+// once; `seeded` remembers this so deleting the row doesn't resurrect it.
+function seedNewBills(costs, seeded) {
+  const out = { costs, seeded: [...seeded], changed: false }
+  if (!out.seeded.includes('sentry')) {
+    if (!costs.some((c) => c.id === 'sentry' || /sentry/i.test(c.name || ''))) {
+      out.costs = [...costs, { id: 'sentry', name: 'Sentry Team (error monitoring)', amount: 29, cycle: 'monthly', nextDue: addMonths(iso(new Date()), 1) }]
+      out.changed = true
+    }
+    out.seeded.push('sentry')
+  }
+  return out
 }
 
 export default function AdminCosts() {
@@ -37,24 +52,28 @@ export default function AdminCosts() {
   const [assump, setAssump] = useState({ pesepay: 3, perTenant: 0.10 })
   const [synced, setSynced] = useState(null) // true = DB (all devices), false = this device only
   const timer = useRef(null)
+  const seededRef = useRef([]) // which auto-added bills this list has already seen
 
   useEffect(() => {
     let alive = true
+    const applyLoaded = (saved, ok) => {
+      const base = Array.isArray(saved?.costs) && saved.costs.length ? saved.costs : defaultCosts()
+      const { costs: cs, seeded } = seedNewBills(base, Array.isArray(saved?.seeded) ? saved.seeded : [])
+      seededRef.current = seeded
+      setCosts(cs)
+      setAssump({ pesepay: saved?.pesepay ?? 3, perTenant: saved?.perTenant ?? 0.10 })
+      setSynced(ok)
+    }
     ;(async () => {
       try {
         const r = await db.adminCosts()
         if (!alive) return
-        setCosts(Array.isArray(r?.costs) && r.costs.length ? r.costs : defaultCosts())
-        setAssump({ pesepay: r?.pesepay ?? 3, perTenant: r?.perTenant ?? 0.10 })
-        setSynced(true)
+        applyLoaded(r, true)
       } catch {
         if (!alive) return
         try {
-          const c = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null')
-          setCosts(c?.costs?.length ? c.costs : defaultCosts())
-          setAssump({ pesepay: c?.pesepay ?? 3, perTenant: c?.perTenant ?? 0.10 })
-        } catch { setCosts(defaultCosts()) }
-        setSynced(false)
+          applyLoaded(JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null'), false)
+        } catch { setCosts(defaultCosts()); setSynced(false) }
       }
     })()
     return () => { alive = false }
@@ -62,7 +81,7 @@ export default function AdminCosts() {
 
   // Debounced persist: try the DB (syncs everywhere), fall back to this device.
   const persist = useCallback((nextCosts, nextAssump) => {
-    const payload = { costs: nextCosts, pesepay: Number(nextAssump.pesepay) || 0, perTenant: Number(nextAssump.perTenant) || 0 }
+    const payload = { costs: nextCosts, pesepay: Number(nextAssump.pesepay) || 0, perTenant: Number(nextAssump.perTenant) || 0, seeded: seededRef.current }
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
       try { await db.adminSaveCosts(payload); setSynced(true) }
